@@ -33,7 +33,31 @@ const defaultFilters: AccessibilityFilters = {
   circulation_clear: false,
 };
 
-function mapPlaceFromDB(place: any): PlaceExtended {
+type DbPlaceRow = {
+  id: number
+  name: string
+  category: PlaceCategory
+  address: string
+  latitude: number
+  longitude: number
+  accessible_parking: boolean | null
+  accessible_entrance: boolean | null
+  adapted_restroom: boolean | null
+  arrival_accessible_parking: string | null
+  arrival_proximity: string | null
+  arrival_availability: string | null
+  entrance_no_steps: boolean | null
+  entrance_ramp: boolean | null
+  entrance_access_note: string | null
+  interior_space: string | null
+  interior_restroom: string | null
+  interior_elevator: string | null
+  avg_rating: number | null
+  rating_band: PlaceWithStats['band'] | null
+  review_count: number | null
+}
+
+function mapPlaceFromDB(place: DbPlaceRow): PlaceExtended {
   return {
     id: place.id,
     name: place.name,
@@ -42,9 +66,9 @@ function mapPlaceFromDB(place: any): PlaceExtended {
     latitude: place.latitude,
     longitude: place.longitude,
     features: {
-      accessibleParking: place.accessible_parking,
-      accessibleEntrance: place.accessible_entrance,
-      adaptedRestroom: place.adapted_restroom,
+      accessibleParking: Boolean(place.accessible_parking),
+      accessibleEntrance: Boolean(place.accessible_entrance),
+      adaptedRestroom: Boolean(place.adapted_restroom),
     },
     arrival: {
       accessibleParking: place.arrival_accessible_parking || '',
@@ -52,8 +76,8 @@ function mapPlaceFromDB(place: any): PlaceExtended {
       availability: place.arrival_availability || '',
     },
     entrance: {
-      noSteps: place.entrance_no_steps,
-      ramp: place.entrance_ramp,
+      noSteps: Boolean(place.entrance_no_steps),
+      ramp: Boolean(place.entrance_ramp),
       accessNote: place.entrance_access_note || '',
     },
     interior: {
@@ -64,13 +88,13 @@ function mapPlaceFromDB(place: any): PlaceExtended {
   };
 }
 
-function mapPlaceWithStats(place: any): PlaceWithStats {
+function mapPlaceWithStats(place: DbPlaceRow): PlaceWithStats {
   const mapped = mapPlaceFromDB(place);
   return {
     ...mapped,
-    avgRating: place.avg_rating || 0,
-    band: place.rating_band || 'not_recommended',
-    reviewCount: place.review_count || 0,
+    avgRating: place.avg_rating ?? 0,
+    band: place.rating_band ?? 'not_recommended',
+    reviewCount: place.review_count ?? 0,
   };
 }
 
@@ -89,7 +113,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
         if (error) throw error;
 
-        const mapped = (data || []).map(mapPlaceWithStats);
+        const mapped = ((data || []) as DbPlaceRow[]).map(mapPlaceWithStats);
         setAllPlaces(mapped);
       } catch (error) {
         console.error('Error fetching places:', error);

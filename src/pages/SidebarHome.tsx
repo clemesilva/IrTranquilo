@@ -137,8 +137,8 @@ export function SidebarHome() {
           <div className='flex items-center gap-2'>
             <Checkbox
               id='filter-parking'
-              checked={filters.accessibleParking}
-              onCheckedChange={() => toggleFilter('accessibleParking')}
+              checked={filters.parking_accessible}
+              onCheckedChange={() => toggleFilter('parking_accessible')}
             />
             <Label htmlFor='filter-parking' className='text-sm font-normal'>
               Estacionamiento accesible
@@ -147,18 +147,18 @@ export function SidebarHome() {
           <div className='flex items-center gap-2'>
             <Checkbox
               id='filter-entrance'
-              checked={filters.accessibleEntrance}
-              onCheckedChange={() => toggleFilter('accessibleEntrance')}
+              checked={filters.step_free_access}
+              onCheckedChange={() => toggleFilter('step_free_access')}
             />
             <Label htmlFor='filter-entrance' className='text-sm font-normal'>
-              Entrada accesible
+              Entrada sin escalones
             </Label>
           </div>
           <div className='flex items-center gap-2'>
             <Checkbox
               id='filter-restroom'
-              checked={filters.adaptedRestroom}
-              onCheckedChange={() => toggleFilter('adaptedRestroom')}
+              checked={filters.accessible_bathroom}
+              onCheckedChange={() => toggleFilter('accessible_bathroom')}
             />
             <Label htmlFor='filter-restroom' className='text-sm font-normal'>
               Baño adaptado

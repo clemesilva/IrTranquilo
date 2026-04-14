@@ -6,11 +6,9 @@ import type { PlaceWithStats } from '../../context/placesContext'
 import { usePlaces } from '../../context/usePlaces'
 import { fixLeafletDefaultIcons } from '../../lib/leafletIcon'
 import { bandLabelEs } from '../../lib/rating'
+import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../../lib/mapDefaults'
 
 fixLeafletDefaultIcons()
-
-const DEFAULT_CENTER: [number, number] = [-33.45, -70.61]
-const DEFAULT_ZOOM = 12
 
 function FitHighlight({
   places,
@@ -53,8 +51,8 @@ export function PlacesMap({ highlightId }: { highlightId?: number }) {
 
   return (
     <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={DEFAULT_ZOOM}
+      center={SANTIAGO_CENTER}
+      zoom={SANTIAGO_ZOOM}
       className="h-full w-full z-0"
       scrollWheelZoom
     >
