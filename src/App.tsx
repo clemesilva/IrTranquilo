@@ -1,64 +1,65 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './context/AuthProvider';
-import { PlacesProvider } from './context/PlacesProvider';
-import { useAuth } from './context/useAuth';
-import { MainLayout } from './layouts/MainLayout';
-import { LoginPage } from './pages/LoginPage';
-import { SidebarAddPlace } from './pages/SidebarAddPlace';
-import { SidebarHome } from './pages/SidebarHome';
-import { SidebarPlaceDetail } from './pages/SidebarPlaceDetail';
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className='flex h-screen items-center justify-center'>
-        <p>Cargando...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to='/login' replace />;
-  }
-
-  return <>{children}</>;
-}
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './context/AuthProvider'
+import { PlacesProvider } from './context/PlacesProvider'
+import { useAuth } from './context/useAuth'
+import { LoginPage } from './pages/LoginPage'
+import { LandingPage } from './pages/LandingPage'
+import { ExplorePage } from './pages/ExplorePage'
+import { SidebarAddPlace } from './pages/SidebarAddPlace'
 
 function AppRoutes() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuth()
 
   if (isLoading) {
     return (
-      <div className='flex h-screen items-center justify-center'>
+      <div className="flex h-screen items-center justify-center">
         <p>Cargando...</p>
       </div>
-    );
+    )
   }
 
   return (
     <Routes>
-      <Route path='/login' element={<LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route
-        path='/'
+        path="/"
         element={
           user ? (
             <PlacesProvider>
-              <MainLayout />
+              <LandingPage />
             </PlacesProvider>
           ) : (
-            <Navigate to='/login' replace />
+            <Navigate to="/login" replace />
           )
         }
-      >
-        <Route index element={<SidebarHome />} />
-        <Route path='places/new' element={<SidebarAddPlace />} />
-        <Route path='places/:placeId' element={<SidebarPlaceDetail />} />
-      </Route>
-      <Route path='*' element={<Navigate to='/' replace />} />
+      />
+      <Route
+        path="/explore"
+        element={
+          user ? (
+            <PlacesProvider>
+              <ExplorePage />
+            </PlacesProvider>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/places/new"
+        element={
+          user ? (
+            <PlacesProvider>
+              <SidebarAddPlace />
+            </PlacesProvider>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  );
+  )
 }
 
 export default function App() {
@@ -68,5 +69,5 @@ export default function App() {
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
-  );
+  )
 }

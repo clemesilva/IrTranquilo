@@ -15,9 +15,22 @@ import {
 
 const defaultFilters: AccessibilityFilters = {
   recommendedOnly: false,
-  accessibleParking: false,
-  accessibleEntrance: false,
-  adaptedRestroom: false,
+  minRating: null,
+  // Llegada
+  parking_available: false,
+  parking_accessible: false,
+  parking_near_entrance: false,
+  signage_clear: false,
+  // Entrada
+  step_free_access: false,
+  ramp_available: false,
+  elevator_available: false,
+  entrance_width_ok: false,
+  // Interior
+  interior_spacious: false,
+  wheelchair_table_access: false,
+  accessible_bathroom: false,
+  circulation_clear: false,
 };
 
 function mapPlaceFromDB(place: any): PlaceExtended {
@@ -86,19 +99,6 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
     };
 
     fetchPlaces();
-
-    // Subscribe to real-time updates
-    const subscription = supabase
-      .from('places')
-      .on('*', (payload) => {
-        console.log('Place updated:', payload);
-        fetchPlaces();
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const [search, setSearch] = useState('');
@@ -109,20 +109,59 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
     setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
+  const setFilterValue = useCallback(
+    (key: keyof AccessibilityFilters, value: boolean | number | null) => {
+      setFilters((prev) => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
+
+  const resetFilters = useCallback(() => {
+    setFilters(defaultFilters);
+  }, []);
+
   const filteredPlaces = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     return allPlaces.filter((p) => {
+      // Filtro 1: Categoría
       if (category !== 'all' && p.category !== category) return false;
+
+      // Filtro 2: Búsqueda por texto
       if (q) {
         const hay = `${p.name} ${p.address}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+
+      // Filtro 3: Solo recomendados
       if (filters.recommendedOnly && p.band !== 'recommended') return false;
-      if (filters.accessibleParking && !p.features.accessibleParking)
+
+      // Filtro 4: Rating mínimo (lógica AND)
+      if (filters.minRating !== null && p.avgRating < filters.minRating) {
         return false;
-      if (filters.accessibleEntrance && !p.features.accessibleEntrance)
-        return false;
-      if (filters.adaptedRestroom && !p.features.adaptedRestroom) return false;
+      }
+
+      // === LÓGICA AND PARA ACCESIBILIDAD ===
+      // Todos los filtros seleccionados deben cumplirse
+
+      // Llegada (Parking)
+      if (filters.parking_available && !p.features.accessibleParking) return false;
+      if (filters.parking_accessible && !p.features.accessibleParking) return false;
+      if (filters.parking_near_entrance && p.arrival.proximity !== 'near') return false;
+      if (filters.signage_clear && p.arrival.accessibleParking !== 'good_signage') return false;
+
+      // Entrada
+      if (filters.step_free_access && !p.entrance.noSteps) return false;
+      if (filters.ramp_available && !p.entrance.ramp) return false;
+      if (filters.elevator_available && !p.interior.elevator?.includes('yes')) return false;
+      if (filters.entrance_width_ok && p.entrance.accessNote !== 'good_access') return false;
+
+      // Interior
+      if (filters.interior_spacious && p.interior.space !== 'spacious') return false;
+      if (filters.wheelchair_table_access && p.interior.space !== 'spacious') return false;
+      if (filters.accessible_bathroom && !p.features.adaptedRestroom) return false;
+      if (filters.circulation_clear && p.interior.space !== 'spacious') return false;
+
       return true;
     });
   }, [allPlaces, search, category, filters]);
@@ -163,6 +202,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       filters,
       setFilters,
       toggleFilter,
+      setFilterValue,
+      resetFilters,
       getPlaceById,
       reviewsForPlace,
       isLoading,
@@ -174,6 +215,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       category,
       filters,
       toggleFilter,
+      setFilterValue,
+      resetFilters,
       getPlaceById,
       reviewsForPlace,
       isLoading,
