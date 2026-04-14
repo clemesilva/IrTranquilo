@@ -146,3 +146,54 @@
 #landing-map .leaflet-top.leaflet-left {
   top: 74px;
 }
+
+/* Pin (más notorio) para Leaflet divIcon */
+.it-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 3px solid #ffffff;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.25);
+  transform: translate(-50%, -50%);
+  position: relative;
+}
+
+.it-pin__glyph {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -58%);
+  font-size: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(17, 24, 39, 0.2));
+  user-select: none;
+}
+
+/* Seleccionado: mismo círculo + emoji; más grande y anillo para ubicarse sin perder categoría */
+.it-pin--selected {
+  border-radius: 9999px;
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow:
+    0 10px 24px rgba(17, 24, 39, 0.3),
+    0 0 0 4px rgba(37, 99, 235, 0.4);
+  z-index: 2;
+}
+
+.it-pin--selected .it-pin__glyph {
+  font-size: 14px;
+}
+
+.it-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 10px solid currentColor;
+  filter: drop-shadow(0 6px 10px rgba(17, 24, 39, 0.18));
+}
+

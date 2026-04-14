@@ -38,8 +38,8 @@ type DbPlaceRow = {
   name: string
   category: PlaceCategory
   address: string
-  latitude: number
-  longitude: number
+  latitude: number | string
+  longitude: number | string
   accessible_parking: boolean | null
   accessible_entrance: boolean | null
   adapted_restroom: boolean | null
@@ -58,13 +58,16 @@ type DbPlaceRow = {
 }
 
 function mapPlaceFromDB(place: DbPlaceRow): PlaceExtended {
+  const lat = typeof place.latitude === 'string' ? Number(place.latitude) : place.latitude
+  const lng = typeof place.longitude === 'string' ? Number(place.longitude) : place.longitude
+
   return {
     id: place.id,
     name: place.name,
     category: place.category,
     address: place.address,
-    latitude: place.latitude,
-    longitude: place.longitude,
+    latitude: lat,
+    longitude: lng,
     features: {
       accessibleParking: Boolean(place.accessible_parking),
       accessibleEntrance: Boolean(place.accessible_entrance),
@@ -102,19 +105,23 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   const [allPlaces, setAllPlaces] = useState<PlaceWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const refreshPlaces = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('places')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = ((data || []) as DbPlaceRow[]).map(mapPlaceWithStats);
+    setAllPlaces(mapped);
+  }, []);
+
   // Fetch places from Supabase
   useEffect(() => {
-    const fetchPlaces = async () => {
+    const run = async () => {
       try {
-        const { data, error } = await supabase
-          .from('places')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const mapped = ((data || []) as DbPlaceRow[]).map(mapPlaceWithStats);
-        setAllPlaces(mapped);
+        await refreshPlaces();
       } catch (error) {
         console.error('Error fetching places:', error);
       } finally {
@@ -122,8 +129,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    fetchPlaces();
-  }, []);
+    run();
+  }, [refreshPlaces]);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<PlaceCategory | 'all'>('all');
@@ -230,6 +237,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       resetFilters,
       getPlaceById,
       reviewsForPlace,
+      refreshPlaces,
       isLoading,
     }),
     [
@@ -243,6 +251,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       resetFilters,
       getPlaceById,
       reviewsForPlace,
+      refreshPlaces,
       isLoading,
     ],
   );

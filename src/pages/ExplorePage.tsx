@@ -1,19 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
-import { PlaceCard } from '../components/PlaceCard';
-import type { PlaceCategory } from '../types';
+import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
+import {
+  PLACE_CATEGORIES,
+  PLACE_CATEGORY_LABEL_ES,
+  type PlaceCategory,
+} from '../types';
 import { COLORS, getPinColor } from '../styles/colors';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
+import { fixLeafletDefaultIcons } from '../lib/leafletIcon'
+import { buildPinHtml, categoryGlyph } from '../lib/pins'
+import type { PlaceWithStats } from '../context/placesContext'
+import {
+  fitMapToPlaceWithUiPadding,
+  MAP_UI_PADDING_EXPLORE,
+} from '../lib/mapPlaceFocus'
 
 export function ExplorePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   useAuth();
   const {
-    allPlaces,
     filteredPlaces,
     setSearch,
     setCategory,
@@ -23,13 +33,24 @@ export function ExplorePage() {
     setFilterValue,
   } = usePlaces();
   const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.CircleMarker[]>([]);
+  const markersRef = useRef<L.Marker[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<number | null>(null);
   const [search, setLocalSearch] = useState(searchParams.get('search') || '');
   const [category, setLocalCategory] = useState<PlaceCategory | 'all'>(
     (searchParams.get('category') as PlaceCategory | 'all') || 'all',
   );
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+
+  const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
+    const map = mapRef.current
+    if (!map) return
+    fitMapToPlaceWithUiPadding(
+      map,
+      place.latitude,
+      place.longitude,
+      MAP_UI_PADDING_EXPLORE,
+    )
+  }, [])
 
   // Initialize search from URL
   useEffect(() => {
@@ -109,25 +130,46 @@ export function ExplorePage() {
     filteredPlaces.forEach((place) => {
       if (place.latitude && place.longitude) {
         const isSelected = selectedPlace === place.id;
-        const pinColor = getPinColor(place.avgRating);
-        const marker = L.circleMarker([place.latitude, place.longitude], {
-          radius: isSelected ? 10 : 6,
-          fillColor: pinColor,
-          color: '#000',
-          weight: isSelected ? 2 : 1,
-          opacity: 0.8,
-          fillOpacity: isSelected ? 0.8 : 0.6,
+        const baseColor = getPinColor(place.avgRating);
+        fixLeafletDefaultIcons()
+        const size = isSelected ? 28 : 24
+        const icon = L.divIcon({
+          className: '',
+          html: buildPinHtml({
+            color: baseColor,
+            glyph: categoryGlyph(place.category),
+            selected: isSelected,
+            size,
+          }),
+          iconSize: [size, size + 12],
+          iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
+          popupAnchor: [0, -Math.round(size + 6)],
         })
-          .bindPopup(place.name)
-          .on('click', () => setSelectedPlace(place.id))
+
+        const marker = L.marker([place.latitude, place.longitude], { icon })
+          .on('click', (e) => {
+            L.DomEvent.stopPropagation(e)
+            setSelectedPlace(place.id)
+            panToPlaceForDetail(place)
+          })
           .addTo(mapRef.current!);
 
         markersRef.current.push(marker);
       }
     });
-  }, [filteredPlaces, selectedPlace]);
+  }, [filteredPlaces, selectedPlace, panToPlaceForDetail]);
 
-  const selectedPlaceData = allPlaces.find((p) => p.id === selectedPlace);
+  const selectedPlaceData = useMemo(() => {
+    if (selectedPlace == null) return undefined
+    return filteredPlaces.find((p) => p.id === selectedPlace)
+  }, [selectedPlace, filteredPlaces])
+
+  useEffect(() => {
+    if (selectedPlace == null) return
+    if (!filteredPlaces.some((p) => p.id === selectedPlace)) {
+      queueMicrotask(() => setSelectedPlace(null))
+    }
+  }, [filteredPlaces, selectedPlace])
 
   return (
     <div className='flex h-screen bg-white'>
@@ -191,12 +233,7 @@ export function ExplorePage() {
                 key={place.id}
                 onClick={() => {
                   setSelectedPlace(place.id);
-                  if (place.latitude && place.longitude) {
-                    mapRef.current?.setView(
-                      [place.latitude, place.longitude],
-                      16,
-                    );
-                  }
+                  panToPlaceForDetail(place);
                 }}
                 className='w-full text-left p-3 rounded-lg border transition-all'
                 style={{
@@ -212,7 +249,7 @@ export function ExplorePage() {
                   {place.name}
                 </h3>
                 <p className='text-sm' style={{ color: COLORS.textMuted }}>
-                  {place.category}
+                  {PLACE_CATEGORY_LABEL_ES[place.category]}
                 </p>
                 <p className='text-xs mt-1' style={{ color: COLORS.textMuted }}>
                   ⭐ {place.avgRating.toFixed(1)} • {place.reviewCount} reseñas
@@ -259,27 +296,16 @@ export function ExplorePage() {
           <span>⚙️ Filtros</span>
         </button>
 
-        {/* Selected Place Card */}
-        {selectedPlaceData && (
-          <div
-            className='absolute bottom-6 right-6 w-80 rounded-lg shadow-lg border p-4 max-h-96 overflow-y-auto'
-            style={{
-              backgroundColor: COLORS.card,
-              borderColor: COLORS.border,
-              pointerEvents: 'auto',
-              zIndex: 9998,
-            }}
-          >
-            <button
-              onClick={() => setSelectedPlace(null)}
-              className='absolute top-2 right-2'
-              style={{ color: COLORS.textLight }}
-            >
-              ✕
-            </button>
-            <PlaceCard place={selectedPlaceData} />
+        {selectedPlaceData ? (
+          <div className='absolute inset-y-0 right-0 z-[1800] flex w-full justify-end pointer-events-none'>
+            <div className='pointer-events-auto h-full max-h-full min-w-0'>
+              <PlaceMapSidebar
+                place={selectedPlaceData}
+                onClose={() => setSelectedPlace(null)}
+              />
+            </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Filtros Modal - Drawer */}
@@ -362,12 +388,11 @@ export function ExplorePage() {
                   }}
                 >
                   <option value='all'>Todas</option>
-                  <option value='restaurant'>Restaurante</option>
-                  <option value='cafe'>Café</option>
-                  <option value='mall'>Centro comercial</option>
-                  <option value='park'>Parque</option>
-                  <option value='clinic'>Clínica</option>
-                  <option value='other'>Otro</option>
+                  {PLACE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {PLACE_CATEGORY_LABEL_ES[c]}
+                    </option>
+                  ))}
                 </select>
               </div>
 

@@ -1,19 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
-import type { PlaceCategory } from '../types';
+import {
+  PLACE_CATEGORIES,
+  PLACE_CATEGORY_LABEL_ES,
+  type PlaceCategory,
+} from '../types';
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
+import { fixLeafletDefaultIcons } from '../lib/leafletIcon'
+import { buildPinHtml, categoryGlyph } from '../lib/pins'
+import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar'
+import {
+  fitMapToPlaceWithUiPadding,
+  MAP_UI_PADDING_LANDING,
+} from '../lib/mapPlaceFocus'
+import { AddPlacePanel } from '../components/places/AddPlacePanel'
 
 export function LandingPage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const {
+    allPlaces,
     filteredPlaces,
     setSearch,
     setCategory,
@@ -24,11 +37,51 @@ export function LandingPage() {
   } = usePlaces();
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<
-    { marker: L.CircleMarker; place: PlaceWithStats }[]
+    { marker: L.Marker; place: PlaceWithStats }[]
   >([]);
   const [search, setLocalSearch] = useState('');
   const [category, setLocalCategory] = useState<PlaceCategory | 'all'>('all');
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
+  const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
+  const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(null);
+
+  const searchSuggestions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return []
+    return allPlaces
+      .filter((p) => p.name.toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [allPlaces, search])
+
+  const selectedPlaceData = useMemo(() => {
+    if (selectedPlaceId == null) return null
+    return filteredPlaces.find((p) => p.id === selectedPlaceId) ?? null
+  }, [selectedPlaceId, filteredPlaces])
+
+  useEffect(() => {
+    if (selectedPlaceId == null) return
+    if (!filteredPlaces.some((p) => p.id === selectedPlaceId)) {
+      queueMicrotask(() => setSelectedPlaceId(null))
+    }
+  }, [filteredPlaces, selectedPlaceId])
+
+  const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
+    const map = mapRef.current
+    if (!map) return
+    fitMapToPlaceWithUiPadding(
+      map,
+      place.latitude,
+      place.longitude,
+      MAP_UI_PADDING_LANDING,
+    )
+  }, [])
+
+  const focusPlaceOnMap = (place: PlaceWithStats) => {
+    setSelectedPlaceId(place.id)
+    panToPlaceForDetail(place)
+  }
 
   // Initialize map
   useEffect(() => {
@@ -101,22 +154,41 @@ export function LandingPage() {
 
     filteredPlaces.forEach((place) => {
       if (place.latitude && place.longitude) {
-        const pinColor = getPinColor(place.avgRating);
-        const marker = L.circleMarker([place.latitude, place.longitude], {
-          radius: 6,
-          fillColor: pinColor,
-          color: '#000',
-          weight: 1,
-          opacity: 0.8,
-          fillOpacity: 0.6,
+        const baseColor = getPinColor(place.avgRating);
+        fixLeafletDefaultIcons()
+        const isSelected = selectedPlaceId === place.id
+        const size = isSelected ? 28 : 24
+        const icon = L.divIcon({
+          className: '',
+          html: buildPinHtml({
+            color: baseColor,
+            glyph: categoryGlyph(place.category),
+            selected: isSelected,
+            size,
+          }),
+          iconSize: [size, size + 12],
+          iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
+          popupAnchor: [0, -Math.round(size + 6)],
         })
-          .bindPopup(place.name)
+
+        const marker = L.marker([place.latitude, place.longitude], { icon })
+          .on('click', (e) => {
+            L.DomEvent.stopPropagation(e)
+            setSelectedPlaceId(place.id)
+            panToPlaceForDetail(place)
+          })
           .addTo(mapRef.current!);
 
         markersRef.current.push({ marker, place });
       }
     });
-  }, [filteredPlaces]);
+  }, [filteredPlaces, selectedPlaceId, panToPlaceForDetail]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showAddPlaceModal || !addPlaceDraft) return;
+    map.flyTo(addPlaceDraft, Math.max(map.getZoom(), 15), { animate: true });
+  }, [showAddPlaceModal, addPlaceDraft]);
 
   useEffect(() => {
     return () => {
@@ -152,7 +224,7 @@ export function LandingPage() {
               size='sm'
               variant='default'
               className='h-9 px-4'
-              onClick={() => navigate('/places/new')}
+              onClick={() => setShowAddPlaceModal(true)}
             >
               + Añadir Lugar
             </Button>
@@ -215,22 +287,62 @@ export function LandingPage() {
           </p>
 
           {/* Search Bar */}
-          <div className='mx-auto flex max-w-2xl items-center gap-2'>
-            <Input
-              type='search'
-              placeholder='¿A dónde quieres ir hoy? (Ej: Café en Santiago)'
-              value={search}
-              onChange={(e) => {
-                setLocalSearch(e.target.value);
-                setSearch(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  navigate(`/explore?search=${encodeURIComponent(search)}`);
-                }
-              }}
-              className='h-11 text-base'
-            />
+          <div className='mx-auto flex w-full max-w-2xl items-center gap-2'>
+            <div className='relative z-[2500] w-full'>
+              <Input
+                type='search'
+                placeholder='Busca un lugar por nombre (Ej: Clínica Las Condes)'
+                value={search}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setLocalSearch(v);
+                  setSearch(v);
+                  setShowSearchDropdown(true)
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onBlur={() => window.setTimeout(() => setShowSearchDropdown(false), 120)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const first = searchSuggestions[0]
+                    if (first) {
+                      setLocalSearch(first.name)
+                      setSearch(first.name)
+                      focusPlaceOnMap(first)
+                      setShowSearchDropdown(false)
+                      return
+                    }
+                    navigate(`/explore?search=${encodeURIComponent(search)}`);
+                  }
+                }}
+                className='h-11 text-base'
+              />
+
+              {showSearchDropdown && searchSuggestions.length > 0 ? (
+                <div className='absolute z-[2600] mt-2 w-full max-h-72 overflow-y-auto rounded-md border bg-white shadow-md'>
+                  {searchSuggestions.map((p) => (
+                    <button
+                      key={p.id}
+                      type='button'
+                      className='block w-full px-3 py-2 text-left text-sm hover:bg-gray-50'
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => {
+                        setLocalSearch(p.name)
+                        setSearch(p.name)
+                        focusPlaceOnMap(p)
+                        setShowSearchDropdown(false)
+                      }}
+                    >
+                      <div className='font-medium' style={{ color: COLORS.text }}>
+                        {p.name}
+                      </div>
+                      <div className='text-xs' style={{ color: COLORS.textMuted }}>
+                        {p.address}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <Button
               className='h-11 px-6'
               onClick={() => navigate(`/explore?search=${encodeURIComponent(search)}`)}
@@ -251,6 +363,17 @@ export function LandingPage() {
           className='w-full h-full rounded-lg overflow-hidden shadow-lg'
           style={{ pointerEvents: showFiltersModal ? 'none' : 'auto' }}
         />
+
+        {selectedPlaceData ? (
+          <div className='absolute inset-y-0 right-0 z-[1800] flex max-h-full w-full justify-end pointer-events-none'>
+            <div className='pointer-events-auto h-full max-h-full min-w-0'>
+              <PlaceMapSidebar
+                place={selectedPlaceData}
+                onClose={() => setSelectedPlaceId(null)}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {/* Filtros Button - Top Left */}
         <button
@@ -546,12 +669,11 @@ export function LandingPage() {
                   }}
                 >
                   <option value='all'>Todas</option>
-                  <option value='restaurant'>Restaurante</option>
-                  <option value='cafe'>Café</option>
-                  <option value='mall'>Centro comercial</option>
-                  <option value='park'>Parque</option>
-                  <option value='clinic'>Clínica</option>
-                  <option value='other'>Otro</option>
+                  {PLACE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {PLACE_CATEGORY_LABEL_ES[c]}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -849,6 +971,36 @@ export function LandingPage() {
           />
         </div>
       )}
+
+      {showAddPlaceModal ? (
+        <div
+          className='fixed inset-0 z-[8000] flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8 backdrop-blur-sm'
+          role='presentation'
+          onClick={() => {
+            setShowAddPlaceModal(false);
+            setAddPlaceDraft(null);
+          }}
+        >
+          <div
+            className='relative z-[1] my-auto w-full max-w-lg rounded-xl border bg-white p-4 shadow-2xl ring-1 ring-black/5'
+            style={{ borderColor: COLORS.border }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AddPlacePanel
+              draftLatLng={addPlaceDraft}
+              onDraftLatLngChange={setAddPlaceDraft}
+              onClose={() => {
+                setShowAddPlaceModal(false);
+                setAddPlaceDraft(null);
+              }}
+              onSaved={() => {
+                setShowAddPlaceModal(false);
+                setAddPlaceDraft(null);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

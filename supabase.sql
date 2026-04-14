@@ -12,9 +12,35 @@
 CREATE TYPE place_category AS ENUM (
   'restaurant',
   'cafe',
+  'gastronomy',
+  'ice_cream',
+  'winery',
   'mall',
+  'store',
+  'apparel',
+  'home_goods',
+  'bookstore',
+  'pharmacy',
   'park',
+  'stadium',
+  'museum',
+  'convention_center',
   'clinic',
+  'health_services',
+  'medical_office',
+  'day_center',
+  'therapeutic_school',
+  'integration_center',
+  'job_training',
+  'education',
+  'foundation',
+  'bank',
+  'airline',
+  'hotel',
+  'travel_agency',
+  'energy',
+  'automotive',
+  'billing',
   'other'
 );
 
@@ -507,6 +533,37 @@ INSERT INTO reviews (place_id, author_id, rating, comment) VALUES
 (5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Entrada oriente es un problema.'),
 (5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Usar otra entrada si van con silla.')
 ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- Migración: ampliar enum place_category (BD ya creada con valores viejos)
+-- Ejecuta en SQL Editor, una sentencia por vez si Postgres lo exige.
+-- ============================================================================
+-- ALTER TYPE place_category ADD VALUE 'gastronomy';
+-- ALTER TYPE place_category ADD VALUE 'ice_cream';
+-- ALTER TYPE place_category ADD VALUE 'winery';
+-- ALTER TYPE place_category ADD VALUE 'store';
+-- ALTER TYPE place_category ADD VALUE 'apparel';
+-- ALTER TYPE place_category ADD VALUE 'home_goods';
+-- ALTER TYPE place_category ADD VALUE 'bookstore';
+-- ALTER TYPE place_category ADD VALUE 'pharmacy';
+-- ALTER TYPE place_category ADD VALUE 'stadium';
+-- ALTER TYPE place_category ADD VALUE 'museum';
+-- ALTER TYPE place_category ADD VALUE 'convention_center';
+-- ALTER TYPE place_category ADD VALUE 'health_services';
+-- ALTER TYPE place_category ADD VALUE 'medical_office';
+-- ALTER TYPE place_category ADD VALUE 'day_center';
+-- ALTER TYPE place_category ADD VALUE 'therapeutic_school';
+-- ALTER TYPE place_category ADD VALUE 'integration_center';
+-- ALTER TYPE place_category ADD VALUE 'job_training';
+-- ALTER TYPE place_category ADD VALUE 'education';
+-- ALTER TYPE place_category ADD VALUE 'foundation';
+-- ALTER TYPE place_category ADD VALUE 'bank';
+-- ALTER TYPE place_category ADD VALUE 'airline';
+-- ALTER TYPE place_category ADD VALUE 'hotel';
+-- ALTER TYPE place_category ADD VALUE 'travel_agency';
+-- ALTER TYPE place_category ADD VALUE 'energy';
+-- ALTER TYPE place_category ADD VALUE 'automotive';
+-- ALTER TYPE place_category ADD VALUE 'billing';
 
 -- ============================================================================
 -- FIN DEL SCRIPT

@@ -10,18 +10,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { AccessibilityAspectRow } from '@/components/map/AccessibilityAspectRow';
 import { usePlaces } from '../context/usePlaces';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
-import type { PlaceCategory, PlaceReview } from '../types/place';
-
-const categoryLabel: Record<PlaceCategory, string> = {
-  restaurant: 'Restaurante',
-  cafe: 'Café',
-  mall: 'Centro comercial',
-  park: 'Parque',
-  clinic: 'Clínica',
-  other: 'Otro',
-};
+import {
+  PLACE_CATEGORY_LABEL_ES,
+  type PlaceReview,
+} from '../types/place';
 
 export function SidebarPlaceDetail() {
   const { placeId } = useParams();
@@ -78,7 +73,7 @@ export function SidebarPlaceDetail() {
             </Badge>
           </div>
           <CardDescription>
-            {categoryLabel[place.category]} · ⭐ {place.avgRating.toFixed(1)}
+            {PLACE_CATEGORY_LABEL_ES[place.category]} · ⭐ {place.avgRating.toFixed(1)}
           </CardDescription>
           <p className='text-sm text-foreground'>{place.address}</p>
         </CardHeader>
@@ -86,39 +81,81 @@ export function SidebarPlaceDetail() {
 
       <Card size='sm'>
         <CardHeader className='pb-2'>
-          <CardTitle className='text-sm'>Llegada</CardTitle>
+          <CardTitle className='text-sm'>Accesibilidad (sí y no)</CardTitle>
+          <CardDescription className='text-xs'>
+            Lo verde es favorable según el registro; lo rojizo indica ausencia o
+            barrera declarada.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className='text-sm'>
+          <ul className='m-0 list-none space-y-1.5 p-0'>
+            <AccessibilityAspectRow ok={place.features.accessibleParking}>
+              {place.features.accessibleParking
+                ? 'Estacionamiento accesible'
+                : 'Sin estacionamiento accesible registrado'}
+            </AccessibilityAspectRow>
+            <AccessibilityAspectRow ok={place.features.accessibleEntrance}>
+              {place.features.accessibleEntrance
+                ? 'Entrada accesible'
+                : 'Entrada no marcada como accesible'}
+            </AccessibilityAspectRow>
+            <AccessibilityAspectRow ok={place.features.adaptedRestroom}>
+              {place.features.adaptedRestroom
+                ? 'Baño adaptado'
+                : 'Sin baño adaptado registrado'}
+            </AccessibilityAspectRow>
+            <AccessibilityAspectRow ok={place.entrance.noSteps}>
+              {place.entrance.noSteps
+                ? 'Entrada sin escalones'
+                : 'Escalones o desnivel en la entrada'}
+            </AccessibilityAspectRow>
+            <AccessibilityAspectRow ok={place.entrance.ramp}>
+              {place.entrance.ramp
+                ? 'Rampa en la entrada'
+                : 'Sin rampa en la entrada'}
+            </AccessibilityAspectRow>
+          </ul>
+          {place.entrance.accessNote?.trim() ? (
+            <p className='mt-3 rounded-md border border-amber-200/80 bg-amber-50/70 p-2 text-xs leading-relaxed text-amber-950'>
+              <span className='font-semibold'>Observaciones: </span>
+              {place.entrance.accessNote.trim()}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card size='sm'>
+        <CardHeader className='pb-2'>
+          <CardTitle className='text-sm'>Llegada (detalle)</CardTitle>
+          <CardDescription className='text-xs'>
+            Textos de la comunidad; pueden incluir advertencias.
+          </CardDescription>
         </CardHeader>
         <CardContent className='text-sm text-muted-foreground'>
           <ul className='m-0 list-disc space-y-1 pl-4'>
-            <li>Estacionamiento: {place.arrival.accessibleParking}</li>
-            <li>Cercanía: {place.arrival.proximity}</li>
-            <li>Disponibilidad: {place.arrival.availability}</li>
+            <li>
+              Estacionamiento:{' '}
+              {place.arrival.accessibleParking || '—'}
+            </li>
+            <li>Cercanía: {place.arrival.proximity || '—'}</li>
+            <li>Disponibilidad: {place.arrival.availability || '—'}</li>
           </ul>
         </CardContent>
       </Card>
 
       <Card size='sm'>
         <CardHeader className='pb-2'>
-          <CardTitle className='text-sm'>Entrada</CardTitle>
+          <CardTitle className='text-sm'>Interior (detalle)</CardTitle>
+          <CardDescription className='text-xs'>
+            Puede describir limitaciones (pasillos estrechos, ascensor pequeño,
+            etc.).
+          </CardDescription>
         </CardHeader>
         <CardContent className='text-sm text-muted-foreground'>
           <ul className='m-0 list-disc space-y-1 pl-4'>
-            <li>Sin escalones: {place.entrance.noSteps ? 'Sí' : 'No'}</li>
-            <li>Rampa: {place.entrance.ramp ? 'Sí' : 'No'}</li>
-            <li>Acceso: {place.entrance.accessNote}</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card size='sm'>
-        <CardHeader className='pb-2'>
-          <CardTitle className='text-sm'>Interior</CardTitle>
-        </CardHeader>
-        <CardContent className='text-sm text-muted-foreground'>
-          <ul className='m-0 list-disc space-y-1 pl-4'>
-            <li>Espacio: {place.interior.space}</li>
-            <li>Baño: {place.interior.restroom}</li>
-            <li>Ascensor: {place.interior.elevator}</li>
+            <li>Espacio: {place.interior.space || '—'}</li>
+            <li>Baño: {place.interior.restroom || '—'}</li>
+            <li>Ascensor: {place.interior.elevator || '—'}</li>
           </ul>
         </CardContent>
       </Card>

@@ -23,16 +23,11 @@ import {
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
-import { PLACE_CATEGORIES, type PlaceCategory } from '../types/place';
-
-const categoryLabel: Record<PlaceCategory, string> = {
-  restaurant: 'Restaurante',
-  cafe: 'Café',
-  mall: 'Centro comercial',
-  park: 'Parque',
-  clinic: 'Clínica',
-  other: 'Otro',
-};
+import {
+  PLACE_CATEGORIES,
+  PLACE_CATEGORY_LABEL_ES,
+  type PlaceCategory,
+} from '../types/place';
 
 export function SidebarHome() {
   const {
@@ -112,7 +107,7 @@ export function SidebarHome() {
             <SelectItem value='all'>Todas</SelectItem>
             {PLACE_CATEGORIES.map((c) => (
               <SelectItem key={c} value={c}>
-                {categoryLabel[c]}
+                {PLACE_CATEGORY_LABEL_ES[c]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -187,7 +182,7 @@ export function SidebarHome() {
                     </Badge>
                   </div>
                   <p className='text-xs text-muted-foreground'>
-                    {categoryLabel[p.category]} · ⭐ {p.avgRating.toFixed(1)}
+                    {PLACE_CATEGORY_LABEL_ES[p.category]} · ⭐ {p.avgRating.toFixed(1)}
                   </p>
                 </div>
               </Link>

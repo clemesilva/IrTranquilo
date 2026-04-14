@@ -52,6 +52,7 @@ export interface PlacesContextValue {
   resetFilters: () => void;
   getPlaceById: (id: number) => PlaceWithStats | undefined;
   reviewsForPlace: (placeId: number) => Promise<PlaceReview[]>;
+  refreshPlaces: () => Promise<void>;
   isLoading: boolean;
 }
 

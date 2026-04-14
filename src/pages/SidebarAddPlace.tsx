@@ -1,34 +1,42 @@
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { AddPlacePanel } from '@/components/places/AddPlacePanel'
 
 export function SidebarAddPlace() {
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const draftLatLng = useMemo((): [number, number] | null => {
+    const draftLat = searchParams.get('draftLat')
+    const draftLng = searchParams.get('draftLng')
+    if (!draftLat || !draftLng) return null
+    return [Number(draftLat), Number(draftLng)]
+  }, [searchParams])
+
+  const setDraftLatLng = (next: [number, number] | null) => {
+    const nextParams = new URLSearchParams(searchParams)
+    if (next) {
+      nextParams.set('draftLat', String(next[0]))
+      nextParams.set('draftLng', String(next[1]))
+    } else {
+      nextParams.delete('draftLat')
+      nextParams.delete('draftLng')
+    }
+    setSearchParams(nextParams)
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <Button variant="ghost" className="w-fit px-0" asChild>
+    <div className="mx-auto mt-4 flex w-full max-w-[620px] flex-col gap-4 px-3 pb-3">
+      <Button variant="ghost" size="lg" className="w-fit px-0 text-base" asChild>
         <Link to="/">← Volver</Link>
       </Button>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Agregar lugar</CardTitle>
-          <CardDescription>
-            Próximo paso: formulario, geocoding y guardado en Supabase.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-      <ol className="m-0 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-        <li>Nombre</li>
-        <li>Categoría</li>
-        <li>Dirección</li>
-        <li>Geocoding → lat/lng</li>
-        <li>Pin en mapa (arrastrable)</li>
-        <li>Guardar</li>
-      </ol>
+      <AddPlacePanel
+        draftLatLng={draftLatLng}
+        onDraftLatLngChange={setDraftLatLng}
+        onClose={() => navigate('/')}
+        onSaved={() => navigate('/')}
+      />
     </div>
   )
 }
