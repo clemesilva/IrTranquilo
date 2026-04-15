@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
 import { ExplorePage } from './pages/ExplorePage'
 import { SidebarAddPlace } from './pages/SidebarAddPlace'
+import { PlaceDetailPage } from './pages/PlaceDetailPage'
 
 function AppRoutes() {
   const { user, isLoading } = useAuth()
@@ -51,6 +52,18 @@ function AppRoutes() {
           user ? (
             <PlacesProvider>
               <SidebarAddPlace />
+            </PlacesProvider>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/lugares/:id"
+        element={
+          user ? (
+            <PlacesProvider>
+              <PlaceDetailPage />
             </PlacesProvider>
           ) : (
             <Navigate to="/login" replace />

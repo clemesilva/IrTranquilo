@@ -89,27 +89,27 @@ export function SidebarPlaceDetail() {
         </CardHeader>
         <CardContent className='text-sm'>
           <ul className='m-0 list-none space-y-1.5 p-0'>
-            <AccessibilityAspectRow ok={place.features.accessibleParking}>
+            <AccessibilityAspectRow ok={place.features.accessibleParking === true}>
               {place.features.accessibleParking
                 ? 'Estacionamiento accesible'
                 : 'Sin estacionamiento accesible registrado'}
             </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.features.accessibleEntrance}>
+            <AccessibilityAspectRow ok={place.features.accessibleEntrance === true}>
               {place.features.accessibleEntrance
                 ? 'Entrada accesible'
                 : 'Entrada no marcada como accesible'}
             </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.features.adaptedRestroom}>
+            <AccessibilityAspectRow ok={place.features.adaptedRestroom === true}>
               {place.features.adaptedRestroom
                 ? 'Baño adaptado'
                 : 'Sin baño adaptado registrado'}
             </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.entrance.noSteps}>
+            <AccessibilityAspectRow ok={place.entrance.noSteps === true}>
               {place.entrance.noSteps
                 ? 'Entrada sin escalones'
                 : 'Escalones o desnivel en la entrada'}
             </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.entrance.ramp}>
+            <AccessibilityAspectRow ok={place.entrance.ramp === true}>
               {place.entrance.ramp
                 ? 'Rampa en la entrada'
                 : 'Sin rampa en la entrada'}

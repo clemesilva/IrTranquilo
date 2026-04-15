@@ -32,15 +32,15 @@ export function PlaceCard({ place }: PlaceCardProps) {
             Accesibilidad
           </p>
           <div className='space-y-1'>
-            {place.features.accessibleParking && (
+            {place.features.accessibleParking === true && (
               <p className='text-sm' style={{ color: COLORS.text }}>
                 ✓ Estacionamiento accesible
               </p>
             )}
-            {place.features.accessibleEntrance && (
+            {place.features.accessibleEntrance === true && (
               <p className='text-sm' style={{ color: COLORS.text }}>✓ Entrada accesible</p>
             )}
-            {place.features.adaptedRestroom && (
+            {place.features.adaptedRestroom === true && (
               <p className='text-sm' style={{ color: COLORS.text }}>✓ Baño adaptado</p>
             )}
           </div>

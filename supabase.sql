@@ -87,8 +87,9 @@ CREATE TABLE places (
   latitude DECIMAL(9, 6) NOT NULL,
   longitude DECIMAL(9, 6) NOT NULL,
 
-  -- Descripción
-  description TEXT,
+  -- Horario (Google Places)
+  -- Guardamos `weekday_text` como array de strings (ej: "lunes: 9:00–18:00")
+  opening_hours TEXT[],
 
   -- Creador del lugar
   created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,

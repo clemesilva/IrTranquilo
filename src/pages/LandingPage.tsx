@@ -691,21 +691,6 @@ export function LandingPage() {
                 <label className='flex items-center gap-3 cursor-pointer'>
                   <input
                     type='checkbox'
-                    checked={filters.parking_available}
-                    onChange={() => toggleFilter('parking_available')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Parking disponible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
                     checked={filters.parking_accessible}
                     onChange={() => toggleFilter('parking_accessible')}
                     className='w-4 h-4 rounded'
@@ -834,36 +819,6 @@ export function LandingPage() {
                 >
                   🏢 Interior
                 </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.interior_spacious}
-                    onChange={() => toggleFilter('interior_spacious')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Espacioso
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.wheelchair_table_access}
-                    onChange={() => toggleFilter('wheelchair_table_access')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Acceso a mesas
-                  </span>
-                </label>
                 <label className='flex items-center gap-3 cursor-pointer'>
                   <input
                     type='checkbox'

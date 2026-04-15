@@ -83,6 +83,7 @@ export interface Place {
   address: string
   latitude: number
   longitude: number
+  openingHours?: string[] | null
 }
 
 /** Alineado al esquema SQL `place_reviews`. */
@@ -91,13 +92,16 @@ export interface PlaceReview {
   placeId: number
   rating: number
   comment: string | null
+  createdAt?: string | null
+  authorId?: string | null
+  authorName?: string | null
 }
 
 /** Campos extra solo en mock / futura migración, para filtros y ficha detalle. */
 export interface PlaceAccessibilityFlags {
-  accessibleParking: boolean
-  accessibleEntrance: boolean
-  adaptedRestroom: boolean
+  accessibleParking: boolean | null
+  accessibleEntrance: boolean | null
+  adaptedRestroom: boolean | null
 }
 
 export interface PlaceArrivalDetail {
@@ -107,15 +111,15 @@ export interface PlaceArrivalDetail {
 }
 
 export interface PlaceEntranceDetail {
-  noSteps: boolean
-  ramp: boolean
-  accessNote: string
+  noSteps: boolean | null
+  ramp: boolean | null
+  accessNote: string | null
 }
 
 export interface PlaceInteriorDetail {
-  space: string
-  restroom: string
-  elevator: string
+  space: string | null
+  restroom: string | null
+  elevator: string | null
 }
 
 export interface PlaceExtended extends Place {

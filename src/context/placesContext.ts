@@ -14,7 +14,6 @@ export interface AccessibilityFilters {
   minRating: number | null;
 
   // 3. Llegada (Parking)
-  parking_available: boolean;
   parking_accessible: boolean;
   parking_near_entrance: boolean;
   signage_clear: boolean;
@@ -26,8 +25,6 @@ export interface AccessibilityFilters {
   entrance_width_ok: boolean;
 
   // 5. Interior
-  interior_spacious: boolean;
-  wheelchair_table_access: boolean;
   accessible_bathroom: boolean;
   circulation_clear: boolean;
 }
@@ -52,6 +49,7 @@ export interface PlacesContextValue {
   resetFilters: () => void;
   getPlaceById: (id: number) => PlaceWithStats | undefined;
   reviewsForPlace: (placeId: number) => Promise<PlaceReview[]>;
+  createReview: (placeId: number, rating: number, comment?: string | null) => Promise<void>;
   refreshPlaces: () => Promise<void>;
   isLoading: boolean;
 }

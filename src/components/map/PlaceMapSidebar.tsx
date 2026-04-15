@@ -1,29 +1,18 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Award,
-  MapPin,
-  Navigation,
-  Share2,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+import { MapPin, Navigation, Share2, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { usePlaces } from '@/context/usePlaces';
+import { useAuth } from '@/context/useAuth';
 import type { PlaceWithStats } from '@/context/placesContext';
-import { bandLabelEs } from '@/lib/rating';
 import { categoryGlyph } from '@/lib/pins';
-import {
-  PLACE_CATEGORY_LABEL_ES,
-  type PlaceReview,
-} from '@/types/place';
+import { PLACE_CATEGORY_LABEL_ES, type PlaceReview } from '@/types/place';
 import { COLORS } from '@/styles/colors';
 import { cn } from '@/lib/utils';
-import { AccessibilityAspectRow } from '@/components/map/AccessibilityAspectRow';
 
-type PanelTab = 'overview' | 'reviews' | 'info';
+type PanelTab = 'overview' | 'reviews';
 
 function StarRow({
   rating,
@@ -74,10 +63,15 @@ interface PlaceMapSidebarProps {
 
 export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
-  const { reviewsForPlace } = usePlaces();
+  const { reviewsForPlace, createReview } = usePlaces();
+  const { isAuthenticated, signInWithGoogle } = useAuth();
   const [tab, setTab] = useState<PanelTab>('overview');
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newRating, setNewRating] = useState<number>(0);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,8 +88,37 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
     };
   }, [place.id, reviewsForPlace]);
 
+  const canSubmitReview = useMemo(() => {
+    return (
+      isAuthenticated && newRating >= 1 && newRating <= 5 && !isSubmittingReview
+    );
+  }, [isAuthenticated, newRating, isSubmittingReview]);
+
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) return;
+    if (newRating < 1 || newRating > 5) return;
+    setIsSubmittingReview(true);
+    setSubmitError(null);
+    try {
+      await createReview(place.id, newRating, newComment);
+      const rows = await reviewsForPlace(place.id);
+      setReviews(rows);
+      setNewRating(0);
+      setNewComment('');
+    } catch (e) {
+      setSubmitError(
+        e instanceof Error ? e.message : 'No se pudo enviar la reseña.',
+      );
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`;
+  const elevatorConfirmed = (place.interior.elevator ?? '')
+    .toLowerCase()
+    .includes('yes');
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -115,9 +138,9 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
   };
 
   const hasAccessibilitySignal =
-    place.features?.accessibleParking ||
-    place.features?.accessibleEntrance ||
-    place.features?.adaptedRestroom ||
+    place.features?.accessibleParking === true ||
+    place.features?.accessibleEntrance === true ||
+    place.features?.adaptedRestroom === true ||
     Boolean(place.entrance.accessNote?.trim());
 
   return (
@@ -185,7 +208,6 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
             [
               ['overview', 'Vista general'],
               ['reviews', 'Reseñas'],
-              ['info', 'Información'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -222,19 +244,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
               Cómo llegar
             </span>
           </a>
-          <a
-            href={mapsUrl}
-            target='_blank'
-            rel='noreferrer'
-            className='flex flex-1 flex-col items-center gap-1'
-          >
-            <span className='flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200/90 bg-white text-primary shadow-sm ring-1 ring-neutral-100 transition hover:bg-slate-50'>
-              <MapPin className='h-5 w-5' strokeWidth={2} />
-            </span>
-            <span className='max-w-[4.5rem] text-center text-[10px] font-medium leading-tight text-neutral-600'>
-              Ver en mapa
-            </span>
-          </a>
+
           <button
             type='button'
             className='flex flex-1 flex-col items-center gap-1'
@@ -261,82 +271,104 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
                   </p>
                 </InfoRow>
 
-                <InfoRow icon={Award}>
-                  <p>
-                    <span className='font-semibold text-neutral-900'>
-                      {bandLabelEs(place.band)}
+                <div className='flex flex-wrap items-center gap-2 text-sm text-neutral-700'>
+                  {place.entrance.ramp === true ? (
+                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
+                      <span aria-hidden>♿</span> Rampa
                     </span>
-                    <span className='text-neutral-600'>
-                      {' '}
-                      · según reseñas de la comunidad
+                  ) : null}
+                  {place.features.adaptedRestroom === true ? (
+                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
+                      <span aria-hidden>🚻</span> Baño accesible
                     </span>
-                  </p>
-                </InfoRow>
-
-                {place.features ? (
-                  <div className='rounded-lg border border-neutral-200/80 bg-white px-3 py-2.5'>
-                    <p className='text-[10px] font-semibold uppercase tracking-wider text-neutral-500'>
-                      Accesibilidad en el registro
-                    </p>
-                    <p className='mb-2 mt-1 text-[11px] leading-snug text-neutral-500'>
-                      Se muestran tanto lo favorable (
-                      <span className='text-emerald-800'>{'\u2713'}</span>) como lo
-                      desfavorable o ausente (
-                      <span className='text-rose-800'>{'\u2717'}</span>). En
-                      observaciones se pueden detallar barandas, barra de
-                      apoyo, ancho de paso, etc.
-                    </p>
-                    <ul className='space-y-1.5'>
-                      <AccessibilityAspectRow
-                        ok={place.features.accessibleParking}
-                      >
-                        {place.features.accessibleParking
-                          ? 'Estacionamiento accesible'
-                          : 'Sin estacionamiento accesible registrado'}
-                      </AccessibilityAspectRow>
-                      <AccessibilityAspectRow
-                        ok={place.features.accessibleEntrance}
-                      >
-                        {place.features.accessibleEntrance
-                          ? 'Entrada accesible'
-                          : 'Entrada no marcada como accesible'}
-                      </AccessibilityAspectRow>
-                      <AccessibilityAspectRow
-                        ok={place.features.adaptedRestroom}
-                      >
-                        {place.features.adaptedRestroom
-                          ? 'Baño adaptado'
-                          : 'Sin baño adaptado registrado'}
-                      </AccessibilityAspectRow>
-                      <AccessibilityAspectRow ok={place.entrance.noSteps}>
-                        {place.entrance.noSteps
-                          ? 'Entrada sin escalones (según registro)'
-                          : 'Hay escalones o desnivel en la entrada'}
-                      </AccessibilityAspectRow>
-                      <AccessibilityAspectRow ok={place.entrance.ramp}>
-                        {place.entrance.ramp
-                          ? 'Rampa en la entrada'
-                          : 'Sin rampa en la entrada'}
-                      </AccessibilityAspectRow>
-                    </ul>
-                  </div>
-                ) : null}
-
-                {place.entrance.accessNote?.trim() ? (
-                  <div className='rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-2.5'>
-                    <p className='text-[10px] font-semibold uppercase tracking-wider text-amber-900/90'>
-                      Observaciones de la comunidad
-                    </p>
-                    <p className='mt-1 text-sm leading-relaxed text-amber-950'>
-                      {place.entrance.accessNote.trim()}
-                    </p>
-                  </div>
-                ) : null}
+                  ) : null}
+                  {place.features.accessibleParking === true ? (
+                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
+                      <span aria-hidden>🅿️</span> Parking
+                    </span>
+                  ) : null}
+                  {elevatorConfirmed ? (
+                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
+                      <span aria-hidden>🛗</span> Ascensor
+                    </span>
+                  ) : null}
+                </div>
               </div>
             )}
 
             {tab === 'reviews' && (
               <div className='space-y-2.5'>
+                <div className='rounded-lg border border-neutral-200/80 bg-white p-3'>
+                  <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>
+                    Deja tu reseña
+                  </p>
+                  {!isAuthenticated ? (
+                    <div className='mt-2 flex flex-col gap-2'>
+                      <p className='text-sm text-neutral-600'>
+                        Inicia sesión para escribir una reseña.
+                      </p>
+                      <Button
+                        type='button'
+                        variant='default'
+                        className='h-9'
+                        onClick={() => signInWithGoogle()}
+                      >
+                        Iniciar sesión con Google
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className='mt-2 space-y-2'>
+                      <div className='flex items-center gap-1'>
+                        {Array.from({ length: 5 }, (_, i) => {
+                          const v = i + 1;
+                          const active = newRating >= v;
+                          return (
+                            <button
+                              key={v}
+                              type='button'
+                              className='p-1'
+                              onClick={() => setNewRating(v)}
+                              aria-label={`Calificar ${v} de 5`}
+                            >
+                              <span
+                                className={cn(
+                                  'text-lg leading-none',
+                                  active
+                                    ? 'text-amber-400'
+                                    : 'text-neutral-200',
+                                )}
+                              >
+                                {'\u2605'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        <span className='ml-2 text-xs font-medium tabular-nums text-neutral-600'>
+                          {newRating ? `${newRating}/5` : 'Elige estrellas'}
+                        </span>
+                      </div>
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder='Escribe tu reseña (opcional)…'
+                        className='w-full resize-none rounded-md border border-neutral-200/80 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10'
+                        rows={3}
+                      />
+                      {submitError ? (
+                        <p className='text-sm text-rose-600'>{submitError}</p>
+                      ) : null}
+                      <Button
+                        type='button'
+                        className='h-9 w-full text-sm'
+                        onClick={handleSubmitReview}
+                        disabled={!canSubmitReview}
+                      >
+                        {isSubmittingReview ? 'Enviando…' : 'Publicar reseña'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 {reviewsLoading ? (
                   <p className='text-sm text-neutral-500'>Cargando reseñas…</p>
                 ) : reviews.length === 0 ? (
@@ -377,72 +409,6 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
                 )}
               </div>
             )}
-
-            {tab === 'info' && (
-              <div className='space-y-3 text-sm text-neutral-800'>
-                <section className='rounded-lg border border-neutral-200/80 bg-white px-3 py-2.5'>
-                  <h3 className='mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500'>
-                    Llegada
-                  </h3>
-                  <p>
-                    <strong className='text-neutral-900'>Parking: </strong>
-                    {place.arrival.accessibleParking || '—'}
-                  </p>
-                  <p>
-                    <strong className='text-neutral-900'>Cercanía: </strong>
-                    {place.arrival.proximity || '—'}
-                  </p>
-                  <p>
-                    <strong className='text-neutral-900'>
-                      Disponibilidad:{' '}
-                    </strong>
-                    {place.arrival.availability || '—'}
-                  </p>
-                </section>
-                <section className='rounded-lg border border-neutral-200/80 bg-white px-3 py-2.5'>
-                  <h3 className='mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500'>
-                    Entrada
-                  </h3>
-                  <ul className='space-y-1.5'>
-                    <AccessibilityAspectRow ok={place.entrance.noSteps}>
-                      {place.entrance.noSteps
-                        ? 'Sin escalones en la entrada'
-                        : 'Escalones o desnivel en la entrada'}
-                    </AccessibilityAspectRow>
-                    <AccessibilityAspectRow ok={place.entrance.ramp}>
-                      {place.entrance.ramp
-                        ? 'Rampa disponible'
-                        : 'Sin rampa en la entrada'}
-                    </AccessibilityAspectRow>
-                  </ul>
-                  {place.entrance.accessNote?.trim() ? (
-                    <p className='mt-2 border-t border-neutral-200/80 pt-2 text-sm leading-relaxed text-neutral-700'>
-                      <span className='font-medium text-neutral-900'>
-                        Notas:{' '}
-                      </span>
-                      {place.entrance.accessNote.trim()}
-                    </p>
-                  ) : null}
-                </section>
-                <section className='rounded-lg border border-neutral-200/80 bg-white px-3 py-2.5'>
-                  <h3 className='mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500'>
-                    Interior
-                  </h3>
-                  <p>
-                    <strong className='text-neutral-900'>Espacio: </strong>
-                    {place.interior.space || '—'}
-                  </p>
-                  <p>
-                    <strong className='text-neutral-900'>Baños: </strong>
-                    {place.interior.restroom || '—'}
-                  </p>
-                  <p>
-                    <strong className='text-neutral-900'>Ascensor: </strong>
-                    {place.interior.elevator || '—'}
-                  </p>
-                </section>
-              </div>
-            )}
           </div>
         </ScrollArea>
 
@@ -450,11 +416,15 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
           className='mt-2 shrink-0 border-t border-neutral-200/80 pt-2.5'
           style={{ borderColor: COLORS.border }}
         >
-          <Button className='h-9 w-full text-sm' variant='default' asChild>
-            <a href={directionsUrl} target='_blank' rel='noreferrer'>
-              Abrir ruta en Google Maps
-            </a>
-          </Button>
+          <div className='mt-3 shrink-0'>
+            <Button
+              type='button'
+              className='h-9 w-full text-sm'
+              onClick={() => navigate(`/lugares/${place.id}`)}
+            >
+              Ver detalle completo
+            </Button>
+          </div>
         </div>
       </div>
     </div>

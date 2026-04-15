@@ -14,6 +14,11 @@ export interface PlaceDetails {
   address: string
   latitude: number
   longitude: number
+  openingHours: {
+    weekdayText: string[]
+    periods?: google.maps.places.PlaceOpeningHoursPeriod[]
+    openNow?: boolean
+  } | null
 }
 
 export function usePlacesAutocomplete() {
@@ -105,7 +110,7 @@ export function usePlacesAutocomplete() {
       svc.getDetails(
         {
           placeId,
-          fields: ['place_id', 'name', 'formatted_address', 'geometry'],
+          fields: ['place_id', 'name', 'formatted_address', 'geometry', 'opening_hours'],
         },
         (
           place: google.maps.places.PlaceResult | null,
@@ -127,6 +132,13 @@ export function usePlacesAutocomplete() {
             address: place.formatted_address ?? '',
             latitude: loc.lat(),
             longitude: loc.lng(),
+            openingHours: place.opening_hours
+              ? {
+                  weekdayText: place.opening_hours.weekday_text ?? [],
+                  periods: place.opening_hours.periods,
+                  openNow: place.opening_hours.open_now,
+                }
+              : null,
           })
         },
       )

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,11 +40,12 @@ export function AddPlacePanel({
   className = '',
 }: AddPlacePanelProps) {
   const { refreshPlaces } = usePlaces()
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<PlaceCategory>('cafe')
+  const [category, setCategory] = useState<PlaceCategory | null>(null)
   const [address, setAddress] = useState('')
-  const [description, setDescription] = useState('')
+  const [openingHours, setOpeningHours] = useState<string[] | null>(null)
 
   const [rating, setRating] = useState<number>(0)
   const [review, setReview] = useState('')
@@ -72,12 +73,13 @@ export function AddPlacePanel({
   const canSave = useMemo(() => {
     return (
       name.trim().length > 1 &&
+      category !== null &&
       address.trim().length > 3 &&
       draftLatLng !== null &&
       Number.isFinite(draftLatLng[0]) &&
       Number.isFinite(draftLatLng[1])
     )
-  }, [name, address, draftLatLng])
+  }, [name, category, address, draftLatLng])
 
   async function handleSelectSuggestion(placeId: string) {
     try {
@@ -86,6 +88,7 @@ export function AddPlacePanel({
       setAddress(d.address)
       setPlaceQuery(d.name)
       onDraftLatLngChange([d.latitude, d.longitude])
+      setOpeningHours(d.openingHours?.weekdayText ?? null)
       setSuggestions([])
       setShowDropdown(false)
     } catch (e) {
@@ -101,6 +104,7 @@ export function AddPlacePanel({
       const { data: auth } = await supabase.auth.getUser()
       const user = auth.user
       if (!user) throw new Error('Debes iniciar sesión para guardar.')
+      if (!category) throw new Error('Elige una categoría.')
 
       const placeInsert = {
         name: name.trim(),
@@ -108,15 +112,14 @@ export function AddPlacePanel({
         address: address.trim(),
         latitude: draftLatLng[0],
         longitude: draftLatLng[1],
-        description: description.trim() ? description.trim() : null,
         created_by: user.id,
+        opening_hours: openingHours,
 
         accessible_parking: parking,
         accessible_entrance: Boolean(ramp),
         adapted_restroom: bathroom,
 
         entrance_ramp: ramp,
-        entrance_access_note: description.trim() ? description.trim() : null,
         interior_space: spacious ? 'spacious' : null,
       } as const
 
@@ -149,7 +152,10 @@ export function AddPlacePanel({
   }
 
   return (
-    <div className={`mx-auto flex w-full max-w-[620px] flex-col gap-3 px-1 pb-1 ${className}`}>
+    <div
+      ref={panelRef}
+      className={`mx-auto flex w-full max-w-[620px] flex-col gap-3 px-1 pb-1 ${className}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">Añadir lugar</h2>
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
@@ -181,13 +187,20 @@ export function AddPlacePanel({
           <div className="space-y-2">
             <Label>Categoría</Label>
             <Select
-              value={category}
+              value={category ?? undefined}
               onValueChange={(v) => setCategory(v as PlaceCategory)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Categoría" />
+                <SelectValue placeholder="Elegir categoría" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                position="popper"
+                align="start"
+                sideOffset={6}
+                withinPortal
+                portalContainer={panelRef.current}
+                className="z-[2900]"
+              >
                 {PLACE_CATEGORIES.map((c) => (
                   <SelectItem key={c} value={c}>
                     {PLACE_CATEGORY_LABEL_ES[c]}
@@ -341,17 +354,6 @@ export function AddPlacePanel({
                 Espacios amplios
               </label>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="place-notes">Descripción del lugar (opcional)</Label>
-            <Textarea
-              id="place-notes"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej.: hay rampa pero sin barandas; ascensor estrecho…"
-              className="min-h-[72px]"
-            />
           </div>
 
           {error || googleError ? (

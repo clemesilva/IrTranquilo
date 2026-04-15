@@ -17,7 +17,6 @@ const defaultFilters: AccessibilityFilters = {
   recommendedOnly: false,
   minRating: null,
   // Llegada
-  parking_available: false,
   parking_accessible: false,
   parking_near_entrance: false,
   signage_clear: false,
@@ -27,8 +26,6 @@ const defaultFilters: AccessibilityFilters = {
   elevator_available: false,
   entrance_width_ok: false,
   // Interior
-  interior_spacious: false,
-  wheelchair_table_access: false,
   accessible_bathroom: false,
   circulation_clear: false,
 };
@@ -40,6 +37,7 @@ type DbPlaceRow = {
   address: string
   latitude: number | string
   longitude: number | string
+  opening_hours: string[] | null
   accessible_parking: boolean | null
   accessible_entrance: boolean | null
   adapted_restroom: boolean | null
@@ -57,6 +55,15 @@ type DbPlaceRow = {
   review_count: number | null
 }
 
+type DbReviewRow = {
+  id: number
+  rating: number
+  comment: string | null
+  created_at: string | null
+  author_id: string | null
+  users?: { display_name: string | null } | { display_name: string | null }[] | null
+}
+
 function mapPlaceFromDB(place: DbPlaceRow): PlaceExtended {
   const lat = typeof place.latitude === 'string' ? Number(place.latitude) : place.latitude
   const lng = typeof place.longitude === 'string' ? Number(place.longitude) : place.longitude
@@ -68,10 +75,11 @@ function mapPlaceFromDB(place: DbPlaceRow): PlaceExtended {
     address: place.address,
     latitude: lat,
     longitude: lng,
+    openingHours: place.opening_hours ?? null,
     features: {
-      accessibleParking: Boolean(place.accessible_parking),
-      accessibleEntrance: Boolean(place.accessible_entrance),
-      adaptedRestroom: Boolean(place.adapted_restroom),
+      accessibleParking: place.accessible_parking,
+      accessibleEntrance: place.accessible_entrance,
+      adaptedRestroom: place.adapted_restroom,
     },
     arrival: {
       accessibleParking: place.arrival_accessible_parking || '',
@@ -79,14 +87,14 @@ function mapPlaceFromDB(place: DbPlaceRow): PlaceExtended {
       availability: place.arrival_availability || '',
     },
     entrance: {
-      noSteps: Boolean(place.entrance_no_steps),
-      ramp: Boolean(place.entrance_ramp),
-      accessNote: place.entrance_access_note || '',
+      noSteps: place.entrance_no_steps,
+      ramp: place.entrance_ramp,
+      accessNote: place.entrance_access_note,
     },
     interior: {
-      space: place.interior_space || '',
-      restroom: place.interior_restroom || '',
-      elevator: place.interior_elevator || '',
+      space: place.interior_space,
+      restroom: place.interior_restroom,
+      elevator: place.interior_elevator,
     },
   };
 }
@@ -176,21 +184,18 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       // Todos los filtros seleccionados deben cumplirse
 
       // Llegada (Parking)
-      if (filters.parking_available && !p.features.accessibleParking) return false;
-      if (filters.parking_accessible && !p.features.accessibleParking) return false;
+      if (filters.parking_accessible && p.features.accessibleParking !== true) return false;
       if (filters.parking_near_entrance && p.arrival.proximity !== 'near') return false;
       if (filters.signage_clear && p.arrival.accessibleParking !== 'good_signage') return false;
 
       // Entrada
-      if (filters.step_free_access && !p.entrance.noSteps) return false;
-      if (filters.ramp_available && !p.entrance.ramp) return false;
+      if (filters.step_free_access && p.entrance.noSteps !== true) return false;
+      if (filters.ramp_available && p.entrance.ramp !== true) return false;
       if (filters.elevator_available && !p.interior.elevator?.includes('yes')) return false;
       if (filters.entrance_width_ok && p.entrance.accessNote !== 'good_access') return false;
 
       // Interior
-      if (filters.interior_spacious && p.interior.space !== 'spacious') return false;
-      if (filters.wheelchair_table_access && p.interior.space !== 'spacious') return false;
-      if (filters.accessible_bathroom && !p.features.adaptedRestroom) return false;
+      if (filters.accessible_bathroom && p.features.adaptedRestroom !== true) return false;
       if (filters.circulation_clear && p.interior.space !== 'spacious') return false;
 
       return true;
@@ -205,7 +210,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   const reviewsForPlace = useCallback(async (placeId: number) => {
     const { data, error } = await supabase
       .from('reviews')
-      .select('id, rating, comment, created_at, author_id')
+      .select('id, rating, comment, created_at, author_id, users(display_name)')
       .eq('place_id', placeId)
       .order('created_at', { ascending: false });
 
@@ -214,13 +219,42 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       return [];
     }
 
-    return (data || []).map((r) => ({
+    return ((data || []) as DbReviewRow[]).map((r) => ({
       id: r.id,
       placeId,
       rating: r.rating,
       comment: r.comment,
+      createdAt: r.created_at,
+      authorId: r.author_id,
+      authorName: Array.isArray(r.users)
+        ? r.users[0]?.display_name ?? null
+        : r.users?.display_name ?? null,
     }));
   }, []);
+
+  const createReview = useCallback(
+    async (placeId: number, rating: number, comment?: string | null) => {
+      const cleanRating = Math.max(1, Math.min(5, Math.round(rating)));
+      const cleanComment = comment?.trim() ? comment.trim() : null;
+
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
+      if (!user) throw new Error('Debes iniciar sesión para dejar una reseña.');
+
+      const { error } = await supabase.from('reviews').insert({
+        place_id: placeId,
+        author_id: user.id,
+        rating: cleanRating,
+        comment: cleanComment,
+      });
+
+      if (error) throw error;
+
+      // Actualiza stats/orden y cualquier trigger/denormalización.
+      await refreshPlaces();
+    },
+    [refreshPlaces],
+  );
 
   const value = useMemo(
     () => ({
@@ -237,6 +271,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       resetFilters,
       getPlaceById,
       reviewsForPlace,
+      createReview,
       refreshPlaces,
       isLoading,
     }),
@@ -251,6 +286,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       resetFilters,
       getPlaceById,
       reviewsForPlace,
+      createReview,
       refreshPlaces,
       isLoading,
     ],
