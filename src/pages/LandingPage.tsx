@@ -216,7 +216,7 @@ export function LandingPage() {
         className='mx-4 mt-3 rounded-2xl border bg-white/70 px-6 py-3 shadow-sm backdrop-blur'
         style={{ borderColor: COLORS.border }}
       >
-        <div className='mx-auto flex max-w-7xl items-center justify-between gap-6'>
+        <div className='mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6'>
           <div className='min-w-0'>
             <h1
               className='truncate text-xl font-bold'
@@ -229,7 +229,7 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className='flex items-center gap-4'>
+          <div className='flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4'>
             <Button
               size='sm'
               variant='default'
@@ -239,7 +239,7 @@ export function LandingPage() {
               + Añadir Lugar
             </Button>
             <div className='flex items-center gap-2.5'>
-              <span className='max-w-[220px] truncate text-sm text-muted-foreground'>
+              <span className='hidden max-w-[220px] truncate text-sm text-muted-foreground sm:inline'>
                 {userDisplayName}
               </span>
               <Button size='sm' variant='outline' onClick={signOut}>
@@ -383,6 +383,11 @@ export function LandingPage() {
           className='w-full h-full rounded-lg overflow-hidden shadow-lg'
           style={{ pointerEvents: showFiltersModal ? 'none' : 'auto' }}
         />
+
+        {/* Bloqueo del mapa en mobile cuando el sidebar está abierto */}
+        {selectedPlaceData ? (
+          <div className='absolute inset-0 z-1700 bg-black/20 sm:hidden pointer-events-auto' />
+        ) : null}
 
         {selectedPlaceData ? (
           <div className='absolute inset-y-0 right-0 z-1800 flex max-h-full w-full justify-end pointer-events-none'>
@@ -615,326 +620,326 @@ export function LandingPage() {
           className='fixed left-0 top-0 z-9001 flex h-full max-h-dvh w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
           style={{ backgroundColor: COLORS.card }}
         >
-            {/* Header */}
+          {/* Header */}
+          <div
+            className='border-b px-6 py-4 flex items-center justify-between'
+            style={{ borderColor: COLORS.border }}
+          >
+            <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>
+              Filtros y Leyenda
+            </h2>
+            <button
+              onClick={() => setShowFiltersModal(false)}
+              style={{ color: COLORS.textMuted }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className='flex-1 overflow-y-auto p-6 space-y-5'>
+            {/* 1. Solo Recomendados */}
+            <div className='space-y-2'>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.recommendedOnly}
+                  onChange={() => toggleFilter('recommendedOnly')}
+                  className='w-4 h-4 rounded border'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span
+                  className='text-sm font-semibold'
+                  style={{ color: COLORS.text }}
+                >
+                  ⭐ Solo recomendados (4.5+)
+                </span>
+              </label>
+            </div>
+
+            {/* 2. Categoría */}
             <div
-              className='border-b px-6 py-4 flex items-center justify-between'
+              className='space-y-2 pt-3 border-t'
               style={{ borderColor: COLORS.border }}
             >
-              <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>
-                Filtros y Leyenda
-              </h2>
-              <button
-                onClick={() => setShowFiltersModal(false)}
+              <p
+                className='text-xs font-semibold uppercase'
                 style={{ color: COLORS.textMuted }}
               >
-                ✕
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className='flex-1 overflow-y-auto p-6 space-y-5'>
-              {/* 1. Solo Recomendados */}
-              <div className='space-y-2'>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.recommendedOnly}
-                    onChange={() => toggleFilter('recommendedOnly')}
-                    className='w-4 h-4 rounded border'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span
-                    className='text-sm font-semibold'
-                    style={{ color: COLORS.text }}
-                  >
-                    ⭐ Solo recomendados (4.5+)
-                  </span>
-                </label>
-              </div>
-
-              {/* 2. Categoría */}
-              <div
-                className='space-y-2 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  Categoría
-                </p>
-                <select
-                  value={category}
-                  onChange={(e) => {
-                    setLocalCategory(e.target.value as PlaceCategory | 'all');
-                    setCategory(e.target.value as PlaceCategory | 'all');
-                  }}
-                  className='w-full rounded-lg border px-3 py-2 text-sm'
-                  style={{
-                    borderColor: COLORS.border,
-                    color: COLORS.text,
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.primary;
-                    e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.border;
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <option value='all'>Todas</option>
-                  {PLACE_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {PLACE_CATEGORY_LABEL_ES[c]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 3. Accesibilidad - LLEGADA */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🚗 Llegada (Parking)
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.parking_accessible}
-                    onChange={() => toggleFilter('parking_accessible')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Parking accesible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.parking_near_entrance}
-                    onChange={() => toggleFilter('parking_near_entrance')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Cerca de entrada
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.signage_clear}
-                    onChange={() => toggleFilter('signage_clear')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Señalización clara
-                  </span>
-                </label>
-              </div>
-
-              {/* 4. Accesibilidad - ENTRADA */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🚪 Entrada
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.step_free_access}
-                    onChange={() => toggleFilter('step_free_access')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Sin escalones
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.ramp_available}
-                    onChange={() => toggleFilter('ramp_available')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Rampa disponible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.elevator_available}
-                    onChange={() => toggleFilter('elevator_available')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Ascensor
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.entrance_width_ok}
-                    onChange={() => toggleFilter('entrance_width_ok')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Ancho de entrada OK
-                  </span>
-                </label>
-              </div>
-
-              {/* 5. Accesibilidad - INTERIOR */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🏢 Interior
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.accessible_bathroom}
-                    onChange={() => toggleFilter('accessible_bathroom')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Baño accesible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.circulation_clear}
-                    onChange={() => toggleFilter('circulation_clear')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Circulación clara
-                  </span>
-                </label>
-              </div>
-
-              {/* 6. Rating Mínimo */}
-              <div
-                className='space-y-2 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  ⭐ Rating mínimo
-                </p>
-                <select
-                  value={filters.minRating ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value
-                      ? parseFloat(e.target.value)
-                      : null;
-                    setFilterValue('minRating', val);
-                  }}
-                  className='w-full rounded-lg border px-3 py-2 text-sm'
-                  style={{
-                    borderColor: COLORS.border,
-                    color: COLORS.text,
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.primary;
-                    e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.border;
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <option value=''>Cualquiera</option>
-                  <option value='1'>1.0+</option>
-                  <option value='2'>2.0+</option>
-                  <option value='3'>3.0+</option>
-                  <option value='4'>4.0+</option>
-                  <option value='4.5'>4.5+</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div
-              className='border-t px-6 py-4 space-y-3'
-              style={{ borderColor: COLORS.border }}
-            >
-              <button
-                onClick={resetFilters}
-                className='w-full rounded-lg border px-4 py-2 text-sm font-semibold'
+                Categoría
+              </p>
+              <select
+                value={category}
+                onChange={(e) => {
+                  setLocalCategory(e.target.value as PlaceCategory | 'all');
+                  setCategory(e.target.value as PlaceCategory | 'all');
+                }}
+                className='w-full rounded-lg border px-3 py-2 text-sm'
                 style={{
                   borderColor: COLORS.border,
                   color: COLORS.text,
                 }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.primary;
+                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border;
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                Limpiar filtros
-              </button>
-              <button
-                onClick={() => setShowFiltersModal(false)}
-                className='w-full rounded-lg px-4 py-2 text-sm font-semibold text-white'
-                style={{ backgroundColor: COLORS.primary }}
-              >
-                Ver resultados
-              </button>
+                <option value='all'>Todas</option>
+                {PLACE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {PLACE_CATEGORY_LABEL_ES[c]}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* 3. Accesibilidad - LLEGADA */}
+            <div
+              className='space-y-3 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                🚗 Llegada (Parking)
+              </p>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.parking_accessible}
+                  onChange={() => toggleFilter('parking_accessible')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Parking accesible
+                </span>
+              </label>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.parking_near_entrance}
+                  onChange={() => toggleFilter('parking_near_entrance')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Cerca de entrada
+                </span>
+              </label>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.signage_clear}
+                  onChange={() => toggleFilter('signage_clear')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Señalización clara
+                </span>
+              </label>
+            </div>
+
+            {/* 4. Accesibilidad - ENTRADA */}
+            <div
+              className='space-y-3 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                🚪 Entrada
+              </p>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.step_free_access}
+                  onChange={() => toggleFilter('step_free_access')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Sin escalones
+                </span>
+              </label>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.ramp_available}
+                  onChange={() => toggleFilter('ramp_available')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Rampa disponible
+                </span>
+              </label>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.elevator_available}
+                  onChange={() => toggleFilter('elevator_available')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Ascensor
+                </span>
+              </label>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.entrance_width_ok}
+                  onChange={() => toggleFilter('entrance_width_ok')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Ancho de entrada OK
+                </span>
+              </label>
+            </div>
+
+            {/* 5. Accesibilidad - INTERIOR */}
+            <div
+              className='space-y-3 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                🏢 Interior
+              </p>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.accessible_bathroom}
+                  onChange={() => toggleFilter('accessible_bathroom')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Baño accesible
+                </span>
+              </label>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
+                  checked={filters.circulation_clear}
+                  onChange={() => toggleFilter('circulation_clear')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Circulación clara
+                </span>
+              </label>
+            </div>
+
+            {/* 6. Rating Mínimo */}
+            <div
+              className='space-y-2 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                ⭐ Rating mínimo
+              </p>
+              <select
+                value={filters.minRating ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                    ? parseFloat(e.target.value)
+                    : null;
+                  setFilterValue('minRating', val);
+                }}
+                className='w-full rounded-lg border px-3 py-2 text-sm'
+                style={{
+                  borderColor: COLORS.border,
+                  color: COLORS.text,
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.primary;
+                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border;
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <option value=''>Cualquiera</option>
+                <option value='1'>1.0+</option>
+                <option value='2'>2.0+</option>
+                <option value='3'>3.0+</option>
+                <option value='4'>4.0+</option>
+                <option value='4.5'>4.5+</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div
+            className='border-t px-6 py-4 space-y-3'
+            style={{ borderColor: COLORS.border }}
+          >
+            <button
+              onClick={resetFilters}
+              className='w-full rounded-lg border px-4 py-2 text-sm font-semibold'
+              style={{
+                borderColor: COLORS.border,
+                color: COLORS.text,
+              }}
+            >
+              Limpiar filtros
+            </button>
+            <button
+              onClick={() => setShowFiltersModal(false)}
+              className='w-full rounded-lg px-4 py-2 text-sm font-semibold text-white'
+              style={{ backgroundColor: COLORS.primary }}
+            >
+              Ver resultados
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -945,7 +950,7 @@ export function LandingPage() {
           if (!open) setAddPlaceDraft(null);
         }}
       >
-        <DialogContent className='max-w-lg max-h-[85vh] p-4'>
+        <DialogContent className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg'>
           <AddPlacePanel
             draftLatLng={addPlaceDraft}
             onDraftLatLngChange={setAddPlaceDraft}

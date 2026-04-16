@@ -119,17 +119,21 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
 
   return (
     <div
-      className='flex h-full w-full min-h-0 flex-col overflow-hidden rounded-l-2xl border-y border-l border-neutral-200/90 bg-white/95 shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-md animate-in slide-in-from-right-4 duration-200 sm:w-104'
+      className={cn(
+        'flex min-h-0 flex-col overflow-hidden bg-white/95 shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-md animate-in slide-in-from-right-4 duration-200',
+        'h-full w-[min(84vw,22rem)] rounded-l-2xl border-y border-l border-neutral-200/90 sm:w-[min(86vw,24rem)]',
+        'sm:w-104 sm:rounded-l-2xl sm:rounded-r-none sm:border-y sm:border-l sm:border-r-0',
+      )}
       style={{ borderLeftColor: COLORS.border }}
       role='dialog'
       aria-labelledby='place-map-sidebar-title'
     >
       {/* Cabecera compacta: encaja con el mapa, sin bloque azul alto */}
-      <header className='shrink-0 border-b border-neutral-200/80 bg-linear-to-b from-white to-slate-50/80 px-3.5 pb-2 pt-2.5'>
+      <header className='shrink-0 border-b border-neutral-200/80 bg-linear-to-b from-white to-slate-50/80 px-3 pb-1.5 pt-2 sm:px-3.5 sm:pb-2 sm:pt-2.5'>
         <div className='flex items-start justify-between gap-2'>
           <div className='flex min-w-0 flex-1 gap-2.5'>
             <span
-              className='flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl shadow-sm ring-1 ring-primary/15'
+              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg shadow-sm ring-1 ring-primary/15 sm:h-10 sm:w-10 sm:text-xl'
               aria-hidden
             >
               {categoryGlyph(place.category)}
@@ -137,11 +141,11 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
             <div className='min-w-0 pt-0.5'>
               <h2
                 id='place-map-sidebar-title'
-                className='text-base font-semibold leading-snug tracking-tight text-neutral-900 sm:text-[1.05rem]'
+                className='text-sm font-semibold leading-snug tracking-tight text-neutral-900 sm:text-[1.05rem]'
               >
                 {place.name}
               </h2>
-              <div className='mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600'>
+              <div className='mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-600 sm:mt-1 sm:text-xs'>
                 <span>{PLACE_CATEGORY_LABEL_ES[place.category]}</span>
                 {hasStrongRatingSignal ? (
                   <span className='inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary'>
@@ -165,7 +169,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
         </div>
 
         <div className='mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1'>
-          <span className='text-xl font-semibold tabular-nums text-neutral-900'>
+          <span className='text-lg font-semibold tabular-nums text-neutral-900 sm:text-xl'>
             {place.avgRating.toFixed(1).replace('.', ',')}
           </span>
           <StarRow rating={place.avgRating} />
@@ -176,7 +180,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
         </div>
       </header>
 
-      <div className='flex min-h-0 flex-1 flex-col px-3.5 pb-2.5 pt-1.5'>
+      <div className='flex min-h-0 flex-1 flex-col px-3 pb-2 pt-1 sm:px-3.5 sm:pb-2.5 sm:pt-1.5'>
         <div className='flex shrink-0 gap-0.5 border-b border-neutral-200/80'>
           {(
             [
@@ -202,7 +206,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
 
         {/* En Reseñas no mostramos la dirección */}
         {tab === 'overview' ? (
-          <div className='mt-2.5 flex shrink-0 items-center gap-3 px-0.5'>
+          <div className='mt-2 flex shrink-0 items-center gap-2.5 px-0.5 sm:mt-2.5 sm:gap-3'>
             <a
               href={directionsUrl}
               target='_blank'
@@ -212,20 +216,20 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
               title='Cómo llegar'
             >
               <span
-                className='flex h-7 w-7 items-center justify-center rounded-full text-white shadow-sm transition hover:opacity-95'
+                className='flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm transition hover:opacity-95 sm:h-7 sm:w-7'
                 style={{ backgroundColor: COLORS.primaryDark }}
               >
-                <Navigation className='h-4 w-4' strokeWidth={2} />
+                <Navigation className='h-3.5 w-3.5 sm:h-4 sm:w-4' strokeWidth={2} />
               </span>
             </a>
 
             <div className='flex min-w-0 items-start gap-2 rounded-lg bg-slate-50/90 px-3 py-2 ring-1 ring-inset ring-neutral-200/60'>
               <MapPin
-                className='mt-0.5 h-4 w-4 shrink-0 text-primary'
+                className='mt-0.5 h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4'
                 strokeWidth={2}
                 aria-hidden
               />
-              <p className='min-w-0 text-sm font-medium leading-snug text-neutral-900'>
+              <p className='min-w-0 text-xs font-medium leading-snug text-neutral-900 sm:text-sm'>
                 {place.address}
               </p>
             </div>
@@ -233,7 +237,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
         ) : null}
 
         {tab === 'overview' ? (
-          <Separator className='my-2.5 shrink-0 bg-neutral-200/80' />
+          <Separator className='my-2 shrink-0 bg-neutral-200/80 sm:my-2.5' />
         ) : (
           <div className='h-2.5 shrink-0' />
         )}
@@ -246,8 +250,9 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
                   consensus={consensus}
                   loading={consensusLoading}
                   heading='Accesibilidad inclusiva'
-                  headingClassName='text-sm font-bold uppercase tracking-widest text-neutral-700'
+                  headingClassName='text-xs font-bold uppercase tracking-widest text-neutral-700 sm:text-sm'
                   variant='compact'
+                  onlyMajorityYes
                 />
               </div>
             )}
@@ -316,7 +321,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
           <div className='mt-3 shrink-0'>
             <Button
               type='button'
-              className='h-9 w-full text-sm'
+              className='h-8 w-full text-xs sm:h-9 sm:text-sm'
               onClick={() => navigate(`/lugares/${place.id}`)}
             >
               Ver detalle completo

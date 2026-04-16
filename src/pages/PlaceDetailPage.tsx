@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityConsensusGrid';
 import { PlaceReviewFormDialog } from '@/components/reviews/PlaceReviewFormDialog';
@@ -112,19 +111,10 @@ export function PlaceDetailPage() {
         >
           ← Volver al mapa
         </Button>
-        <Button
-          type='button'
-          variant='ghost'
-          size='icon'
-          onClick={handleShare}
-          aria-label='Compartir'
-        >
-          <Share2 className='h-4 w-4' />
-        </Button>
       </div>
 
-      <div className='mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'>
-        <header className='w-fit max-w-full rounded-xl border border-neutral-200/80 bg-white px-4 py-3'>
+      <div className='mt-3 flex items-stretch justify-between gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'>
+        <header className='min-w-0 flex-1 rounded-xl border border-neutral-200/80 bg-white px-4 py-3'>
           <h1 className='text-2xl font-semibold tracking-tight text-neutral-900'>
             {place.name}
           </h1>
@@ -143,7 +133,7 @@ export function PlaceDetailPage() {
           </div>
         </header>
 
-        <div className='flex w-full shrink-0 sm:w-auto sm:justify-end'>
+        <div className='flex min-w-0 flex-1 shrink-0 sm:w-auto sm:flex-none sm:justify-end'>
           <PlaceReviewFormDialog
             placeId={place.id}
             onSaved={() => void reloadLists()}
@@ -156,6 +146,7 @@ export function PlaceDetailPage() {
         className='mt-4'
         consensus={consensus}
         loading={consensusLoading}
+        collapseOnMobile
       />
 
       <section className='mt-5'>

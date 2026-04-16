@@ -21,7 +21,12 @@ type PlaceReviewFormDialogProps = {
   /** Texto personalizado para el botón trigger (si se omite, usa el default). */
   triggerLabel?: string;
   /** Permite forzar el variant del botón trigger. */
-  triggerVariant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive';
+  triggerVariant?:
+    | 'default'
+    | 'outline'
+    | 'secondary'
+    | 'ghost'
+    | 'destructive';
 };
 
 export function PlaceReviewFormDialog({
@@ -44,18 +49,15 @@ export function PlaceReviewFormDialog({
       <DialogTrigger asChild>
         <Button
           type='button'
-          className={cn(
-            'h-10 gap-2 text-sm font-semibold',
-            triggerClassName,
-          )}
+          className={cn('h-10 gap-2 text-sm font-semibold', triggerClassName)}
           variant={triggerVariant ?? (isAuthenticated ? 'default' : 'outline')}
         >
           <MessageSquarePlus className='h-4 w-4' aria-hidden />
           {triggerLabel ??
-            (isAuthenticated ? 'Añadir o editar mi reseña' : 'Dejar una reseña')}
+            (isAuthenticated ? 'Editar mi reseña' : 'Dejar una reseña')}
         </Button>
       </DialogTrigger>
-      <DialogContent className='max-w-lg sm:max-w-2xl'>
+      <DialogContent className='w-[calc(100vw-2rem)] max-w-lg rounded-2xl sm:w-full sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>Tu reseña</DialogTitle>
           <DialogDescription>

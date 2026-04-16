@@ -107,6 +107,7 @@ export function SidebarPlaceDetail() {
             loading={consensusLoading}
             heading='Accesibilidad (consenso de reseñas)'
             headingClassName='text-sm font-semibold text-foreground'
+            collapseOnMobile
           />
         </CardContent>
       </Card>

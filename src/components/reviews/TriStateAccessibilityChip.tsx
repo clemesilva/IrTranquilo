@@ -21,7 +21,7 @@ export function TriStateAccessibilityChip({
       type="button"
       onClick={cycle}
       className={cn(
-        'inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-full border px-2 py-1 text-left text-[13px] font-medium transition-colors',
+        'inline-flex min-h-8 w-fit max-w-full items-center justify-start gap-1.5 rounded-full border px-2 py-1 text-left text-[12px] font-medium transition-colors sm:w-full sm:justify-center sm:text-[13px]',
         isYes &&
           'border-emerald-300/90 bg-emerald-50 text-emerald-950 ring-1 ring-inset ring-emerald-200/70',
         !isYes &&
@@ -31,7 +31,9 @@ export function TriStateAccessibilityChip({
       <span className="shrink-0 font-bold tabular-nums" aria-hidden>
         {isYes ? '\u2713' : '\u2717'}
       </span>
-      <span className="min-w-0 flex-1 leading-snug">{label}</span>
+      <span className="min-w-0 truncate whitespace-nowrap leading-snug">
+        {label}
+      </span>
     </button>
   )
 }
