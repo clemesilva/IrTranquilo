@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import {
@@ -13,14 +13,15 @@ import {
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
-import { fixLeafletDefaultIcons } from '../lib/leafletIcon'
-import { buildPinHtml, categoryGlyph } from '../lib/pins'
-import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar'
+import { fixLeafletDefaultIcons } from '../lib/leafletIcon';
+import { buildPinHtml, categoryGlyph } from '../lib/pins';
+import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
 import {
   fitMapToPlaceWithUiPadding,
   MAP_UI_PADDING_LANDING,
-} from '../lib/mapPlaceFocus'
-import { AddPlacePanel } from '../components/places/AddPlacePanel'
+} from '../lib/mapPlaceFocus';
+import { AddPlacePanel } from '../components/places/AddPlacePanel';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -36,52 +37,52 @@ export function LandingPage() {
     setFilterValue,
   } = usePlaces();
   const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<
-    { marker: L.Marker; place: PlaceWithStats }[]
-  >([]);
+  const markersRef = useRef<{ marker: L.Marker; place: PlaceWithStats }[]>([]);
   const [search, setLocalSearch] = useState('');
   const [category, setLocalCategory] = useState<PlaceCategory | 'all'>('all');
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
-  const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(null);
+  const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
+    null,
+  );
 
   const searchSuggestions = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return []
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
     return allPlaces
       .filter((p) => p.name.toLowerCase().includes(q))
-      .slice(0, 6)
-  }, [allPlaces, search])
+      .slice(0, 6);
+  }, [allPlaces, search]);
 
   const selectedPlaceData = useMemo(() => {
-    if (selectedPlaceId == null) return null
-    return filteredPlaces.find((p) => p.id === selectedPlaceId) ?? null
-  }, [selectedPlaceId, filteredPlaces])
+    if (selectedPlaceId == null) return null;
+    return filteredPlaces.find((p) => p.id === selectedPlaceId) ?? null;
+  }, [selectedPlaceId, filteredPlaces]);
 
   useEffect(() => {
-    if (selectedPlaceId == null) return
+    if (selectedPlaceId == null) return;
     if (!filteredPlaces.some((p) => p.id === selectedPlaceId)) {
-      queueMicrotask(() => setSelectedPlaceId(null))
+      queueMicrotask(() => setSelectedPlaceId(null));
     }
-  }, [filteredPlaces, selectedPlaceId])
+  }, [filteredPlaces, selectedPlaceId]);
 
   const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
-    const map = mapRef.current
-    if (!map) return
+    const map = mapRef.current;
+    if (!map) return;
     fitMapToPlaceWithUiPadding(
       map,
       place.latitude,
       place.longitude,
       MAP_UI_PADDING_LANDING,
-    )
-  }, [])
+    );
+  }, []);
 
   const focusPlaceOnMap = (place: PlaceWithStats) => {
-    setSelectedPlaceId(place.id)
-    panToPlaceForDetail(place)
-  }
+    setSelectedPlaceId(place.id);
+    panToPlaceForDetail(place);
+  };
 
   // Initialize map
   useEffect(() => {
@@ -155,9 +156,9 @@ export function LandingPage() {
     filteredPlaces.forEach((place) => {
       if (place.latitude && place.longitude) {
         const baseColor = getPinColor(place.avgRating);
-        fixLeafletDefaultIcons()
-        const isSelected = selectedPlaceId === place.id
-        const size = isSelected ? 28 : 24
+        fixLeafletDefaultIcons();
+        const isSelected = selectedPlaceId === place.id;
+        const size = isSelected ? 28 : 24;
         const icon = L.divIcon({
           className: '',
           html: buildPinHtml({
@@ -169,13 +170,13 @@ export function LandingPage() {
           iconSize: [size, size + 12],
           iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
           popupAnchor: [0, -Math.round(size + 6)],
-        })
+        });
 
         const marker = L.marker([place.latitude, place.longitude], { icon })
           .on('click', (e) => {
-            L.DomEvent.stopPropagation(e)
-            setSelectedPlaceId(place.id)
-            panToPlaceForDetail(place)
+            L.DomEvent.stopPropagation(e);
+            setSelectedPlaceId(place.id);
+            panToPlaceForDetail(place);
           })
           .addTo(mapRef.current!);
 
@@ -211,7 +212,10 @@ export function LandingPage() {
       >
         <div className='mx-auto flex max-w-7xl items-center justify-between gap-6'>
           <div className='min-w-0'>
-            <h1 className='truncate text-xl font-bold' style={{ color: COLORS.text }}>
+            <h1
+              className='truncate text-xl font-bold'
+              style={{ color: COLORS.text }}
+            >
               IrTranquilo
             </h1>
             <p className='text-xs' style={{ color: COLORS.textMuted }}>
@@ -294,22 +298,24 @@ export function LandingPage() {
                 placeholder='Busca un lugar por nombre (Ej: Clínica Las Condes)'
                 value={search}
                 onChange={(e) => {
-                  const v = e.target.value
+                  const v = e.target.value;
                   setLocalSearch(v);
                   setSearch(v);
-                  setShowSearchDropdown(true)
+                  setShowSearchDropdown(true);
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
-                onBlur={() => window.setTimeout(() => setShowSearchDropdown(false), 120)}
+                onBlur={() =>
+                  window.setTimeout(() => setShowSearchDropdown(false), 120)
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    const first = searchSuggestions[0]
+                    const first = searchSuggestions[0];
                     if (first) {
-                      setLocalSearch(first.name)
-                      setSearch(first.name)
-                      focusPlaceOnMap(first)
-                      setShowSearchDropdown(false)
-                      return
+                      setLocalSearch(first.name);
+                      setSearch(first.name);
+                      focusPlaceOnMap(first);
+                      setShowSearchDropdown(false);
+                      return;
                     }
                     navigate(`/explore?search=${encodeURIComponent(search)}`);
                   }
@@ -326,16 +332,22 @@ export function LandingPage() {
                       className='block w-full px-3 py-2 text-left text-sm hover:bg-gray-50'
                       onMouseDown={(ev) => ev.preventDefault()}
                       onClick={() => {
-                        setLocalSearch(p.name)
-                        setSearch(p.name)
-                        focusPlaceOnMap(p)
-                        setShowSearchDropdown(false)
+                        setLocalSearch(p.name);
+                        setSearch(p.name);
+                        focusPlaceOnMap(p);
+                        setShowSearchDropdown(false);
                       }}
                     >
-                      <div className='font-medium' style={{ color: COLORS.text }}>
+                      <div
+                        className='font-medium'
+                        style={{ color: COLORS.text }}
+                      >
                         {p.name}
                       </div>
-                      <div className='text-xs' style={{ color: COLORS.textMuted }}>
+                      <div
+                        className='text-xs'
+                        style={{ color: COLORS.textMuted }}
+                      >
                         {p.address}
                       </div>
                     </button>
@@ -345,7 +357,9 @@ export function LandingPage() {
             </div>
             <Button
               className='h-11 px-6'
-              onClick={() => navigate(`/explore?search=${encodeURIComponent(search)}`)}
+              onClick={() =>
+                navigate(`/explore?search=${encodeURIComponent(search)}`)
+              }
             >
               Buscar
             </Button>
@@ -589,14 +603,12 @@ export function LandingPage() {
         </div>
       </footer>
 
-      {/* Filtros Modal - Drawer */}
-      {showFiltersModal && (
-        <div className='fixed inset-0 z-[2000] flex'>
-          {/* Drawer Panel (izquierda) */}
-          <div
-            className='w-96 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-left-96'
-            style={{ backgroundColor: COLORS.card }}
-          >
+      <Dialog open={showFiltersModal} onOpenChange={setShowFiltersModal}>
+        <DialogContent
+          hideClose
+          className='fixed left-0 top-0 z-[9001] flex h-full max-h-[100dvh] w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
+          style={{ backgroundColor: COLORS.card }}
+        >
             {/* Header */}
             <div
               className='border-b px-6 py-4 flex items-center justify-between'
@@ -917,45 +929,31 @@ export function LandingPage() {
                 Ver resultados
               </button>
             </div>
-          </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* Overlay (resto de la pantalla) */}
-          <div
-            className='flex-1 bg-black/20'
-            onClick={() => setShowFiltersModal(false)}
+      <Dialog
+        open={showAddPlaceModal}
+        onOpenChange={(open) => {
+          setShowAddPlaceModal(open);
+          if (!open) setAddPlaceDraft(null);
+        }}
+      >
+        <DialogContent className='max-w-lg max-h-[85vh] p-4'>
+          <AddPlacePanel
+            draftLatLng={addPlaceDraft}
+            onDraftLatLngChange={setAddPlaceDraft}
+            onClose={() => {
+              setShowAddPlaceModal(false);
+              setAddPlaceDraft(null);
+            }}
+            onSaved={() => {
+              setShowAddPlaceModal(false);
+              setAddPlaceDraft(null);
+            }}
           />
-        </div>
-      )}
-
-      {showAddPlaceModal ? (
-        <div
-          className='fixed inset-0 z-[8000] flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-8 backdrop-blur-sm'
-          role='presentation'
-          onClick={() => {
-            setShowAddPlaceModal(false);
-            setAddPlaceDraft(null);
-          }}
-        >
-          <div
-            className='relative z-[1] my-auto w-full max-w-lg rounded-xl border bg-white p-4 shadow-2xl ring-1 ring-black/5'
-            style={{ borderColor: COLORS.border }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <AddPlacePanel
-              draftLatLng={addPlaceDraft}
-              onDraftLatLngChange={setAddPlaceDraft}
-              onClose={() => {
-                setShowAddPlaceModal(false);
-                setAddPlaceDraft(null);
-              }}
-              onSaved={() => {
-                setShowAddPlaceModal(false);
-                setAddPlaceDraft(null);
-              }}
-            />
-          </div>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

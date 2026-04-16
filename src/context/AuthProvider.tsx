@@ -90,7 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
-      if (data.user) setUser(data.user);
+      // En registro, forzamos a que el usuario NO quede autenticado aquí.
+      // (El flujo esperado es confirmar email y luego iniciar sesión).
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+      setUser(null);
     },
     [],
   );

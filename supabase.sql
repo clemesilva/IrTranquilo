@@ -88,40 +88,17 @@ CREATE TABLE places (
   longitude DECIMAL(9, 6) NOT NULL,
 
   -- Horario (Google Places)
-  -- Guardamos `weekday_text` como array de strings (ej: "lunes: 9:00–18:00")
   opening_hours TEXT[],
 
   -- Creador del lugar
   created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
 
-  -- Flags de accesibilidad (Quick filters)
-  accessible_parking BOOLEAN DEFAULT FALSE,
-  accessible_entrance BOOLEAN DEFAULT FALSE,
-  adapted_restroom BOOLEAN DEFAULT FALSE,
-
-  -- Detalles de llegada
-  arrival_accessible_parking TEXT,
-  arrival_proximity TEXT,
-  arrival_availability TEXT,
-
-  -- Detalles de entrada
-  entrance_no_steps BOOLEAN DEFAULT FALSE,
-  entrance_ramp BOOLEAN DEFAULT FALSE,
-  entrance_access_note TEXT,
-
-  -- Detalles interiores
-  interior_space TEXT,
-  interior_restroom TEXT,
-  interior_elevator TEXT,
-
-  -- Foto (URL)
   photo_url TEXT,
 
-  -- Timestamps
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-  -- Rating calculado (Desnormalizado para query performance)
+  -- Desnormalizado desde reviews (triggers + app)
   avg_rating DECIMAL(3, 1) DEFAULT 0,
   review_count INTEGER DEFAULT 0,
   rating_band rating_band DEFAULT 'not_recommended'
@@ -164,6 +141,39 @@ CREATE INDEX idx_reviews_place_id ON reviews(place_id);
 CREATE INDEX idx_reviews_author_id ON reviews(author_id);
 CREATE INDEX idx_reviews_rating ON reviews(rating DESC);
 CREATE INDEX idx_reviews_created_at ON reviews(created_at DESC);
+
+-- Una reseña por usuario y lugar
+CREATE UNIQUE INDEX uq_reviews_place_author ON reviews (place_id, author_id);
+
+-- ============================================================================
+-- 4b. TABLA: place_accessibility_reviews (checklist por reseña)
+-- ============================================================================
+
+CREATE TABLE place_accessibility_reviews (
+  id BIGSERIAL PRIMARY KEY,
+  review_id BIGINT NOT NULL UNIQUE REFERENCES reviews(id) ON DELETE CASCADE,
+  place_id BIGINT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
+
+  parking_available BOOLEAN NOT NULL DEFAULT FALSE,
+  parking_accessible BOOLEAN NOT NULL DEFAULT FALSE,
+  parking_near_entrance BOOLEAN NOT NULL DEFAULT FALSE,
+  signage_clear BOOLEAN NOT NULL DEFAULT FALSE,
+
+  step_free_access BOOLEAN NOT NULL DEFAULT FALSE,
+  ramp_available BOOLEAN NOT NULL DEFAULT FALSE,
+  elevator_available BOOLEAN NOT NULL DEFAULT FALSE,
+  entrance_width_ok BOOLEAN NOT NULL DEFAULT FALSE,
+
+  interior_spacious BOOLEAN NOT NULL DEFAULT FALSE,
+  wheelchair_table_access BOOLEAN NOT NULL DEFAULT FALSE,
+  accessible_bathroom BOOLEAN NOT NULL DEFAULT FALSE,
+  circulation_clear BOOLEAN NOT NULL DEFAULT FALSE,
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_place_accessibility_reviews_place_id
+  ON place_accessibility_reviews(place_id);
 
 -- ============================================================================
 -- 5. TABLA: helpful_votes (Votos de "útil" en reseñas)
@@ -328,6 +338,7 @@ CREATE TRIGGER trigger_helpful_votes_count_delete
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE places ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE place_accessibility_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE helpful_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
@@ -384,6 +395,44 @@ CREATE POLICY "Users can delete own reviews"
   ON reviews FOR DELETE
   USING (auth.uid() = author_id);
 
+-- POLICIES para 'place_accessibility_reviews'
+CREATE POLICY "Anyone can view place_accessibility_reviews"
+  ON place_accessibility_reviews FOR SELECT
+  USING (true);
+
+CREATE POLICY "Authors can insert accessibility for own review"
+  ON place_accessibility_reviews FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM reviews r
+      WHERE r.id = review_id AND r.author_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Authors can update own accessibility review"
+  ON place_accessibility_reviews FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM reviews r
+      WHERE r.id = review_id AND r.author_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM reviews r
+      WHERE r.id = review_id AND r.author_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Authors can delete own accessibility review"
+  ON place_accessibility_reviews FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM reviews r
+      WHERE r.id = review_id AND r.author_id = auth.uid()
+    )
+  );
+
 -- POLICIES para 'helpful_votes'
 -- Usuarios autenticados pueden votar
 CREATE POLICY "Authenticated users can vote"
@@ -416,7 +465,7 @@ CREATE POLICY "Users can delete own favorites"
   USING (auth.uid() = user_id);
 
 -- ============================================================================
--- 9. DATA SEEDING (Datos iniciales - igual a mockPlaces.ts)
+-- 9. DATA SEEDING (datos mínimos; la app usa consenso en place_accessibility_reviews)
 -- ============================================================================
 
 -- Crear un usuario demo
@@ -428,112 +477,69 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- Insertar los 5 lugares de demo
 INSERT INTO places (
   name, category, address, latitude, longitude,
   created_by,
-  accessible_parking, accessible_entrance, adapted_restroom,
-  arrival_accessible_parking, arrival_proximity, arrival_availability,
-  entrance_no_steps, entrance_ramp, entrance_access_note,
-  interior_space, interior_restroom, interior_elevator,
   photo_url
 ) VALUES
--- Café Plaza Italia
 (
   'Café Plaza Italia', 'cafe',
   'Av. Italia 1200, Providencia',
   -33.4378, -70.6215,
   '00000000-0000-0000-0000-000000000001'::uuid,
-  true, true, true,
-  'Dos cupos reservados junto a la entrada.',
-  'A 200 m de parada de metro accesible.',
-  'Suele haber cupo en horario valle.',
-  true, true, 'Rampa con pendiente suave y mano continua.',
-  'Mesas con pasillo amplio entre filas.',
-  'Baño unisex adaptado verificado por usuarios.',
-  'No aplica (planta baja).',
   NULL
 ),
--- Restaurante El Roble
 (
   'Restaurante El Roble', 'restaurant',
   'Los Leones 3100, Ñuñoa',
   -33.4562, -70.6051,
   '00000000-0000-0000-0000-000000000001'::uuid,
-  false, true, false,
-  'Sin estacionamiento propio; calle con rampa verde cercana.',
-  'Entrada principal sobre vereda nivelada.',
-  'Reservar mesa en planta baja recomendado.',
-  false, true, 'Un escalón de 8 cm compensado con rampa portátil.',
-  'Sector planta baja aceptable; salón superior solo por escaleras.',
-  'Baño pequeño, sin barras de apoyo reportadas.',
-  'No disponible.',
   NULL
 ),
--- Parque Bicentenario
 (
   'Parque Bicentenario (acceso norte)', 'park',
   'Bicentenario 3800, Vitacura',
   -33.3944, -70.5989,
   '00000000-0000-0000-0000-000000000001'::uuid,
-  true, true, true,
-  'Estacionamiento con cupos señalizados.',
-  'Sendero principal continuo desde el estacionamiento.',
-  'Fin de semana puede llenarse temprano.',
-  true, false, 'Acceso plano sin desniveles relevantes.',
-  'Amplios caminos pavimentados; algunas zonas de césped blando.',
-  'Baños públicos adaptados en módulo central.',
-  'No aplica.',
   NULL
 ),
--- Clínica Andes
 (
   'Clínica Andes', 'clinic',
   'Apoquindo 4500, Las Condes',
   -33.415, -70.594,
   '00000000-0000-0000-0000-000000000001'::uuid,
-  true, true, true,
-  'Subterráneo con ascensor desde cupos señalizados.',
-  'Acceso directo desde estacionamiento a recepción.',
-  'Cupos limitados en horario punta.',
-  true, true, 'Puertas automáticas y contrapiso sin desnivel.',
-  'Pasillos amplios; mostradores con altura mixta.',
-  'Baños adaptados en cada piso con ascensor.',
-  'Ascensores con ancho para silla y botonería baja.',
   NULL
 ),
--- Mall Urbano
 (
   'Mall Urbano (entrada oriente)', 'mall',
   'Vicuña Mackenna 6100, La Florida',
   -33.52, -70.598,
   '00000000-0000-0000-0000-000000000001'::uuid,
-  true, false, true,
-  'Cupos en varios niveles; ascensor de vehículo operativo.',
-  'Entrada oriente con vereda en reparación según reportes.',
-  'Mejor acceso por entrada poniente.',
-  false, false, 'Escalones fijos en acceso oriente; alternativa poniente con rampa.',
-  'Pasillos estándar de mall.',
-  'Baños adaptados en food court.',
-  'Ascensores públicos en buen estado.',
   NULL
-)
-ON CONFLICT DO NOTHING;
+);
 
--- Insertar reseñas demo
+-- Una reseña demo por lugar (respeta uq_reviews_place_author)
 INSERT INTO reviews (place_id, author_id, rating, comment) VALUES
 (1, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Todo fluido con silla de ruedas.'),
-(1, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Baño impecable y amplio.'),
-(1, '00000000-0000-0000-0000-000000000001'::uuid, 4, 'Un poco ruidoso pero accesible.'),
-(2, '00000000-0000-0000-0000-000000000001'::uuid, 4, 'Rampa portátil ok, hay que avisar al llegar.'),
-(2, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Baño no adaptado, complicado.'),
-(3, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Parque muy accesible, lo recomiendo.'),
-(3, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Estacionamiento y baños bien señalizados.'),
+(2, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Rampa portátil ok; baño complicado.'),
+(3, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Parque muy accesible.'),
 (4, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Edificio moderno, sin problemas.'),
-(4, '00000000-0000-0000-0000-000000000001'::uuid, 4, 'Ascensor a veces colapsado en punta.'),
-(5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Entrada oriente es un problema.'),
-(5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Usar otra entrada si van con silla.')
-ON CONFLICT DO NOTHING;
+(5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Revisar mejor entrada.');
+
+-- Checklist demo (una fila por reseña seed)
+INSERT INTO place_accessibility_reviews (
+  review_id, place_id,
+  parking_available, parking_accessible, parking_near_entrance, signage_clear,
+  step_free_access, ramp_available, elevator_available, entrance_width_ok,
+  interior_spacious, wheelchair_table_access, accessible_bathroom, circulation_clear
+)
+SELECT r.id, r.place_id,
+  true, true, true, true,
+  true, true, false, true,
+  true, true, true, true
+FROM reviews r
+WHERE r.place_id BETWEEN 1 AND 5
+ON CONFLICT (review_id) DO NOTHING;
 
 -- ============================================================================
 -- Migración: ampliar enum place_category (BD ya creada con valores viejos)

@@ -17,7 +17,8 @@ import type { PlaceWithStats } from '../context/placesContext'
 import {
   fitMapToPlaceWithUiPadding,
   MAP_UI_PADDING_EXPLORE,
-} from '../lib/mapPlaceFocus'
+} from '../lib/mapPlaceFocus';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export function ExplorePage() {
   const navigate = useNavigate();
@@ -308,14 +309,12 @@ export function ExplorePage() {
         ) : null}
       </div>
 
-      {/* Filtros Modal - Drawer */}
-      {showFiltersModal && (
-        <div className='fixed inset-0 z-[2000] flex'>
-          {/* Drawer Panel (izquierda) */}
-          <div
-            className='w-96 shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-left-96'
-            style={{ backgroundColor: COLORS.card }}
-          >
+      <Dialog open={showFiltersModal} onOpenChange={setShowFiltersModal}>
+        <DialogContent
+          hideClose
+          className='fixed left-0 top-0 z-[9001] flex h-full max-h-[100dvh] w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
+          style={{ backgroundColor: COLORS.card }}
+        >
             {/* Header */}
             <div
               className='border-b px-6 py-4 flex items-center justify-between'
@@ -678,15 +677,8 @@ export function ExplorePage() {
                 Ver resultados
               </button>
             </div>
-          </div>
-
-          {/* Overlay (resto de la pantalla) */}
-          <div
-            className='flex-1 bg-black/20'
-            onClick={() => setShowFiltersModal(false)}
-          />
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

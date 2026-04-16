@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation, Share2, X, type LucideIcon } from 'lucide-react';
+import { MapPin, Navigation, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { usePlaces } from '@/context/usePlaces';
-import { useAuth } from '@/context/useAuth';
+import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityConsensusGrid';
+import { PlaceReviewFormDialog } from '@/components/reviews/PlaceReviewFormDialog';
 import type { PlaceWithStats } from '@/context/placesContext';
 import { categoryGlyph } from '@/lib/pins';
+import { formatRelativeTimeEs } from '@/lib/relativeTime';
+import type { AccessibilityConsensusMap } from '@/lib/reviewAccessibilityConsensus';
 import { PLACE_CATEGORY_LABEL_ES, type PlaceReview } from '@/types/place';
 import { COLORS } from '@/styles/colors';
 import { cn } from '@/lib/utils';
@@ -39,22 +42,7 @@ function StarRow({
   );
 }
 
-function InfoRow({
-  icon: Icon,
-  children,
-}: {
-  icon: LucideIcon;
-  children: ReactNode;
-}) {
-  return (
-    <div className='flex gap-3 rounded-lg bg-slate-50/90 px-3 py-2.5 ring-1 ring-inset ring-neutral-200/60'>
-      <Icon className='mt-0.5 h-4 w-4 shrink-0 text-primary' strokeWidth={2} />
-      <div className='min-w-0 flex-1 text-sm leading-snug text-neutral-800'>
-        {children}
-      </div>
-    </div>
-  );
-}
+// InfoRow eliminado (dirección ahora va en línea junto a "Cómo llegar")
 
 interface PlaceMapSidebarProps {
   place: PlaceWithStats;
@@ -63,95 +51,81 @@ interface PlaceMapSidebarProps {
 
 export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
-  const { reviewsForPlace, createReview } = usePlaces();
-  const { isAuthenticated, signInWithGoogle } = useAuth();
+  const { reviewsForPlace, accessibilityConsensusForPlace } = usePlaces();
   const [tab, setTab] = useState<PanelTab>('overview');
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [newRating, setNewRating] = useState<number>(0);
-  const [newComment, setNewComment] = useState('');
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
+  const [consensus, setConsensus] = useState<AccessibilityConsensusMap | null>(
+    null,
+  );
+  const [consensusLoading, setConsensusLoading] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) setReviewsLoading(true);
-    });
-    reviewsForPlace(place.id).then((rows) => {
-      if (cancelled) return;
-      setReviews(rows);
-      setReviewsLoading(false);
-    });
+    const load = () => {
+      // Evita setState síncrono en el cuerpo del effect (regla de lint del proyecto)
+      queueMicrotask(() => {
+        if (!cancelled) setReviewsLoading(true);
+      });
+      reviewsForPlace(place.id).then((rows) => {
+        if (cancelled) return;
+        setReviews(rows);
+        setReviewsLoading(false);
+      });
+    };
+
+    load();
+
     return () => {
       cancelled = true;
     };
   }, [place.id, reviewsForPlace]);
 
-  const canSubmitReview = useMemo(() => {
-    return (
-      isAuthenticated && newRating >= 1 && newRating <= 5 && !isSubmittingReview
-    );
-  }, [isAuthenticated, newRating, isSubmittingReview]);
-
-  const handleSubmitReview = async () => {
-    if (!isAuthenticated) return;
-    if (newRating < 1 || newRating > 5) return;
-    setIsSubmittingReview(true);
-    setSubmitError(null);
-    try {
-      await createReview(place.id, newRating, newComment);
-      const rows = await reviewsForPlace(place.id);
-      setReviews(rows);
-      setNewRating(0);
-      setNewComment('');
-    } catch (e) {
-      setSubmitError(
-        e instanceof Error ? e.message : 'No se pudo enviar la reseña.',
-      );
-    } finally {
-      setIsSubmittingReview(false);
-    }
+  const reloadSidebarLists = async () => {
+    setReviewsLoading(true);
+    setConsensusLoading(true);
+    const [rows, c] = await Promise.all([
+      reviewsForPlace(place.id),
+      accessibilityConsensusForPlace(place.id),
+    ]);
+    setReviews(rows);
+    setConsensus(c);
+    setReviewsLoading(false);
+    setConsensusLoading(false);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    // Evita setState síncrono en el cuerpo del effect (regla de lint del proyecto)
+    queueMicrotask(() => {
+      if (!cancelled) setConsensusLoading(true);
+    });
+    void accessibilityConsensusForPlace(place.id).then((c) => {
+      if (cancelled) return;
+      setConsensus(c);
+      setConsensusLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [place.id, accessibilityConsensusForPlace]);
 
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`;
-  const elevatorConfirmed = (place.interior.elevator ?? '')
-    .toLowerCase()
-    .includes('yes');
 
-  const handleShare = async () => {
-    const url = window.location.href;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: place.name,
-          text: place.address,
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-      }
-    } catch {
-      /* usuario canceló o no hay permiso */
-    }
-  };
+  // Compartir eliminado del sidebar (solo queda en detalle completo)
 
-  const hasAccessibilitySignal =
-    place.features?.accessibleParking === true ||
-    place.features?.accessibleEntrance === true ||
-    place.features?.adaptedRestroom === true ||
-    Boolean(place.entrance.accessNote?.trim());
+  const hasStrongRatingSignal =
+    place.band === 'recommended' ||
+    (place.reviewCount > 0 && place.avgRating >= 4);
 
   return (
     <div
-      className='flex h-full min-h-0 max-w-full flex-col overflow-hidden rounded-l-2xl border-y border-l border-neutral-200/90 bg-white/95 shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-md animate-in slide-in-from-right-4 duration-200 sm:max-w-[22rem]'
+      className='flex h-full w-full min-h-0 flex-col overflow-hidden rounded-l-2xl border-y border-l border-neutral-200/90 bg-white/95 shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-md animate-in slide-in-from-right-4 duration-200 sm:w-104'
       style={{ borderLeftColor: COLORS.border }}
       role='dialog'
       aria-labelledby='place-map-sidebar-title'
     >
       {/* Cabecera compacta: encaja con el mapa, sin bloque azul alto */}
-      <header className='shrink-0 border-b border-neutral-200/80 bg-gradient-to-b from-white to-slate-50/80 px-3.5 pb-3 pt-3'>
+      <header className='shrink-0 border-b border-neutral-200/80 bg-linear-to-b from-white to-slate-50/80 px-3.5 pb-2 pt-2.5'>
         <div className='flex items-start justify-between gap-2'>
           <div className='flex min-w-0 flex-1 gap-2.5'>
             <span
@@ -169,10 +143,10 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
               </h2>
               <div className='mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600'>
                 <span>{PLACE_CATEGORY_LABEL_ES[place.category]}</span>
-                {hasAccessibilitySignal ? (
+                {hasStrongRatingSignal ? (
                   <span className='inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary'>
                     <span aria-hidden>{'\u267F'}</span>
-                    Accesible
+                    Bien valorado
                   </span>
                 ) : null}
               </div>
@@ -190,7 +164,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
           </Button>
         </div>
 
-        <div className='mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1'>
+        <div className='mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1'>
           <span className='text-xl font-semibold tabular-nums text-neutral-900'>
             {place.avgRating.toFixed(1).replace('.', ',')}
           </span>
@@ -202,7 +176,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
         </div>
       </header>
 
-      <div className='flex min-h-0 flex-1 flex-col px-3.5 pb-3 pt-2'>
+      <div className='flex min-h-0 flex-1 flex-col px-3.5 pb-2.5 pt-1.5'>
         <div className='flex shrink-0 gap-0.5 border-b border-neutral-200/80'>
           {(
             [
@@ -215,7 +189,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
               type='button'
               onClick={() => setTab(key)}
               className={cn(
-                '-mb-px flex-1 border-b-2 px-1 py-2 text-center text-xs font-medium transition-colors sm:text-[13px]',
+                '-mb-px flex-1 border-b-2 px-1 py-1.5 text-center text-xs font-medium transition-colors sm:text-[13px]',
                 tab === key
                   ? 'border-primary text-primary'
                   : 'border-transparent text-neutral-500 hover:text-neutral-800',
@@ -226,162 +200,74 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
           ))}
         </div>
 
-        {/* Acciones rápidas (sin Explorar) */}
-        <div className='mt-3 flex shrink-0 justify-between gap-2 px-0.5'>
-          <a
-            href={directionsUrl}
-            target='_blank'
-            rel='noreferrer'
-            className='flex flex-1 flex-col items-center gap-1'
-          >
-            <span
-              className='flex h-10 w-10 items-center justify-center rounded-full text-white shadow-md transition hover:opacity-95'
-              style={{ backgroundColor: COLORS.primaryDark }}
+        {/* En Reseñas no mostramos la dirección */}
+        {tab === 'overview' ? (
+          <div className='mt-2.5 flex shrink-0 items-center gap-3 px-0.5'>
+            <a
+              href={directionsUrl}
+              target='_blank'
+              rel='noreferrer'
+              className='shrink-0'
+              aria-label='Cómo llegar'
+              title='Cómo llegar'
             >
-              <Navigation className='h-5 w-5' strokeWidth={2} />
-            </span>
-            <span className='max-w-[4.5rem] text-center text-[10px] font-medium leading-tight text-neutral-600'>
-              Cómo llegar
-            </span>
-          </a>
+              <span
+                className='flex h-7 w-7 items-center justify-center rounded-full text-white shadow-sm transition hover:opacity-95'
+                style={{ backgroundColor: COLORS.primaryDark }}
+              >
+                <Navigation className='h-4 w-4' strokeWidth={2} />
+              </span>
+            </a>
 
-          <button
-            type='button'
-            className='flex flex-1 flex-col items-center gap-1'
-            onClick={handleShare}
-          >
-            <span className='flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200/90 bg-white text-primary shadow-sm ring-1 ring-neutral-100 transition hover:bg-slate-50'>
-              <Share2 className='h-5 w-5' strokeWidth={2} />
-            </span>
-            <span className='max-w-[4.5rem] text-center text-[10px] font-medium leading-tight text-neutral-600'>
-              Compartir
-            </span>
-          </button>
-        </div>
+            <div className='flex min-w-0 items-start gap-2 rounded-lg bg-slate-50/90 px-3 py-2 ring-1 ring-inset ring-neutral-200/60'>
+              <MapPin
+                className='mt-0.5 h-4 w-4 shrink-0 text-primary'
+                strokeWidth={2}
+                aria-hidden
+              />
+              <p className='min-w-0 text-sm font-medium leading-snug text-neutral-900'>
+                {place.address}
+              </p>
+            </div>
+          </div>
+        ) : null}
 
-        <Separator className='my-3 shrink-0 bg-neutral-200/80' />
+        {tab === 'overview' ? (
+          <Separator className='my-2.5 shrink-0 bg-neutral-200/80' />
+        ) : (
+          <div className='h-2.5 shrink-0' />
+        )}
 
         <ScrollArea className='min-h-0 flex-1 pr-2'>
           <div className='pb-2'>
             {tab === 'overview' && (
-              <div className='space-y-2'>
-                <InfoRow icon={MapPin}>
-                  <p className='font-medium text-neutral-900'>
-                    {place.address}
-                  </p>
-                </InfoRow>
-
-                <div className='flex flex-wrap items-center gap-2 text-sm text-neutral-700'>
-                  {place.entrance.ramp === true ? (
-                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
-                      <span aria-hidden>♿</span> Rampa
-                    </span>
-                  ) : null}
-                  {place.features.adaptedRestroom === true ? (
-                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
-                      <span aria-hidden>🚻</span> Baño accesible
-                    </span>
-                  ) : null}
-                  {place.features.accessibleParking === true ? (
-                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
-                      <span aria-hidden>🅿️</span> Parking
-                    </span>
-                  ) : null}
-                  {elevatorConfirmed ? (
-                    <span className='inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-inset ring-neutral-200/70'>
-                      <span aria-hidden>🛗</span> Ascensor
-                    </span>
-                  ) : null}
-                </div>
+              <div className='space-y-3'>
+                <AccessibilityConsensusGrid
+                  consensus={consensus}
+                  loading={consensusLoading}
+                  heading='Accesibilidad inclusiva'
+                  headingClassName='text-sm font-bold uppercase tracking-widest text-neutral-700'
+                  variant='compact'
+                />
               </div>
             )}
 
             {tab === 'reviews' && (
               <div className='space-y-2.5'>
-                <div className='rounded-lg border border-neutral-200/80 bg-white p-3'>
-                  <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>
-                    Deja tu reseña
-                  </p>
-                  {!isAuthenticated ? (
-                    <div className='mt-2 flex flex-col gap-2'>
-                      <p className='text-sm text-neutral-600'>
-                        Inicia sesión para escribir una reseña.
-                      </p>
-                      <Button
-                        type='button'
-                        variant='default'
-                        className='h-9'
-                        onClick={() => signInWithGoogle()}
-                      >
-                        Iniciar sesión con Google
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className='mt-2 space-y-2'>
-                      <div className='flex items-center gap-1'>
-                        {Array.from({ length: 5 }, (_, i) => {
-                          const v = i + 1;
-                          const active = newRating >= v;
-                          return (
-                            <button
-                              key={v}
-                              type='button'
-                              className='p-1'
-                              onClick={() => setNewRating(v)}
-                              aria-label={`Calificar ${v} de 5`}
-                            >
-                              <span
-                                className={cn(
-                                  'text-lg leading-none',
-                                  active
-                                    ? 'text-amber-400'
-                                    : 'text-neutral-200',
-                                )}
-                              >
-                                {'\u2605'}
-                              </span>
-                            </button>
-                          );
-                        })}
-                        <span className='ml-2 text-xs font-medium tabular-nums text-neutral-600'>
-                          {newRating ? `${newRating}/5` : 'Elige estrellas'}
-                        </span>
-                      </div>
-                      <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder='Escribe tu reseña (opcional)…'
-                        className='w-full resize-none rounded-md border border-neutral-200/80 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10'
-                        rows={3}
-                      />
-                      {submitError ? (
-                        <p className='text-sm text-rose-600'>{submitError}</p>
-                      ) : null}
-                      <Button
-                        type='button'
-                        className='h-9 w-full text-sm'
-                        onClick={handleSubmitReview}
-                        disabled={!canSubmitReview}
-                      >
-                        {isSubmittingReview ? 'Enviando…' : 'Publicar reseña'}
-                      </Button>
-                    </div>
-                  )}
+                <div className='flex justify-center'>
+                  <PlaceReviewFormDialog
+                    placeId={place.id}
+                    onSaved={() => void reloadSidebarLists()}
+                    triggerLabel='Escribir una reseña'
+                    triggerVariant='outline'
+                    triggerClassName='h-9 w-fit rounded-full border-primary/30 bg-white px-4 text-primary shadow-sm hover:bg-primary/5'
+                  />
                 </div>
-
                 {reviewsLoading ? (
                   <p className='text-sm text-neutral-500'>Cargando reseñas…</p>
                 ) : reviews.length === 0 ? (
                   <p className='text-sm leading-relaxed text-neutral-600'>
-                    No hay reseñas todavía. Evalúa este lugar desde{' '}
-                    <button
-                      type='button'
-                      className='font-medium text-primary underline underline-offset-2'
-                      onClick={() => navigate('/places/new')}
-                    >
-                      Añadir lugar
-                    </button>
-                    .
+                    No hay reseñas todavía. Sé la primera persona en dejar una.
                   </p>
                 ) : (
                   reviews.map((r) => (
@@ -389,6 +275,17 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
                       key={r.id}
                       className='rounded-lg border border-neutral-200/80 bg-slate-50/60 p-3'
                     >
+                      <div className='mb-1 flex items-start justify-between gap-3'>
+                        <p className='text-sm font-semibold leading-snug text-neutral-900'>
+                          {r.authorName ?? 'Usuario'}
+                        </p>
+                        {formatRelativeTimeEs(r.createdAt ?? null) ? (
+                          <p className='shrink-0 text-xs text-neutral-500'>
+                            {formatRelativeTimeEs(r.createdAt ?? null)}
+                          </p>
+                        ) : null}
+                      </div>
+
                       <div className='mb-1 flex items-center gap-2'>
                         <StarRow rating={r.rating} className='scale-90' />
                         <span className='text-xs font-medium tabular-nums text-neutral-700'>

@@ -75,7 +75,7 @@ export const PLACE_CATEGORY_LABEL_ES = {
   other: 'Otro',
 } as const satisfies Record<PlaceCategory, string>
 
-/** Alineado al esquema SQL `places` (id bigint en DB; aquí number para el MVP mock). */
+/** Alineado al esquema SQL `places` (id bigint en DB; aquí number). */
 export interface Place {
   id: number
   name: string
@@ -84,9 +84,13 @@ export interface Place {
   latitude: number
   longitude: number
   openingHours?: string[] | null
+  photoUrl?: string | null
+  createdBy?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
-/** Alineado al esquema SQL `place_reviews`. */
+/** Alineado al esquema SQL `reviews`. */
 export interface PlaceReview {
   id: number
   placeId: number
@@ -95,38 +99,6 @@ export interface PlaceReview {
   createdAt?: string | null
   authorId?: string | null
   authorName?: string | null
-}
-
-/** Campos extra solo en mock / futura migración, para filtros y ficha detalle. */
-export interface PlaceAccessibilityFlags {
-  accessibleParking: boolean | null
-  accessibleEntrance: boolean | null
-  adaptedRestroom: boolean | null
-}
-
-export interface PlaceArrivalDetail {
-  accessibleParking: string
-  proximity: string
-  availability: string
-}
-
-export interface PlaceEntranceDetail {
-  noSteps: boolean | null
-  ramp: boolean | null
-  accessNote: string | null
-}
-
-export interface PlaceInteriorDetail {
-  space: string | null
-  restroom: string | null
-  elevator: string | null
-}
-
-export interface PlaceExtended extends Place {
-  features: PlaceAccessibilityFlags
-  arrival: PlaceArrivalDetail
-  entrance: PlaceEntranceDetail
-  interior: PlaceInteriorDetail
 }
 
 export type RatingBand = 'recommended' | 'acceptable' | 'not_recommended'

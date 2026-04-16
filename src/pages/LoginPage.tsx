@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import { useAuth } from '../context/useAuth';
 import { COLORS } from '../styles/colors';
 
@@ -33,10 +34,16 @@ export function LoginPage() {
     try {
       if (isSignUp) {
         await signUp(email, password, displayName);
+        toast.success(
+          'Cuenta creada. Te va a llegar un mail de confirmación para activar tu cuenta.',
+        );
+        setIsSignUp(false);
+        setPassword('');
+        navigate('/login', { replace: true });
       } else {
         await signIn(email, password);
+        navigate('/');
       }
-      navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -52,7 +59,9 @@ export function LoginPage() {
       await signInWithGoogle();
       // Supabase redirige automáticamente, no es necesario navegar aquí
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar con Google');
+      setError(
+        err instanceof Error ? err.message : 'Error al iniciar con Google',
+      );
       setIsGoogleLoading(false);
     }
   };
@@ -128,10 +137,16 @@ export function LoginPage() {
           {/* Divider */}
           <div className='relative my-6'>
             <div className='absolute inset-0 flex items-center'>
-              <div className='w-full border-t' style={{ borderColor: COLORS.border }}></div>
+              <div
+                className='w-full border-t'
+                style={{ borderColor: COLORS.border }}
+              ></div>
             </div>
             <div className='relative flex justify-center text-sm'>
-              <span className='bg-white px-2' style={{ color: COLORS.textMuted }}>
+              <span
+                className='bg-white px-2'
+                style={{ color: COLORS.textMuted }}
+              >
                 O continúa con
               </span>
             </div>

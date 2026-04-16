@@ -25,18 +25,6 @@ export function PlacePinQuickCard({
   onClose: () => void
   onViewDetail: () => void
 }) {
-  const elevatorConfirmed =
-    (place.interior.elevator ?? '').toLowerCase().includes('yes') ||
-    (place.interior.elevator ?? '').toLowerCase().includes('sí') ||
-    (place.interior.elevator ?? '').toLowerCase().includes('si')
-
-  const icons = [
-    place.entrance.ramp === true ? '♿' : null,
-    place.features.adaptedRestroom === true ? '🚻' : null,
-    place.features.accessibleParking === true ? '🅿️' : null,
-    elevatorConfirmed ? '🛗' : null,
-  ].filter(Boolean) as string[]
-
   return (
     <div className="w-[min(92vw,420px)] rounded-2xl border border-neutral-200/80 bg-white/95 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.45)] backdrop-blur-md">
       <div className="flex items-start justify-between gap-3 p-4">
@@ -61,13 +49,9 @@ export function PlacePinQuickCard({
               {place.avgRating.toFixed(1)} <span aria-hidden>⭐</span>
             </span>
           </div>
-          {icons.length > 0 ? (
-            <div className="mt-2 flex items-center gap-1.5 text-lg" aria-label="Características confirmadas">
-              {icons.map((i) => (
-                <span key={i} aria-hidden>
-                  {i}
-                </span>
-              ))}
+          {place.band === 'recommended' ? (
+            <div className="mt-2 text-lg" aria-hidden>
+              ♿
             </div>
           ) : null}
         </div>

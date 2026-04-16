@@ -1,10 +1,15 @@
 import { createContext } from 'react';
 import type {
+  Place,
   PlaceCategory,
-  PlaceExtended,
   PlaceReview,
   RatingBand,
 } from '../types/place';
+import type { AccessibilityConsensusMap } from '../lib/reviewAccessibilityConsensus';
+import type {
+  AccessibilityReviewValues,
+  MyReviewWithAccessibility,
+} from '../types/reviewAccessibility';
 
 export interface AccessibilityFilters {
   // 1. Recomendado
@@ -29,7 +34,23 @@ export interface AccessibilityFilters {
   circulation_clear: boolean;
 }
 
-export interface PlaceWithStats extends PlaceExtended {
+/** Toggles de accesibilidad en filtros (consenso ≥ 60 % en `place_accessibility_reviews`). */
+export const ACCESSIBILITY_FILTER_TOGGLE_KEYS = [
+  'parking_accessible',
+  'parking_near_entrance',
+  'signage_clear',
+  'step_free_access',
+  'ramp_available',
+  'elevator_available',
+  'entrance_width_ok',
+  'accessible_bathroom',
+  'circulation_clear',
+] as const;
+
+export type AccessibilityFilterToggleKey =
+  (typeof ACCESSIBILITY_FILTER_TOGGLE_KEYS)[number];
+
+export interface PlaceWithStats extends Place {
   avgRating: number;
   band: RatingBand;
   reviewCount: number;
@@ -45,11 +66,25 @@ export interface PlacesContextValue {
   filters: AccessibilityFilters;
   setFilters: (v: AccessibilityFilters) => void;
   toggleFilter: (key: keyof AccessibilityFilters) => void;
-  setFilterValue: (key: keyof AccessibilityFilters, value: boolean | number | null) => void;
+  setFilterValue: (
+    key: keyof AccessibilityFilters,
+    value: boolean | number | null,
+  ) => void;
   resetFilters: () => void;
   getPlaceById: (id: number) => PlaceWithStats | undefined;
   reviewsForPlace: (placeId: number) => Promise<PlaceReview[]>;
-  createReview: (placeId: number, rating: number, comment?: string | null) => Promise<void>;
+  myReviewWithAccessibility: (
+    placeId: number,
+  ) => Promise<MyReviewWithAccessibility | null>;
+  submitPlaceReview: (
+    placeId: number,
+    rating: number,
+    comment: string | null,
+    accessibility: AccessibilityReviewValues,
+  ) => Promise<void>;
+  accessibilityConsensusForPlace: (
+    placeId: number,
+  ) => Promise<AccessibilityConsensusMap>;
   refreshPlaces: () => Promise<void>;
   isLoading: boolean;
 }

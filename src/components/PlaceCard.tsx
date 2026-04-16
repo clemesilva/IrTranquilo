@@ -1,4 +1,5 @@
 import type { PlaceWithStats } from '../context/placesContext';
+import { bandLabelEs } from '../lib/rating';
 import { PLACE_CATEGORY_LABEL_ES } from '../types/place';
 import { COLORS, getPinColor } from '../styles/colors';
 
@@ -26,26 +27,9 @@ export function PlaceCard({ place }: PlaceCardProps) {
         </span>
       </div>
 
-      {place.features && (
-        <div className='space-y-2'>
-          <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>
-            Accesibilidad
-          </p>
-          <div className='space-y-1'>
-            {place.features.accessibleParking === true && (
-              <p className='text-sm' style={{ color: COLORS.text }}>
-                ✓ Estacionamiento accesible
-              </p>
-            )}
-            {place.features.accessibleEntrance === true && (
-              <p className='text-sm' style={{ color: COLORS.text }}>✓ Entrada accesible</p>
-            )}
-            {place.features.adaptedRestroom === true && (
-              <p className='text-sm' style={{ color: COLORS.text }}>✓ Baño adaptado</p>
-            )}
-          </div>
-        </div>
-      )}
+      <p className='text-sm' style={{ color: COLORS.textMuted }}>
+        {bandLabelEs(place.band)} según valoraciones
+      </p>
     </div>
   );
 }

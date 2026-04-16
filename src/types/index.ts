@@ -3,8 +3,8 @@ export {
   PLACE_CATEGORY_LABEL_ES,
 } from './place'
 export type {
+  Place,
   PlaceCategory,
-  PlaceExtended,
   PlaceReview,
   RatingBand,
 } from './place'

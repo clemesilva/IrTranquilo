@@ -10,8 +10,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AccessibilityAspectRow } from '@/components/map/AccessibilityAspectRow';
+import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityConsensusGrid';
 import { usePlaces } from '../context/usePlaces';
+import type { AccessibilityConsensusMap } from '../lib/reviewAccessibilityConsensus';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
 import {
   PLACE_CATEGORY_LABEL_ES,
@@ -21,11 +22,16 @@ import {
 export function SidebarPlaceDetail() {
   const { placeId } = useParams();
   const id = placeId ? Number(placeId) : NaN;
-  const { getPlaceById, reviewsForPlace } = usePlaces();
+  const { getPlaceById, reviewsForPlace, accessibilityConsensusForPlace } =
+    usePlaces();
   const place = Number.isFinite(id) ? getPlaceById(id) : undefined;
 
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [consensus, setConsensus] = useState<AccessibilityConsensusMap | null>(
+    null,
+  );
+  const [consensusLoading, setConsensusLoading] = useState(false);
 
   useEffect(() => {
     if (!place) return;
@@ -44,6 +50,20 @@ export function SidebarPlaceDetail() {
 
     loadReviews();
   }, [place, reviewsForPlace]);
+
+  useEffect(() => {
+    if (!place) return;
+    let cancelled = false;
+    setConsensusLoading(true);
+    void accessibilityConsensusForPlace(place.id).then((c) => {
+      if (cancelled) return;
+      setConsensus(c);
+      setConsensusLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [place, accessibilityConsensusForPlace]);
 
   if (!place) {
     return (
@@ -73,90 +93,21 @@ export function SidebarPlaceDetail() {
             </Badge>
           </div>
           <CardDescription>
-            {PLACE_CATEGORY_LABEL_ES[place.category]} · ⭐ {place.avgRating.toFixed(1)}
+            {PLACE_CATEGORY_LABEL_ES[place.category]} · ⭐{' '}
+            {place.avgRating.toFixed(1)}
           </CardDescription>
           <p className='text-sm text-foreground'>{place.address}</p>
         </CardHeader>
       </Card>
 
       <Card size='sm'>
-        <CardHeader className='pb-2'>
-          <CardTitle className='text-sm'>Accesibilidad (sí y no)</CardTitle>
-          <CardDescription className='text-xs'>
-            Lo verde es favorable según el registro; lo rojizo indica ausencia o
-            barrera declarada.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className='text-sm'>
-          <ul className='m-0 list-none space-y-1.5 p-0'>
-            <AccessibilityAspectRow ok={place.features.accessibleParking === true}>
-              {place.features.accessibleParking
-                ? 'Estacionamiento accesible'
-                : 'Sin estacionamiento accesible registrado'}
-            </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.features.accessibleEntrance === true}>
-              {place.features.accessibleEntrance
-                ? 'Entrada accesible'
-                : 'Entrada no marcada como accesible'}
-            </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.features.adaptedRestroom === true}>
-              {place.features.adaptedRestroom
-                ? 'Baño adaptado'
-                : 'Sin baño adaptado registrado'}
-            </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.entrance.noSteps === true}>
-              {place.entrance.noSteps
-                ? 'Entrada sin escalones'
-                : 'Escalones o desnivel en la entrada'}
-            </AccessibilityAspectRow>
-            <AccessibilityAspectRow ok={place.entrance.ramp === true}>
-              {place.entrance.ramp
-                ? 'Rampa en la entrada'
-                : 'Sin rampa en la entrada'}
-            </AccessibilityAspectRow>
-          </ul>
-          {place.entrance.accessNote?.trim() ? (
-            <p className='mt-3 rounded-md border border-amber-200/80 bg-amber-50/70 p-2 text-xs leading-relaxed text-amber-950'>
-              <span className='font-semibold'>Observaciones: </span>
-              {place.entrance.accessNote.trim()}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card size='sm'>
-        <CardHeader className='pb-2'>
-          <CardTitle className='text-sm'>Llegada (detalle)</CardTitle>
-          <CardDescription className='text-xs'>
-            Textos de la comunidad; pueden incluir advertencias.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className='text-sm text-muted-foreground'>
-          <ul className='m-0 list-disc space-y-1 pl-4'>
-            <li>
-              Estacionamiento:{' '}
-              {place.arrival.accessibleParking || '—'}
-            </li>
-            <li>Cercanía: {place.arrival.proximity || '—'}</li>
-            <li>Disponibilidad: {place.arrival.availability || '—'}</li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card size='sm'>
-        <CardHeader className='pb-2'>
-          <CardTitle className='text-sm'>Interior (detalle)</CardTitle>
-          <CardDescription className='text-xs'>
-            Puede describir limitaciones (pasillos estrechos, ascensor pequeño,
-            etc.).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className='text-sm text-muted-foreground'>
-          <ul className='m-0 list-disc space-y-1 pl-4'>
-            <li>Espacio: {place.interior.space || '—'}</li>
-            <li>Baño: {place.interior.restroom || '—'}</li>
-            <li>Ascensor: {place.interior.elevator || '—'}</li>
-          </ul>
+        <CardContent className='pt-4'>
+          <AccessibilityConsensusGrid
+            consensus={consensus}
+            loading={consensusLoading}
+            heading='Accesibilidad (consenso de reseñas)'
+            headingClassName='text-sm font-semibold text-foreground'
+          />
         </CardContent>
       </Card>
 
