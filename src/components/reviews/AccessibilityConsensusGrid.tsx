@@ -36,12 +36,15 @@ function ConsensusCard({
 }) {
   if (!consensus) return null;
   const { yes, no, total, ratio } = consensus;
-  const majorityYes = ratio >= 0.6;
+  const majorityYes = ratio >= 0.5;
 
   if (variant === 'compact') {
     return (
       <div
-        className='inline-flex max-w-full min-w-0 items-center gap-2 rounded-2xl border-2 border-neutral-300/80 bg-white px-2.5 py-1.5 text-neutral-900 shadow-sm'
+        className={cn(
+          'inline-flex max-w-full min-w-0 items-center gap-2 rounded-2xl border-2 bg-white px-2.5 py-1.5 text-neutral-900 shadow-sm',
+          majorityYes ? 'border-emerald-200/80' : 'border-rose-200/80',
+        )}
       >
         <span className='shrink-0' aria-hidden>
           {ACCESSIBILITY_FIELD_EMOJI[fieldKey]}
@@ -54,19 +57,41 @@ function ConsensusCard({
   }
 
   return (
-    <div className='inline-flex max-w-full min-w-0 flex-col gap-0.5 rounded-2xl border border-neutral-200/80 bg-white px-3 py-2'>
-      <span className="text-sm font-semibold leading-snug text-neutral-900">
-        {label}
-      </span>
+    <div
+      className={cn(
+        'max-w-full min-w-0 rounded-2xl border bg-white px-3 py-2',
+        majorityYes
+          ? 'border-emerald-200/80 bg-emerald-50/40'
+          : 'border-rose-200/80 bg-rose-50/40',
+      )}
+    >
+      <div className='flex min-w-0 items-start justify-between gap-2'>
+        <span className='flex min-w-0 items-center gap-2 text-sm font-semibold leading-snug text-neutral-900'>
+          <span className='shrink-0' aria-hidden>
+            {ACCESSIBILITY_FIELD_EMOJI[fieldKey]}
+          </span>
+          <span className='min-w-0 truncate'>{label}</span>
+        </span>
+        <span
+          className={cn(
+            'shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none',
+            majorityYes
+              ? 'border-emerald-200/80 bg-white/70 text-emerald-800'
+              : 'border-rose-200/80 bg-white/70 text-rose-800',
+          )}
+        >
+          {majorityYes ? 'Accesible' : 'No accesible'}
+        </span>
+      </div>
       <span
         className={cn(
-          'text-xs font-medium tabular-nums leading-snug',
+          'mt-0.5 text-xs font-medium tabular-nums leading-snug',
           majorityYes ? 'text-emerald-700' : 'text-rose-700',
         )}
       >
         {majorityYes
-          ? `${yes}/${total} confirman que sí`
-          : `${no}/${total} dicen que no`}
+          ? `${yes}/${total} confirman que es accesible`
+          : `${no}/${total} confirman que NO es accesible`}
       </span>
     </div>
   );
@@ -92,7 +117,7 @@ export function AccessibilityConsensusGrid({
     <section className={cn(isCompact ? 'space-y-2' : 'space-y-3', className)}>
       <h2 className={headingClassName}>{heading}</h2>
       {loading || !consensus ? (
-        <p className="text-sm text-neutral-500">Cargando consenso…</p>
+        <p className='text-sm text-neutral-500'>Cargando consenso…</p>
       ) : (
         <div className={cn(isCompact ? 'space-y-2' : 'space-y-3')}>
           {ACCESSIBILITY_FIELD_GROUPS.map((group) => (
@@ -105,7 +130,13 @@ export function AccessibilityConsensusGrid({
               >
                 {group.title}
               </p>
-              <div className={cn('flex flex-wrap', isCompact ? 'gap-1.5' : 'gap-2')}>
+              <div
+                className={cn(
+                  isCompact
+                    ? 'flex flex-wrap gap-1.5'
+                    : 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3',
+                )}
+              >
                 {group.fields.map((f) => {
                   const c = consensus[f.key];
                   if (!c) return null;

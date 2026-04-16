@@ -200,6 +200,12 @@ export function LandingPage() {
     };
   }, []);
 
+  const userDisplayName =
+    user?.user_metadata?.display_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split('@')?.[0] ||
+    'Usuario';
+
   return (
     <div
       className='flex flex-col min-h-screen'
@@ -207,7 +213,7 @@ export function LandingPage() {
     >
       {/* Header */}
       <header
-        className='border-b bg-white/70 px-6 py-3 backdrop-blur'
+        className='mx-4 mt-3 rounded-2xl border bg-white/70 px-6 py-3 shadow-sm backdrop-blur'
         style={{ borderColor: COLORS.border }}
       >
         <div className='mx-auto flex max-w-7xl items-center justify-between gap-6'>
@@ -234,7 +240,7 @@ export function LandingPage() {
             </Button>
             <div className='flex items-center gap-2.5'>
               <span className='max-w-[220px] truncate text-sm text-muted-foreground'>
-                {user?.email}
+                {userDisplayName}
               </span>
               <Button size='sm' variant='outline' onClick={signOut}>
                 Salir
@@ -292,7 +298,7 @@ export function LandingPage() {
 
           {/* Search Bar */}
           <div className='mx-auto flex w-full max-w-2xl items-center gap-2'>
-            <div className='relative z-[2500] w-full'>
+            <div className='relative z-2500 w-full'>
               <Input
                 type='search'
                 placeholder='Busca un lugar por nombre (Ej: Clínica Las Condes)'
@@ -324,7 +330,7 @@ export function LandingPage() {
               />
 
               {showSearchDropdown && searchSuggestions.length > 0 ? (
-                <div className='absolute z-[2600] mt-2 w-full max-h-72 overflow-y-auto rounded-md border bg-white shadow-md'>
+                <div className='absolute z-2600 mt-2 w-full max-h-72 overflow-y-auto rounded-md border bg-white shadow-md'>
                   {searchSuggestions.map((p) => (
                     <button
                       key={p.id}
@@ -379,7 +385,7 @@ export function LandingPage() {
         />
 
         {selectedPlaceData ? (
-          <div className='absolute inset-y-0 right-0 z-[1800] flex max-h-full w-full justify-end pointer-events-none'>
+          <div className='absolute inset-y-0 right-0 z-1800 flex max-h-full w-full justify-end pointer-events-none'>
             <div className='pointer-events-auto h-full max-h-full min-w-0'>
               <PlaceMapSidebar
                 place={selectedPlaceData}
@@ -392,7 +398,7 @@ export function LandingPage() {
         {/* Filtros Button - Top Left */}
         <button
           onClick={() => setShowFiltersModal(true)}
-          className='absolute top-8 left-8 z-[1500] flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-lg border'
+          className='absolute top-8 left-8 z-1500 flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-lg border'
           style={{
             backgroundColor: COLORS.card,
             color: COLORS.text,
@@ -606,7 +612,7 @@ export function LandingPage() {
       <Dialog open={showFiltersModal} onOpenChange={setShowFiltersModal}>
         <DialogContent
           hideClose
-          className='fixed left-0 top-0 z-[9001] flex h-full max-h-[100dvh] w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
+          className='fixed left-0 top-0 z-9001 flex h-full max-h-dvh w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
           style={{ backgroundColor: COLORS.card }}
         >
             {/* Header */}
