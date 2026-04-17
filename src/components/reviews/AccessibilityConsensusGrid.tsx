@@ -10,16 +10,12 @@ import {
 } from '@/types/reviewAccessibility';
 
 const ACCESSIBILITY_FIELD_EMOJI: Record<AccessibilityReviewKey, string> = {
-  parking_available: '🅿️',
   parking_accessible: '♿',
-  parking_near_entrance: '🚪',
   signage_clear: '🪧',
-  step_free_access: '🪜',
   ramp_available: '🛝',
+  mechanical_stairs: '🪜',
   elevator_available: '🛗',
-  entrance_width_ok: '📏',
-  interior_spacious: '🧭',
-  wheelchair_table_access: '🪑',
+  wide_entrance: '📏',
   accessible_bathroom: '🚻',
   circulation_clear: '↔️',
 };
@@ -38,8 +34,8 @@ function ConsensusCard({
   className?: string;
 }) {
   if (!consensus) return null;
-  const { yes, no, total, ratio } = consensus;
-  const majorityYes = ratio >= 0.5;
+  const isUser = consensus.source === 'user';
+  const value = isUser ? consensus.value : consensus.value;
 
   if (variant === 'compact') {
     return (
@@ -60,13 +56,29 @@ function ConsensusCard({
     );
   }
 
+  const bg =
+    isUser && value
+      ? 'border-emerald-300/90 bg-emerald-50 text-emerald-950 ring-1 ring-inset ring-emerald-200/70'
+      : isUser && !value
+        ? 'border-rose-300/90 bg-rose-50 text-rose-950 ring-1 ring-inset ring-rose-200/70'
+        : value
+          ? 'border-emerald-200/80 bg-emerald-50/30'
+          : 'border-rose-200/80 bg-rose-50/30';
+
+  const subtitle = (() => {
+    if (consensus.source === 'google') {
+      return value ? '♿ Según Google: accesible' : '♿ Según Google: no accesible';
+    }
+    return value
+      ? `${consensus.yes}/${consensus.total} confirman que es accesible`
+      : `${consensus.no}/${consensus.total} dicen que NO es accesible`;
+  })();
+
   return (
     <div
       className={cn(
-        'max-w-full min-w-0 rounded-2xl border bg-white px-3 py-2',
-        majorityYes
-          ? 'border-emerald-200/80 bg-emerald-50/40'
-          : 'border-rose-200/80 bg-rose-50/40',
+        'max-w-full min-w-0 rounded-2xl border px-3 py-2',
+        bg,
       )}
     >
       <div className='flex min-w-0 items-start justify-between gap-2'>
@@ -76,26 +88,14 @@ function ConsensusCard({
           </span>
           <span className='min-w-0 truncate'>{label}</span>
         </span>
-        <span
-          className={cn(
-            'hidden shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none sm:inline-flex',
-            majorityYes
-              ? 'border-emerald-200/80 bg-white/70 text-emerald-800'
-              : 'border-rose-200/80 bg-white/70 text-rose-800',
-          )}
-        >
-          {majorityYes ? 'Accesible' : 'No accesible'}
-        </span>
       </div>
       <span
         className={cn(
           'mt-0.5 text-[11px] font-medium tabular-nums leading-snug sm:text-xs',
-          majorityYes ? 'text-emerald-700' : 'text-rose-700',
+          value ? 'text-emerald-800' : 'text-rose-800',
         )}
       >
-        {majorityYes
-          ? `${yes}/${total} confirman que es accesible`
-          : `${no}/${total} confirman que NO es accesible`}
+        {subtitle}
       </span>
     </div>
   );
@@ -130,7 +130,7 @@ export function AccessibilityConsensusGrid({
       const visibleCount = group.fields.reduce((acc, f) => {
         const c = consensus[f.key];
         if (!c) return acc;
-        if (onlyMajorityYes && c.ratio < 0.5) return acc;
+        if (onlyMajorityYes && c.value !== true) return acc;
         return acc + 1;
       }, 0);
       return visibleCount > 0;
@@ -156,7 +156,7 @@ export function AccessibilityConsensusGrid({
               const c = consensus[f.key];
               if (!c) return false;
               if (!onlyMajorityYes) return true;
-              return c.ratio >= 0.5;
+              return c.source === 'google' ? c.value === true : c.value === true;
             });
 
             if (visibleFields.length === 0) return null;
@@ -185,7 +185,7 @@ export function AccessibilityConsensusGrid({
                         key={f.key}
                         className={cn(
                           isCompact ? 'justify-self-start' : '',
-                          isCompact && f.key === 'entrance_width_ok'
+                          isCompact && f.key === 'wide_entrance'
                             ? 'col-span-2'
                             : '',
                         )}
@@ -196,7 +196,7 @@ export function AccessibilityConsensusGrid({
                           consensus={c}
                           variant={variant}
                           className={
-                            isCompact && f.key === 'entrance_width_ok'
+                            isCompact && f.key === 'wide_entrance'
                               ? 'w-fit'
                               : undefined
                           }

@@ -4,11 +4,7 @@ import L from 'leaflet';
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
-import {
-  PLACE_CATEGORIES,
-  PLACE_CATEGORY_LABEL_ES,
-  type PlaceCategory,
-} from '../types';
+import { CATEGORIES, getCategoryMeta, type PlaceCategory } from '../types';
 import { COLORS, getPinColor } from '../styles/colors';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
 import { fixLeafletDefaultIcons } from '../lib/leafletIcon'
@@ -250,7 +246,7 @@ export function ExplorePage() {
                   {place.name}
                 </h3>
                 <p className='text-sm' style={{ color: COLORS.textMuted }}>
-                  {PLACE_CATEGORY_LABEL_ES[place.category]}
+                  {getCategoryMeta(place.category).label}
                 </p>
                 <p className='text-xs mt-1' style={{ color: COLORS.textMuted }}>
                   ⭐ {place.avgRating.toFixed(1)} • {place.reviewCount} reseñas
@@ -283,7 +279,7 @@ export function ExplorePage() {
         {/* Filtros Button - Top Left (outside map) */}
         <button
           onClick={() => setShowFiltersModal(true)}
-          className='absolute z-[1500] flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-xl border'
+          className='absolute z-1500 flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-xl border'
           style={{
             backgroundColor: COLORS.card,
             color: COLORS.text,
@@ -298,7 +294,7 @@ export function ExplorePage() {
         </button>
 
         {selectedPlaceData ? (
-          <div className='absolute inset-y-0 right-0 z-[1800] flex w-full justify-end pointer-events-none'>
+          <div className='absolute inset-y-0 right-0 z-1800 flex w-full justify-end pointer-events-none'>
             <div className='pointer-events-auto h-full max-h-full min-w-0'>
               <PlaceMapSidebar
                 place={selectedPlaceData}
@@ -312,7 +308,7 @@ export function ExplorePage() {
       <Dialog open={showFiltersModal} onOpenChange={setShowFiltersModal}>
         <DialogContent
           hideClose
-          className='fixed left-0 top-0 z-[9001] flex h-full max-h-[100dvh] w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
+          className='fixed left-0 top-0 z-9001 flex h-full max-h-dvh w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
           style={{ backgroundColor: COLORS.card }}
         >
             {/* Header */}
@@ -387,9 +383,9 @@ export function ExplorePage() {
                   }}
                 >
                   <option value='all'>Todas</option>
-                  {PLACE_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {PLACE_CATEGORY_LABEL_ES[c]}
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
                     </option>
                   ))}
                 </select>
@@ -404,7 +400,7 @@ export function ExplorePage() {
                   className='text-xs font-semibold uppercase'
                   style={{ color: COLORS.textMuted }}
                 >
-                  🚗 Llegada (Parking)
+                  🚗 Llegada
                 </p>
                 <label className='flex items-center gap-3 cursor-pointer'>
                   <input
@@ -418,22 +414,7 @@ export function ExplorePage() {
                     }}
                   />
                   <span className='text-sm' style={{ color: COLORS.text }}>
-                    Parking accesible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.parking_near_entrance}
-                    onChange={() => toggleFilter('parking_near_entrance')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Cerca de entrada
+                    Parking accesible ♿
                   </span>
                 </label>
                 <label className='flex items-center gap-3 cursor-pointer'>
@@ -449,34 +430,6 @@ export function ExplorePage() {
                   />
                   <span className='text-sm' style={{ color: COLORS.text }}>
                     Señalización clara
-                  </span>
-                </label>
-              </div>
-
-              {/* 4. Accesibilidad - ENTRADA */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🚪 Entrada
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.step_free_access}
-                    onChange={() => toggleFilter('step_free_access')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Sin escalones
                   </span>
                 </label>
                 <label className='flex items-center gap-3 cursor-pointer'>
@@ -497,6 +450,34 @@ export function ExplorePage() {
                 <label className='flex items-center gap-3 cursor-pointer'>
                   <input
                     type='checkbox'
+                    checked={filters.mechanical_stairs}
+                    onChange={() => toggleFilter('mechanical_stairs')}
+                    className='w-4 h-4 rounded'
+                    style={{
+                      borderColor: COLORS.border,
+                      accentColor: COLORS.primary,
+                    }}
+                  />
+                  <span className='text-sm' style={{ color: COLORS.text }}>
+                    Escalera mecánica
+                  </span>
+                </label>
+              </div>
+
+              {/* 4. Accesibilidad - ENTRADA */}
+              <div
+                className='space-y-3 pt-3 border-t'
+                style={{ borderColor: COLORS.border }}
+              >
+                <p
+                  className='text-xs font-semibold uppercase'
+                  style={{ color: COLORS.textMuted }}
+                >
+                  🚪 Entrada
+                </p>
+                <label className='flex items-center gap-3 cursor-pointer'>
+                  <input
+                    type='checkbox'
                     checked={filters.elevator_available}
                     onChange={() => toggleFilter('elevator_available')}
                     className='w-4 h-4 rounded'
@@ -512,8 +493,8 @@ export function ExplorePage() {
                 <label className='flex items-center gap-3 cursor-pointer'>
                   <input
                     type='checkbox'
-                    checked={filters.entrance_width_ok}
-                    onChange={() => toggleFilter('entrance_width_ok')}
+                    checked={filters.wide_entrance}
+                    onChange={() => toggleFilter('wide_entrance')}
                     className='w-4 h-4 rounded'
                     style={{
                       borderColor: COLORS.border,
@@ -521,7 +502,7 @@ export function ExplorePage() {
                     }}
                   />
                   <span className='text-sm' style={{ color: COLORS.text }}>
-                    Ancho de entrada OK
+                    Entrada ancha para silla de ruedas
                   </span>
                 </label>
               </div>
@@ -564,7 +545,7 @@ export function ExplorePage() {
                     }}
                   />
                   <span className='text-sm' style={{ color: COLORS.text }}>
-                    Circulación clara
+                    Circulación interior amplia
                   </span>
                 </label>
               </div>

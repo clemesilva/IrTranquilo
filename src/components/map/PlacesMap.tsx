@@ -15,7 +15,7 @@ import { fixLeafletDefaultIcons } from '../../lib/leafletIcon'
 import { bandLabelEs } from '../../lib/rating'
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../../lib/mapDefaults'
 import { buildPinHtml, categoryGlyph } from '../../lib/pins'
-import { PLACE_CATEGORY_LABEL_ES } from '../../types/place'
+import { getCategoryMeta } from '../../types/place'
 
 fixLeafletDefaultIcons()
 
@@ -148,7 +148,7 @@ export function PlacesMap({ highlightId }: { highlightId?: number }) {
             <div className="min-w-[160px] text-sm">
               <strong className="font-semibold">{place.name}</strong>
               <div className="mt-1 text-xs text-muted-foreground">
-                {PLACE_CATEGORY_LABEL_ES[place.category]} · ⭐ {place.avgRating.toFixed(1)} (
+                {getCategoryMeta(place.category).label} · ⭐ {place.avgRating.toFixed(1)} (
                 {bandLabelEs(place.band)})
               </div>
               <div className="mt-2">

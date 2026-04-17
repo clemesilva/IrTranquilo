@@ -3,31 +3,30 @@ import { Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { usePlaces } from '@/context/usePlaces';
 import { syncPlaceReviewStats } from '@/lib/syncPlaceReviewStats';
 import { supabase } from '@/services/supabase';
-import {
-  PLACE_CATEGORIES,
-  PLACE_CATEGORY_LABEL_ES,
-  type PlaceCategory,
-} from '@/types/place';
+import type { PlaceCategory } from '@/types/place';
 import {
   ACCESSIBILITY_FIELD_GROUPS,
   type AccessibilityReviewKey,
-  createEmptyAccessibilityValues,
 } from '@/types/reviewAccessibility';
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete';
+import { TriStateAccessibilityChip } from '@/components/reviews/TriStateAccessibilityChip';
+import { CategorySelector } from '@/components/places/CategorySelector';
+import { mapGoogleTypeToCategory } from '../../lib/googleCategory';
+
+function createEmptyAccessibilityNullable(): Record<
+  AccessibilityReviewKey,
+  boolean | null
+> {
+  return Object.fromEntries(
+    ACCESSIBILITY_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => [f.key, null])),
+  ) as Record<AccessibilityReviewKey, boolean | null>;
+}
 
 export type AddPlacePanelProps = {
   draftLatLng: [number, number] | null;
@@ -48,16 +47,26 @@ export function AddPlacePanel({
   const { refreshPlaces } = usePlaces();
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  const [name, setName] = useState('');
   const [category, setCategory] = useState<PlaceCategory | null>(null);
   const [address, setAddress] = useState('');
   const [openingHours, setOpeningHours] = useState<string[] | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
+  const [website, setWebsite] = useState<string | null>(null);
+  const [googleRating, setGoogleRating] = useState<number | null>(null);
+  const [googleRatingsTotal, setGoogleRatingsTotal] = useState<number | null>(
+    null,
+  );
+  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null);
+  const [wheelchairAccessible, setWheelchairAccessible] = useState<
+    boolean | null
+  >(null);
+  const [priceLevel, setPriceLevel] = useState<number | null>(null);
 
   const [rating, setRating] = useState<number>(0);
   const [review, setReview] = useState('');
 
   const [accessibility, setAccessibility] = useState(() =>
-    createEmptyAccessibilityValues(),
+    createEmptyAccessibilityNullable(),
   );
 
   const [isSaving, setIsSaving] = useState(false);
@@ -77,23 +86,30 @@ export function AddPlacePanel({
 
   const canSave = useMemo(() => {
     return (
-      name.trim().length > 1 &&
+      placeQuery.trim().length > 1 &&
       category !== null &&
       address.trim().length > 3 &&
       draftLatLng !== null &&
       Number.isFinite(draftLatLng[0]) &&
       Number.isFinite(draftLatLng[1])
     );
-  }, [name, category, address, draftLatLng]);
+  }, [placeQuery, category, address, draftLatLng]);
 
   async function handleSelectSuggestion(placeId: string) {
     try {
       const d = await getDetails(placeId);
-      setName((prev) => (prev.trim() ? prev : d.name));
       setAddress(d.address);
       setPlaceQuery(d.name);
       onDraftLatLngChange([d.latitude, d.longitude]);
       setOpeningHours(d.openingHours?.weekdayText ?? null);
+      setPhone(d.phone);
+      setWebsite(d.website);
+      setGoogleRating(d.googleRating);
+      setGoogleRatingsTotal(d.googleRatingsTotal);
+      setGooglePhotoUrl(d.googlePhotoUrl);
+      setWheelchairAccessible(d.wheelchairAccessible);
+      setPriceLevel(d.priceLevel);
+      setCategory(mapGoogleTypeToCategory(d.rawTypes));
       setSuggestions([]);
       setShowDropdown(false);
     } catch (e) {
@@ -113,14 +129,26 @@ export function AddPlacePanel({
       if (!user) throw new Error('Debes iniciar sesión para guardar.');
       if (!category) throw new Error('Elige una categoría.');
 
+      const placeName = placeQuery.trim();
+      if (placeName.length <= 1) {
+        throw new Error('Busca y selecciona un lugar.');
+      }
+
       const placeInsert = {
-        name: name.trim(),
+        name: placeName,
         category,
         address: address.trim(),
         latitude: draftLatLng[0],
         longitude: draftLatLng[1],
         created_by: user.id,
         opening_hours: openingHours,
+        phone,
+        website,
+        google_rating: googleRating,
+        google_ratings_total: googleRatingsTotal,
+        google_photo_url: googlePhotoUrl,
+        wheelchair_accessible: wheelchairAccessible,
+        price_level: priceLevel,
       } as const;
 
       const { data: place, error: placeError } = await supabase
@@ -131,7 +159,32 @@ export function AddPlacePanel({
 
       if (placeError) throw placeError;
 
-      const anyAccessibility = Object.values(accessibility).some(Boolean);
+      // Crear registro inicial de accesibilidad con dato de Google (si existe)
+      const googleWheelchair = wheelchairAccessible ?? null;
+      const { error: googleAccErr } = await supabase
+        .from('place_accessibility_reviews')
+        .insert({
+        place_id: place.id,
+        review_id: null,
+        source: 'google',
+        ramp_available: googleWheelchair,
+        wide_entrance: googleWheelchair,
+        parking_accessible: null,
+        signage_clear: null,
+        mechanical_stairs: null,
+        elevator_available: null,
+        accessible_bathroom: null,
+        circulation_clear: null,
+      });
+      if (googleAccErr) {
+        // Evitamos dejar el lugar “a medias” si falla el insert inicial de accesibilidad.
+        await supabase.from('places').delete().eq('id', place.id);
+        throw new Error(
+          `Se creó el lugar, pero falló el registro inicial de accesibilidad: ${googleAccErr.message}`,
+        );
+      }
+
+      const anyAccessibility = Object.values(accessibility).some((v) => v === true);
       const wantsReview =
         rating > 0 || review.trim().length > 0 || anyAccessibility;
 
@@ -154,6 +207,7 @@ export function AddPlacePanel({
             .insert({
               review_id: rev.id,
               place_id: place.id,
+              source: 'user',
               ...accessibility,
             });
           if (accErr) throw accErr;
@@ -163,7 +217,18 @@ export function AddPlacePanel({
 
       await refreshPlaces();
       onDraftLatLngChange(null);
-      setAccessibility(createEmptyAccessibilityValues());
+      setAccessibility(createEmptyAccessibilityNullable());
+      setPhone(null);
+      setWebsite(null);
+      setGoogleRating(null);
+      setGoogleRatingsTotal(null);
+      setGooglePhotoUrl(null);
+      setWheelchairAccessible(null);
+      setPriceLevel(null);
+      setPlaceQuery('');
+      setAddress('');
+      setCategory(null);
+      setOpeningHours(null);
       onSaved(place.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar el lugar.');
@@ -191,44 +256,8 @@ export function AddPlacePanel({
         {/* El scroll lo maneja el modal (DialogContent) para evitar doble barra. */}
         <CardContent className='space-y-4 px-4 pb-6'>
           <div className='space-y-2'>
-            <Label htmlFor='place-name'>Nombre del lugar</Label>
-            <Input
-              id='place-name'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder='Ej: Cafetería Central'
-            />
-          </div>
-
-          <div className='space-y-2'>
-            <Label>Categoría</Label>
-            <Select
-              value={category ?? undefined}
-              onValueChange={(v) => setCategory(v as PlaceCategory)}
-            >
-              <SelectTrigger className='w-full'>
-                <SelectValue placeholder='Elegir categoría' />
-              </SelectTrigger>
-              <SelectContent
-                position='popper'
-                align='start'
-                sideOffset={6}
-                withinPortal
-                portalContainer={panelRef.current}
-                className='z-[2900]'
-              >
-                {PLACE_CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {PLACE_CATEGORY_LABEL_ES[c]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className='space-y-2'>
             <Label htmlFor='place-search'>Buscar lugar (Google)</Label>
-            <div className='relative z-[2700]'>
+            <div className='relative z-2700'>
               <Input
                 id='place-search'
                 value={placeQuery}
@@ -250,7 +279,7 @@ export function AddPlacePanel({
               />
 
               {showDropdown && suggestions.length > 0 ? (
-                <div className='absolute z-[2800] mt-2 max-h-60 w-full overflow-y-auto rounded-md border bg-popover shadow-md'>
+                <div className='absolute z-2800 mt-2 max-h-60 w-full overflow-y-auto rounded-md border bg-popover shadow-md'>
                   {suggestions.map((s) => (
                     <button
                       key={s.placeId}
@@ -280,19 +309,27 @@ export function AddPlacePanel({
               ) : null}
             </div>
 
-            <div className='space-y-2'>
-              <Label htmlFor='place-address'>Dirección</Label>
-              <Input
-                id='place-address'
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder='Se completa al seleccionar (puedes editar)'
-              />
-            </div>
-
             <p className='text-xs text-muted-foreground'>
               Elige un resultado de Google para fijar la ubicación en el mapa.
             </p>
+          </div>
+
+          <div className='space-y-2'>
+            <Label htmlFor='place-address'>Dirección</Label>
+            <Input
+              id='place-address'
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder='Se completa al seleccionar (puedes editar)'
+            />
+          </div>
+
+          <div className='space-y-2'>
+            <Label>Categoría</Label>
+            <CategorySelector
+              value={category}
+              onChange={(v) => setCategory(v)}
+            />
           </div>
 
           <div className='space-y-2'>
@@ -345,24 +382,16 @@ export function AddPlacePanel({
                   <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
                     {group.title}
                   </p>
-                  <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+                  <div className='grid grid-cols-2 justify-items-start gap-1.5 sm:grid-cols-2 sm:justify-items-stretch'>
                     {group.fields.map((f) => (
-                      <label
+                      <TriStateAccessibilityChip
                         key={f.key}
-                        className='flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 text-sm'
-                      >
-                        <Checkbox
-                          checked={accessibility[f.key]}
-                          onCheckedChange={(v) => {
-                            const next = Boolean(v);
-                            setAccessibility((prev) => ({
-                              ...prev,
-                              [f.key as AccessibilityReviewKey]: next,
-                            }));
-                          }}
-                        />
-                        {f.label}
-                      </label>
+                        label={f.label}
+                        value={accessibility[f.key]}
+                        onChange={(next) =>
+                          setAccessibility((prev) => ({ ...prev, [f.key]: next }))
+                        }
+                      />
                     ))}
                   </div>
                 </div>

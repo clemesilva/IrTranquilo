@@ -1,15 +1,11 @@
-/** Campos de checklist en `place_accessibility_reviews` (solo true / false en app y DB). */
+/** Campos de checklist en `place_accessibility_reviews` (tri-estado: null / true / false). */
 export const ACCESSIBILITY_REVIEW_KEYS = [
-  'parking_available',
   'parking_accessible',
-  'parking_near_entrance',
   'signage_clear',
-  'step_free_access',
   'ramp_available',
+  'mechanical_stairs',
   'elevator_available',
-  'entrance_width_ok',
-  'interior_spacious',
-  'wheelchair_table_access',
+  'wide_entrance',
   'accessible_bathroom',
   'circulation_clear',
 ] as const;
@@ -18,7 +14,7 @@ export type AccessibilityReviewKey = (typeof ACCESSIBILITY_REVIEW_KEYS)[number];
 
 export type AccessibilityReviewValues = Record<
   AccessibilityReviewKey,
-  boolean
+  boolean | null
 >;
 
 export type AccessibilityFieldDef = {
@@ -35,35 +31,34 @@ export const ACCESSIBILITY_FIELD_GROUPS: AccessibilityFieldGroup[] = [
   {
     title: 'LLEGADA',
     fields: [
-      { key: 'parking_available', label: 'Parking disponible' },
-      { key: 'parking_accessible', label: 'Parking accesible' },
-      { key: 'parking_near_entrance', label: 'Cerca de entrada' },
+      { key: 'parking_accessible', label: 'Parking accesible ♿' },
       { key: 'signage_clear', label: 'Señalización clara' },
+      { key: 'ramp_available', label: 'Rampa disponible' },
+      { key: 'mechanical_stairs', label: 'Escalera mecánica' },
     ],
   },
   {
     title: 'ENTRADA',
     fields: [
-      { key: 'step_free_access', label: 'Sin escalones' },
-      { key: 'ramp_available', label: 'Rampa disponible' },
       { key: 'elevator_available', label: 'Ascensor' },
-      { key: 'entrance_width_ok', label: 'Ancho de entrada OK' },
+      {
+        key: 'wide_entrance',
+        label: 'Entrada ancha para silla de ruedas',
+      },
     ],
   },
   {
     title: 'INTERIOR',
     fields: [
-      { key: 'interior_spacious', label: 'Espacioso' },
-      { key: 'wheelchair_table_access', label: 'Acceso a mesas' },
       { key: 'accessible_bathroom', label: 'Baño accesible' },
-      { key: 'circulation_clear', label: 'Circulación clara' },
+      { key: 'circulation_clear', label: 'Circulación interior amplia' },
     ],
   },
 ];
 
 export function createEmptyAccessibilityValues(): AccessibilityReviewValues {
   return Object.fromEntries(
-    ACCESSIBILITY_REVIEW_KEYS.map((k) => [k, false]),
+    ACCESSIBILITY_REVIEW_KEYS.map((k) => [k, null]),
   ) as AccessibilityReviewValues;
 }
 

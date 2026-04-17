@@ -14,11 +14,25 @@ export interface PlaceDetails {
   address: string
   latitude: number
   longitude: number
+  rawTypes: string[]
   openingHours: {
     weekdayText: string[]
     periods?: google.maps.places.PlaceOpeningHoursPeriod[]
     openNow?: boolean
   } | null
+  phone: string | null
+  website: string | null
+  googleRating: number | null
+  googleRatingsTotal: number | null
+  googlePhotoUrl: string | null
+  wheelchairAccessible: boolean | null
+  priceLevel: number | null
+}
+
+type PlacesExtraFields = {
+  wheelchair_accessible_entrance?: boolean
+  user_ratings_total?: number
+  price_level?: number
 }
 
 export function usePlacesAutocomplete() {
@@ -110,7 +124,21 @@ export function usePlacesAutocomplete() {
       svc.getDetails(
         {
           placeId,
-          fields: ['place_id', 'name', 'formatted_address', 'geometry', 'opening_hours'],
+          fields: [
+            'place_id',
+            'name',
+            'formatted_address',
+            'geometry',
+            'types',
+            'opening_hours',
+            'photos',
+            'wheelchair_accessible_entrance',
+            'formatted_phone_number',
+            'website',
+            'rating',
+            'user_ratings_total',
+            'price_level',
+          ],
         },
         (
           place: google.maps.places.PlaceResult | null,
@@ -126,12 +154,16 @@ export function usePlacesAutocomplete() {
             reject(new Error('El lugar no trae coordenadas.'))
             return
           }
+          const extra = place as google.maps.places.PlaceResult & PlacesExtraFields
+          const wheelchair = extra.wheelchair_accessible_entrance
+          const firstPhoto = place.photos?.[0]
           resolve({
             placeId: place.place_id ?? placeId,
             name: place.name ?? '',
             address: place.formatted_address ?? '',
             latitude: loc.lat(),
             longitude: loc.lng(),
+            rawTypes: place.types ?? [],
             openingHours: place.opening_hours
               ? {
                   weekdayText: place.opening_hours.weekday_text ?? [],
@@ -139,6 +171,21 @@ export function usePlacesAutocomplete() {
                   openNow: place.opening_hours.open_now,
                 }
               : null,
+            phone: place.formatted_phone_number ?? null,
+            website: place.website ?? null,
+            googleRating:
+              typeof place.rating === 'number' ? place.rating : null,
+            googleRatingsTotal:
+              typeof extra.user_ratings_total === 'number'
+                ? extra.user_ratings_total
+                : null,
+            googlePhotoUrl: firstPhoto
+              ? firstPhoto.getUrl({ maxWidth: 800 })
+              : null,
+            wheelchairAccessible:
+              typeof wheelchair === 'boolean' ? wheelchair : null,
+            priceLevel:
+              typeof extra.price_level === 'number' ? extra.price_level : null,
           })
         },
       )

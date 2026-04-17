@@ -5,11 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
-import {
-  PLACE_CATEGORIES,
-  PLACE_CATEGORY_LABEL_ES,
-  type PlaceCategory,
-} from '../types';
+import { CATEGORIES, type PlaceCategory } from '../types';
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
@@ -153,7 +149,7 @@ export function LandingPage() {
     markersRef.current.forEach(({ marker }) => marker.remove());
     markersRef.current = [];
 
-    filteredPlaces.forEach((place) => {
+        filteredPlaces.forEach((place) => {
       if (place.latitude && place.longitude) {
         const baseColor = getPinColor(place.avgRating);
         fixLeafletDefaultIcons();
@@ -166,6 +162,7 @@ export function LandingPage() {
             glyph: categoryGlyph(place.category),
             selected: isSelected,
             size,
+              hasAlert: (place.activeReportsCount ?? 0) > 0,
           }),
           iconSize: [size, size + 12],
           iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
@@ -692,9 +689,9 @@ export function LandingPage() {
                 }}
               >
                 <option value='all'>Todas</option>
-                {PLACE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {PLACE_CATEGORY_LABEL_ES[c]}
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
                   </option>
                 ))}
               </select>
@@ -709,7 +706,7 @@ export function LandingPage() {
                 className='text-xs font-semibold uppercase'
                 style={{ color: COLORS.textMuted }}
               >
-                🚗 Llegada (Parking)
+                🚗 Llegada
               </p>
               <label className='flex items-center gap-3 cursor-pointer'>
                 <input
@@ -723,22 +720,7 @@ export function LandingPage() {
                   }}
                 />
                 <span className='text-sm' style={{ color: COLORS.text }}>
-                  Parking accesible
-                </span>
-              </label>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.parking_near_entrance}
-                  onChange={() => toggleFilter('parking_near_entrance')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Cerca de entrada
+                  Parking accesible ♿
                 </span>
               </label>
               <label className='flex items-center gap-3 cursor-pointer'>
@@ -754,34 +736,6 @@ export function LandingPage() {
                 />
                 <span className='text-sm' style={{ color: COLORS.text }}>
                   Señalización clara
-                </span>
-              </label>
-            </div>
-
-            {/* 4. Accesibilidad - ENTRADA */}
-            <div
-              className='space-y-3 pt-3 border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
-              >
-                🚪 Entrada
-              </p>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.step_free_access}
-                  onChange={() => toggleFilter('step_free_access')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Sin escalones
                 </span>
               </label>
               <label className='flex items-center gap-3 cursor-pointer'>
@@ -802,6 +756,34 @@ export function LandingPage() {
               <label className='flex items-center gap-3 cursor-pointer'>
                 <input
                   type='checkbox'
+                  checked={filters.mechanical_stairs}
+                  onChange={() => toggleFilter('mechanical_stairs')}
+                  className='w-4 h-4 rounded'
+                  style={{
+                    borderColor: COLORS.border,
+                    accentColor: COLORS.primary,
+                  }}
+                />
+                <span className='text-sm' style={{ color: COLORS.text }}>
+                  Escalera mecánica
+                </span>
+              </label>
+            </div>
+
+            {/* 4. Accesibilidad - ENTRADA */}
+            <div
+              className='space-y-3 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                🚪 Entrada
+              </p>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input
+                  type='checkbox'
                   checked={filters.elevator_available}
                   onChange={() => toggleFilter('elevator_available')}
                   className='w-4 h-4 rounded'
@@ -817,8 +799,8 @@ export function LandingPage() {
               <label className='flex items-center gap-3 cursor-pointer'>
                 <input
                   type='checkbox'
-                  checked={filters.entrance_width_ok}
-                  onChange={() => toggleFilter('entrance_width_ok')}
+                  checked={filters.wide_entrance}
+                  onChange={() => toggleFilter('wide_entrance')}
                   className='w-4 h-4 rounded'
                   style={{
                     borderColor: COLORS.border,
@@ -826,7 +808,7 @@ export function LandingPage() {
                   }}
                 />
                 <span className='text-sm' style={{ color: COLORS.text }}>
-                  Ancho de entrada OK
+                  Entrada ancha para silla de ruedas
                 </span>
               </label>
             </div>
@@ -869,7 +851,7 @@ export function LandingPage() {
                   }}
                 />
                 <span className='text-sm' style={{ color: COLORS.text }}>
-                  Circulación clara
+                  Circulación interior amplia
                 </span>
               </label>
             </div>

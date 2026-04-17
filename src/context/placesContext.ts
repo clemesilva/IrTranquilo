@@ -18,16 +18,15 @@ export interface AccessibilityFilters {
   // 2. Rating mínimo
   minRating: number | null;
 
-  // 3. Llegada (Parking)
+  // 3. Llegada
   parking_accessible: boolean;
-  parking_near_entrance: boolean;
   signage_clear: boolean;
+  ramp_available: boolean;
+  mechanical_stairs: boolean;
 
   // 4. Entrada
-  step_free_access: boolean;
-  ramp_available: boolean;
   elevator_available: boolean;
-  entrance_width_ok: boolean;
+  wide_entrance: boolean;
 
   // 5. Interior
   accessible_bathroom: boolean;
@@ -37,12 +36,11 @@ export interface AccessibilityFilters {
 /** Toggles de accesibilidad en filtros (consenso ≥ 60 % en `place_accessibility_reviews`). */
 export const ACCESSIBILITY_FILTER_TOGGLE_KEYS = [
   'parking_accessible',
-  'parking_near_entrance',
   'signage_clear',
-  'step_free_access',
   'ramp_available',
+  'mechanical_stairs',
   'elevator_available',
-  'entrance_width_ok',
+  'wide_entrance',
   'accessible_bathroom',
   'circulation_clear',
 ] as const;
@@ -54,6 +52,8 @@ export interface PlaceWithStats extends Place {
   avgRating: number;
   band: RatingBand;
   reviewCount: number;
+  /** Cantidad de reportes temporales activos asociados al lugar. */
+  activeReportsCount?: number;
 }
 
 export interface PlacesContextValue {

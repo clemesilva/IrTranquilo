@@ -23,11 +23,7 @@ import {
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
-import {
-  PLACE_CATEGORIES,
-  PLACE_CATEGORY_LABEL_ES,
-  type PlaceCategory,
-} from '../types/place';
+import { CATEGORIES, getCategoryMeta, type PlaceCategory } from '../types/place';
 
 export function SidebarHome() {
   const {
@@ -105,9 +101,9 @@ export function SidebarHome() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>Todas</SelectItem>
-            {PLACE_CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {PLACE_CATEGORY_LABEL_ES[c]}
+            {CATEGORIES.map((c) => (
+              <SelectItem key={c.value} value={c.value}>
+                {c.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -136,17 +132,17 @@ export function SidebarHome() {
               onCheckedChange={() => toggleFilter('parking_accessible')}
             />
             <Label htmlFor='filter-parking' className='text-sm font-normal'>
-              Estacionamiento accesible
+              Parking accesible ♿
             </Label>
           </div>
           <div className='flex items-center gap-2'>
             <Checkbox
-              id='filter-entrance'
-              checked={filters.step_free_access}
-              onCheckedChange={() => toggleFilter('step_free_access')}
+              id='filter-ramp'
+              checked={filters.ramp_available}
+              onCheckedChange={() => toggleFilter('ramp_available')}
             />
-            <Label htmlFor='filter-entrance' className='text-sm font-normal'>
-              Entrada sin escalones
+            <Label htmlFor='filter-ramp' className='text-sm font-normal'>
+              Rampa disponible
             </Label>
           </div>
           <div className='flex items-center gap-2'>
@@ -182,7 +178,7 @@ export function SidebarHome() {
                     </Badge>
                   </div>
                   <p className='text-xs text-muted-foreground'>
-                    {PLACE_CATEGORY_LABEL_ES[p.category]} · ⭐ {p.avgRating.toFixed(1)}
+                    {getCategoryMeta(p.category).label} · ⭐ {p.avgRating.toFixed(1)}
                   </p>
                 </div>
               </Link>

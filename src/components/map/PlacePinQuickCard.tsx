@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { bandLabelEs } from '@/lib/rating'
 import type { PlaceWithStats } from '@/context/placesContext'
-import { PLACE_CATEGORY_LABEL_ES } from '@/types/place'
+import { getCategoryMeta } from '@/types/place'
 
 function bandClasses(band: PlaceWithStats['band']) {
   switch (band) {
@@ -43,7 +43,7 @@ export function PlacePinQuickCard({
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600">
-            <span>{PLACE_CATEGORY_LABEL_ES[place.category]}</span>
+            <span>{getCategoryMeta(place.category).label}</span>
             <span className="text-neutral-400">·</span>
             <span className="font-medium">
               {place.avgRating.toFixed(1)} <span aria-hidden>⭐</span>

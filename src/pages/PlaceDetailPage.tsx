@@ -1,11 +1,44 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityConsensusGrid';
 import { PlaceReviewFormDialog } from '@/components/reviews/PlaceReviewFormDialog';
 import { useAuth } from '@/context/useAuth';
 import { usePlaces } from '@/context/usePlaces';
-import { PLACE_CATEGORY_LABEL_ES, type PlaceReview } from '@/types/place';
+import { getCategoryMeta, type PlaceReview } from '@/types/place';
+import { supabase } from '@/services/supabase';
+
+type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
+
+const EXPIRATION_MS: Record<PlaceReportType, number> = {
+  elevator: 7 * 24 * 60 * 60 * 1000,
+  ramp: 3 * 24 * 60 * 60 * 1000,
+  construction: 30 * 24 * 60 * 60 * 1000,
+  other: 24 * 60 * 60 * 1000,
+};
+
+const REPORT_LABELS: Record<PlaceReportType, string> = {
+  elevator: '🛗 Ascensor fuera de servicio',
+  ramp: '♿ Rampa bloqueada o en mal estado',
+  construction: '🚧 Obras en la entrada',
+  other: '❓ Problema reportado',
+};
+
+interface PlaceReportRow {
+  id: number;
+  type: PlaceReportType;
+  description: string | null;
+  expires_at: string;
+  created_at: string | null;
+}
 
 function initials(name: string | null | undefined) {
   const s = (name ?? '').trim();
@@ -29,9 +62,13 @@ export function PlaceDetailPage() {
   const { id } = useParams();
   const placeId = id ? Number(id) : NaN;
 
-  useAuth();
-  const { getPlaceById, reviewsForPlace, accessibilityConsensusForPlace } =
-    usePlaces();
+  const { user } = useAuth();
+  const {
+    getPlaceById,
+    reviewsForPlace,
+    accessibilityConsensusForPlace,
+    refreshPlaces,
+  } = usePlaces();
 
   const place = Number.isFinite(placeId) ? getPlaceById(placeId) : undefined;
 
@@ -41,21 +78,43 @@ export function PlaceDetailPage() {
   const [consensus, setConsensus] = useState<Awaited<
     ReturnType<typeof accessibilityConsensusForPlace>
   > | null>(null);
+  const [activeReports, setActiveReports] = useState<PlaceReportRow[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [selectedReportType, setSelectedReportType] =
+    useState<PlaceReportType | null>(null);
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const reloadLists = useCallback(async () => {
     if (!place) return;
     setReviewsLoading(true);
     setConsensusLoading(true);
+    setReportsLoading(true);
     try {
-      const [revRows, cons] = await Promise.all([
+      const [revRows, cons, reportsRes] = await Promise.all([
         reviewsForPlace(place.id),
         accessibilityConsensusForPlace(place.id),
+        supabase
+          .from('place_reports')
+          .select('*')
+          .eq('place_id', place.id)
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false }),
       ]);
       setReviews(revRows);
       setConsensus(cons);
+      if (reportsRes.error) {
+        console.error('Error fetching place reports', reportsRes.error);
+        setActiveReports([]);
+      } else {
+        setActiveReports((reportsRes.data || []) as PlaceReportRow[]);
+      }
     } finally {
       setReviewsLoading(false);
       setConsensusLoading(false);
+      setReportsLoading(false);
     }
   }, [place, reviewsForPlace, accessibilityConsensusForPlace]);
 
@@ -80,6 +139,82 @@ export function PlaceDetailPage() {
     } catch {
       /* ignore */
     }
+  };
+
+  const handleOpenReport = () => {
+    setSelectedReportType(null);
+    setReportDescription('');
+    setReportError(null);
+    setReportDialogOpen(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!place || !user || !selectedReportType) {
+      setReportError(
+        !user
+          ? 'Debes iniciar sesión para reportar un problema.'
+          : 'Elige un tipo de problema.',
+      );
+      return;
+    }
+    setReportSubmitting(true);
+    setReportError(null);
+    try {
+      const expiresAt = new Date(
+        Date.now() + EXPIRATION_MS[selectedReportType],
+      ).toISOString();
+      const { error } = await supabase.from('place_reports').insert({
+        place_id: place.id,
+        user_id: user.id,
+        type: selectedReportType,
+        description: reportDescription.trim() || null,
+        expires_at: expiresAt,
+      });
+      if (error) throw error;
+      setReportDialogOpen(false);
+      setSelectedReportType(null);
+      setReportDescription('');
+      await reloadLists();
+      await refreshPlaces();
+    } catch (err) {
+      setReportError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo enviar el reporte. Intenta nuevamente.',
+      );
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
+  function timeAgo(dateIso: string | null) {
+    if (!dateIso) return null;
+    const diff = Date.now() - new Date(dateIso).getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    if (hours < 1) return 'Hace menos de 1 hora';
+    if (hours < 24) {
+      return `Hace ${hours} hora${hours > 1 ? 's' : ''}`;
+    }
+    return `Hace ${days} día${days > 1 ? 's' : ''}`;
+  }
+
+  function timeUntil(dateIso: string) {
+    const diff = new Date(dateIso).getTime() - Date.now();
+    const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
+    const days = Math.floor(hours / 24);
+    if (hours < 24) {
+      return `Expira en ${hours} hora${hours > 1 ? 's' : ''}`;
+    }
+    return `Expira en ${days} día${days > 1 ? 's' : ''}`;
+  }
+
+  const precioLabel: Record<number, string> = {
+    0: 'Gratis',
+    1: '$',
+    2: '$$',
+    3: '$$$',
+    4: '$$$$',
   };
 
   if (!place) {
@@ -115,11 +250,20 @@ export function PlaceDetailPage() {
 
       <div className='mt-3 flex items-stretch justify-between gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'>
         <header className='min-w-0 flex-1 rounded-xl border border-neutral-200/80 bg-white px-4 py-3'>
+          {place.googlePhotoUrl ? (
+            <img
+              src={place.googlePhotoUrl}
+              alt={place.name}
+              className='mb-3 h-28 w-full rounded-xl object-cover sm:h-36'
+              loading='lazy'
+            />
+          ) : null}
           <h1 className='text-2xl font-semibold tracking-tight text-neutral-900'>
             {place.name}
           </h1>
-          <p className='mt-1.5 text-sm text-neutral-600'>
-            {PLACE_CATEGORY_LABEL_ES[place.category]}
+          <p className='mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-neutral-50 px-2.5 py-1 text-sm text-neutral-700 ring-1 ring-neutral-200/80'>
+            <span aria-hidden>{getCategoryMeta(place.category).icon}</span>
+            <span>{getCategoryMeta(place.category).label}</span>
           </p>
 
           <div className='mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
@@ -131,16 +275,84 @@ export function PlaceDetailPage() {
               {place.reviewCount === 1 ? 'reseña' : 'reseñas'}
             </span>
           </div>
+
+          <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-700'>
+            {place.phone ? (
+              <a
+                href={`tel:${place.phone}`}
+                className='underline-offset-2 hover:underline'
+              >
+                📞 {place.phone}
+              </a>
+            ) : null}
+            {place.website ? (
+              <a
+                href={place.website}
+                target='_blank'
+                rel='noreferrer'
+                className='underline-offset-2 hover:underline'
+              >
+                🌐 Sitio web
+              </a>
+            ) : null}
+            {place.priceLevel != null ? (
+              <span className='text-neutral-600'>
+                {precioLabel[place.priceLevel] ?? ''}
+              </span>
+            ) : null}
+          </div>
+
+          {place.googleRating != null ? (
+            <p className='mt-1 text-xs text-neutral-500'>
+              ⭐ {place.googleRating} en Google ({place.googleRatingsTotal ?? 0}{' '}
+              reseñas)
+            </p>
+          ) : null}
         </header>
 
-        <div className='flex min-w-0 flex-1 shrink-0 sm:w-auto sm:flex-none sm:justify-end'>
+        <div className='flex min-w-0 flex-1 shrink-0 flex-col gap-2 sm:w-auto sm:flex-none sm:items-end sm:justify-end'>
           <PlaceReviewFormDialog
             placeId={place.id}
             onSaved={() => void reloadLists()}
             triggerClassName='w-full sm:w-auto'
           />
+          <Button
+            type='button'
+            variant='outline'
+            className='w-full text-sm sm:w-auto'
+            onClick={handleOpenReport}
+          >
+            ⚠️ Reportar problema temporal
+          </Button>
         </div>
       </div>
+
+      {reportsLoading ? null : activeReports.length > 0 ? (
+        <div className='mt-4 space-y-2'>
+          {activeReports.map((r) => (
+            <div
+              key={r.id}
+              className='rounded-lg border border-amber-300/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900'
+            >
+              <div className='flex items-center gap-2 font-semibold'>
+                <span>⚠️</span>
+                <span>{REPORT_LABELS[r.type]}</span>
+              </div>
+              <div className='mt-1 text-xs text-amber-900/80'>
+                <span>
+                  {timeAgo(r.created_at) ?? 'Reporte reciente'} ·{' '}
+                  {timeUntil(r.expires_at)}
+                </span>
+              </div>
+              {r.description ? (
+                <p className='mt-1 text-xs text-amber-950'>
+                  {r.description}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <AccessibilityConsensusGrid
         className='mt-4'
@@ -218,6 +430,120 @@ export function PlaceDetailPage() {
           Compartir
         </Button>
       </footer>
+
+      {/* Derivación a sistema de denuncias según categoría */}
+      <div className='mt-4 text-xs text-neutral-500'>
+        {(() => {
+          const meta = getCategoryMeta(place.category);
+          const isPublic = meta.isPublic ?? false;
+          return isPublic ? (
+            <a
+              href='https://www.siac.cl'
+              target='_blank'
+              rel='noreferrer'
+              className='underline-offset-2 hover:underline'
+            >
+              Denunciar en SIAC (institución pública)
+            </a>
+          ) : (
+            <a
+              href='https://www.sernac.cl'
+              target='_blank'
+              rel='noreferrer'
+              className='underline-offset-2 hover:underline'
+            >
+              Denunciar en SERNAC (empresa privada)
+            </a>
+          );
+        })()}
+      </div>
+
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Qué problema encontraste?</DialogTitle>
+            <DialogDescription>
+              Elige el tipo de problema temporal y, si quieres, agrega una
+              descripción. El reporte se eliminará automáticamente cuando
+              expire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='mt-3 space-y-3'>
+            <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+              <Button
+                type='button'
+                variant={
+                  selectedReportType === 'elevator' ? 'default' : 'outline'
+                }
+                className='justify-start'
+                onClick={() => setSelectedReportType('elevator')}
+              >
+                🛗 Ascensor fuera de servicio
+              </Button>
+              <Button
+                type='button'
+                variant={selectedReportType === 'ramp' ? 'default' : 'outline'}
+                className='justify-start'
+                onClick={() => setSelectedReportType('ramp')}
+              >
+                ♿ Rampa bloqueada o en mal estado
+              </Button>
+              <Button
+                type='button'
+                variant={
+                  selectedReportType === 'construction' ? 'default' : 'outline'
+                }
+                className='justify-start'
+                onClick={() => setSelectedReportType('construction')}
+              >
+                🚧 Obras en la entrada
+              </Button>
+              <Button
+                type='button'
+                variant={selectedReportType === 'other' ? 'default' : 'outline'}
+                className='justify-start'
+                onClick={() => setSelectedReportType('other')}
+              >
+                ❓ Otro problema
+              </Button>
+            </div>
+
+            <div className='space-y-1.5'>
+              <p className='text-sm font-medium text-neutral-800'>
+                Describe el problema (opcional)
+              </p>
+              <Textarea
+                placeholder='Ej: La rampa está bloqueada por una reja.'
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+                className='min-h-[80px]'
+              />
+            </div>
+
+            {reportError ? (
+              <p className='text-sm text-red-600'>{reportError}</p>
+            ) : null}
+
+            <div className='flex justify-end gap-2 pt-2'>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setReportDialogOpen(false)}
+                disabled={reportSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type='button'
+                onClick={handleSubmitReport}
+                disabled={reportSubmitting}
+              >
+                {reportSubmitting ? 'Enviando…' : 'Reportar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

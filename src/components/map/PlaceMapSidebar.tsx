@@ -11,9 +11,10 @@ import type { PlaceWithStats } from '@/context/placesContext';
 import { categoryGlyph } from '@/lib/pins';
 import { formatRelativeTimeEs } from '@/lib/relativeTime';
 import type { AccessibilityConsensusMap } from '@/lib/reviewAccessibilityConsensus';
-import { PLACE_CATEGORY_LABEL_ES, type PlaceReview } from '@/types/place';
+import { getCategoryMeta, type PlaceReview } from '@/types/place';
 import { COLORS } from '@/styles/colors';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/services/supabase';
 
 type PanelTab = 'overview' | 'reviews';
 
@@ -49,6 +50,45 @@ interface PlaceMapSidebarProps {
   onClose: () => void;
 }
 
+type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
+
+const REPORT_LABELS: Record<PlaceReportType, string> = {
+  elevator: '🛗 Ascensor fuera de servicio',
+  ramp: '♿ Rampa bloqueada o en mal estado',
+  construction: '🚧 Obras en la entrada',
+  other: '❓ Problema reportado',
+};
+
+interface PlaceReportRow {
+  id: number;
+  type: PlaceReportType;
+  description: string | null;
+  expires_at: string;
+  created_at: string | null;
+}
+
+function timeAgo(dateIso: string | null) {
+  if (!dateIso) return null;
+  const diff = Date.now() - new Date(dateIso).getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  if (hours < 1) return 'Hace menos de 1 hora';
+  if (hours < 24) {
+    return `Hace ${hours} hora${hours > 1 ? 's' : ''}`;
+  }
+  return `Hace ${days} día${days > 1 ? 's' : ''}`;
+}
+
+function timeUntil(dateIso: string) {
+  const diff = new Date(dateIso).getTime() - Date.now();
+  const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
+  const days = Math.floor(hours / 24);
+  if (hours < 24) {
+    return `Expira en ${hours} hora${hours > 1 ? 's' : ''}`;
+  }
+  return `Expira en ${days} día${days > 1 ? 's' : ''}`;
+}
+
 export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
   const { reviewsForPlace, accessibilityConsensusForPlace } = usePlaces();
@@ -59,6 +99,8 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
     null,
   );
   const [consensusLoading, setConsensusLoading] = useState(false);
+  const [activeReports, setActiveReports] = useState<PlaceReportRow[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const load = () => {
@@ -83,14 +125,28 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
   const reloadSidebarLists = async () => {
     setReviewsLoading(true);
     setConsensusLoading(true);
-    const [rows, c] = await Promise.all([
+    setReportsLoading(true);
+    const [rows, c, reportsRes] = await Promise.all([
       reviewsForPlace(place.id),
       accessibilityConsensusForPlace(place.id),
+      supabase
+        .from('place_reports')
+        .select('*')
+        .eq('place_id', place.id)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false }),
     ]);
     setReviews(rows);
     setConsensus(c);
+    if (reportsRes.error) {
+      console.error('Error fetching place reports (sidebar)', reportsRes.error);
+      setActiveReports([]);
+    } else {
+      setActiveReports((reportsRes.data || []) as PlaceReportRow[]);
+    }
     setReviewsLoading(false);
     setConsensusLoading(false);
+    setReportsLoading(false);
   };
 
   useEffect(() => {
@@ -99,10 +155,25 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
     queueMicrotask(() => {
       if (!cancelled) setConsensusLoading(true);
     });
-    void accessibilityConsensusForPlace(place.id).then((c) => {
+    void Promise.all([
+      accessibilityConsensusForPlace(place.id),
+      supabase
+        .from('place_reports')
+        .select('*')
+        .eq('place_id', place.id)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false }),
+    ]).then(([c, reportsRes]) => {
       if (cancelled) return;
       setConsensus(c);
+      if (reportsRes.error) {
+        console.error('Error fetching place reports (sidebar init)', reportsRes.error);
+        setActiveReports([]);
+      } else {
+        setActiveReports((reportsRes.data || []) as PlaceReportRow[]);
+      }
       setConsensusLoading(false);
+      setReportsLoading(false);
     });
     return () => {
       cancelled = true;
@@ -146,7 +217,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
                 {place.name}
               </h2>
               <div className='mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-600 sm:mt-1 sm:text-xs'>
-                <span>{PLACE_CATEGORY_LABEL_ES[place.category]}</span>
+                <span>{getCategoryMeta(place.category).label}</span>
                 {hasStrongRatingSignal ? (
                   <span className='inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary'>
                     <span aria-hidden>{'\u267F'}</span>
@@ -237,7 +308,35 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
         ) : null}
 
         {tab === 'overview' ? (
-          <Separator className='my-2 shrink-0 bg-neutral-200/80 sm:my-2.5' />
+          <>
+            {!reportsLoading && activeReports.length > 0 ? (
+              <div className='mt-2 space-y-1.5 px-0.5'>
+                {activeReports.map((r) => (
+                  <div
+                    key={r.id}
+                    className='rounded-md border border-amber-300/70 bg-amber-50/80 px-2.5 py-2 text-xs text-amber-900'
+                  >
+                    <div className='flex items-center gap-1.5 font-semibold'>
+                      <span>⚠️</span>
+                      <span>{REPORT_LABELS[r.type]}</span>
+                    </div>
+                    <div className='mt-0.5 text-[11px] text-amber-900/80'>
+                      <span>
+                        {timeAgo(r.created_at) ?? 'Reporte reciente'} ·{' '}
+                        {timeUntil(r.expires_at)}
+                      </span>
+                    </div>
+                    {r.description ? (
+                      <p className='mt-0.5 text-[11px] text-amber-950'>
+                        {r.description}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <Separator className='my-2 shrink-0 bg-neutral-200/80 sm:my-2.5' />
+          </>
         ) : (
           <div className='h-2.5 shrink-0' />
         )}

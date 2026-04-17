@@ -31,12 +31,11 @@ const defaultFilters: AccessibilityFilters = {
   recommendedOnly: false,
   minRating: null,
   parking_accessible: false,
-  parking_near_entrance: false,
   signage_clear: false,
-  step_free_access: false,
   ramp_available: false,
+  mechanical_stairs: false,
   elevator_available: false,
-  entrance_width_ok: false,
+  wide_entrance: false,
   accessible_bathroom: false,
   circulation_clear: false,
 };
@@ -50,12 +49,20 @@ type DbPlaceRow = {
   longitude: number | string;
   opening_hours: string[] | null;
   photo_url: string | null;
+  phone: string | null;
+  website: string | null;
+  google_rating: number | null;
+  google_ratings_total: number | null;
+  google_photo_url: string | null;
+  wheelchair_accessible: boolean | null;
+  price_level: number | null;
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
   avg_rating: number | null;
   rating_band: PlaceWithStats['band'] | null;
   review_count: number | null;
+  active_reports?: number | { count: number }[] | null;
 };
 
 type DbReviewRow = {
@@ -89,6 +96,13 @@ function mapPlaceFromDB(place: DbPlaceRow): Place {
     longitude: lng,
     openingHours: place.opening_hours ?? null,
     photoUrl: place.photo_url ?? null,
+    phone: place.phone ?? null,
+    website: place.website ?? null,
+    googleRating: place.google_rating ?? null,
+    googleRatingsTotal: place.google_ratings_total ?? null,
+    googlePhotoUrl: place.google_photo_url ?? null,
+    wheelchairAccessible: place.wheelchair_accessible ?? null,
+    priceLevel: place.price_level ?? null,
     createdBy: place.created_by ?? null,
     createdAt: place.created_at ?? null,
     updatedAt: place.updated_at ?? null,
@@ -97,11 +111,22 @@ function mapPlaceFromDB(place: DbPlaceRow): Place {
 
 function mapPlaceWithStats(place: DbPlaceRow): PlaceWithStats {
   const mapped = mapPlaceFromDB(place);
+  let activeReportsCount = 0;
+  if (typeof place.active_reports === 'number') {
+    activeReportsCount = place.active_reports;
+  } else if (Array.isArray(place.active_reports)) {
+    const first = place.active_reports[0] as { count?: number } | undefined;
+    if (first?.count != null) {
+      activeReportsCount = first.count;
+    }
+  }
+
   return {
     ...mapped,
     avgRating: place.avg_rating ?? 0,
     band: place.rating_band ?? 'not_recommended',
     reviewCount: place.review_count ?? 0,
+    activeReportsCount,
   };
 }
 
@@ -131,10 +156,12 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshPlaces = useCallback(async () => {
+    const nowIso = new Date().toISOString();
     const [placesRes, accRes] = await Promise.all([
       supabase
         .from('places')
-        .select('*')
+        .select('*, active_reports:place_reports(count)')
+        .gt('place_reports.expires_at', nowIso)
         .order('created_at', { ascending: false }),
       supabase.from('place_accessibility_reviews').select('*'),
     ]);
@@ -368,7 +395,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (accExisting?.id != null) {
-        const updatePayload: Record<string, boolean> = {};
+        const updatePayload: Record<string, boolean | null> = {};
         for (const k of ACCESSIBILITY_REVIEW_KEYS) {
           updatePayload[k] = accessibility[k];
         }
@@ -378,7 +405,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
           .eq('review_id', reviewId);
         if (accUp) throw accUp;
       } else {
-        const insertPayload: Record<string, boolean | number> = {
+        const insertPayload: Record<string, boolean | null | number> = {
           review_id: reviewId,
           place_id: placeId,
         };

@@ -14,10 +14,7 @@ import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityCo
 import { usePlaces } from '../context/usePlaces';
 import type { AccessibilityConsensusMap } from '../lib/reviewAccessibilityConsensus';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
-import {
-  PLACE_CATEGORY_LABEL_ES,
-  type PlaceReview,
-} from '../types/place';
+import { getCategoryMeta, type PlaceReview } from '../types/place';
 
 export function SidebarPlaceDetail() {
   const { placeId } = useParams();
@@ -93,8 +90,7 @@ export function SidebarPlaceDetail() {
             </Badge>
           </div>
           <CardDescription>
-            {PLACE_CATEGORY_LABEL_ES[place.category]} · ⭐{' '}
-            {place.avgRating.toFixed(1)}
+            {getCategoryMeta(place.category).label} · ⭐ {place.avgRating.toFixed(1)}
           </CardDescription>
           <p className='text-sm text-foreground'>{place.address}</p>
         </CardHeader>
