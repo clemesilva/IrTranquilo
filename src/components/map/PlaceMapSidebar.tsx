@@ -405,6 +405,26 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
                           Sin comentario
                         </p>
                       )}
+                      {r.photoUrls && r.photoUrls.length > 0 ? (
+                        <div className='mt-2 flex flex-wrap gap-1.5'>
+                          {r.photoUrls.map((url, i) => (
+                            <a key={i} href={url} target='_blank' rel='noreferrer'>
+                              <img
+                                src={url}
+                                alt={`Foto ${i + 1}`}
+                                className='h-16 w-16 rounded-md object-cover border border-neutral-200 hover:opacity-90 transition'
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                      {r.videoUrl ? (
+                        <video
+                          src={r.videoUrl}
+                          controls
+                          className='mt-2 w-full rounded-md border border-neutral-200'
+                        />
+                      ) : null}
                     </div>
                   ))
                 )}

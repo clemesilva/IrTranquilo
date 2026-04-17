@@ -13,12 +13,15 @@ import {
   type PlaceAccessibilityReviewRow,
   consensusFieldStrictYes,
 } from '../lib/reviewAccessibilityConsensus';
+import { reviewMediaBasePathForPlace } from '../lib/reviewMediaPaths';
+import { storageObjectPathFromReviewMediaPublicUrl } from '../lib/reviewMediaStorage';
 import { syncPlaceReviewStats } from '../lib/syncPlaceReviewStats';
 import type { Place, PlaceCategory } from '../types/place';
 import {
   ACCESSIBILITY_REVIEW_KEYS,
   createEmptyAccessibilityValues,
   type AccessibilityReviewValues,
+  type PlaceReviewMediaInput,
 } from '../types/reviewAccessibility';
 import {
   PlacesContext,
@@ -71,6 +74,8 @@ type DbReviewRow = {
   comment: string | null;
   created_at: string | null;
   author_id: string | null;
+  photo_urls: string[] | null;
+  video_url: string | null;
   users?:
     | { display_name: string | null }
     | { display_name: string | null }[]
@@ -256,7 +261,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   const reviewsForPlace = useCallback(async (placeId: number) => {
     const { data, error } = await supabase
       .from('reviews')
-      .select('id, rating, comment, created_at, author_id, users(display_name)')
+      .select('id, rating, comment, created_at, author_id, photo_urls, video_url, users(display_name)')
       .eq('place_id', placeId)
       .order('created_at', { ascending: false });
 
@@ -275,6 +280,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       authorName: Array.isArray(r.users)
         ? (r.users[0]?.display_name ?? null)
         : (r.users?.display_name ?? null),
+      photoUrls: r.photo_urls ?? null,
+      videoUrl: r.video_url ?? null,
     }));
   }, []);
 
@@ -285,7 +292,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
     const { data: rev, error: revErr } = await supabase
       .from('reviews')
-      .select('id, rating, comment')
+      .select('id, rating, comment, photo_urls, video_url')
       .eq('place_id', placeId)
       .eq('author_id', user.id)
       .maybeSingle();
@@ -315,6 +322,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       rating: rev.rating,
       comment: rev.comment,
       accessibility,
+      photoUrls: Array.isArray(rev.photo_urls) ? rev.photo_urls : null,
+      videoUrl: typeof rev.video_url === 'string' ? rev.video_url : null,
     };
   }, []);
 
@@ -343,9 +352,15 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       rating: number,
       comment: string | null,
       accessibility: AccessibilityReviewValues,
+      mediaInput: PlaceReviewMediaInput,
     ) => {
       const cleanRating = Math.max(1, Math.min(5, Math.round(rating)));
       const cleanComment = comment?.trim() ? comment.trim() : null;
+
+      const retainPhotoUrls = mediaInput.retainPhotoUrls.filter(Boolean);
+      const retainVideoUrl = mediaInput.retainVideoUrl;
+      const newPhotos = mediaInput.newPhotos;
+      const newVideo = mediaInput.newVideo;
 
       const { data: auth } = await supabase.auth.getUser();
       const user = auth.user;
@@ -360,18 +375,29 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
       if (findErr) throw findErr;
 
+      let previousPhotoUrls: string[] = [];
+      let previousVideoUrl: string | null = null;
+      if (existing?.id != null) {
+        const { data: prevMedia, error: prevMediaErr } = await supabase
+          .from('reviews')
+          .select('photo_urls, video_url')
+          .eq('id', existing.id)
+          .maybeSingle();
+        if (!prevMediaErr && prevMedia) {
+          previousPhotoUrls = Array.isArray(prevMedia.photo_urls)
+            ? (prevMedia.photo_urls as string[]).filter(Boolean)
+            : [];
+          previousVideoUrl =
+            typeof prevMedia.video_url === 'string' && prevMedia.video_url
+              ? prevMedia.video_url
+              : null;
+        }
+      }
+
       let reviewId: number;
 
       if (existing?.id != null) {
         reviewId = existing.id;
-        const { error: upErr } = await supabase
-          .from('reviews')
-          .update({
-            rating: cleanRating,
-            comment: cleanComment,
-          })
-          .eq('id', reviewId);
-        if (upErr) throw upErr;
       } else {
         const { data: inserted, error: insErr } = await supabase
           .from('reviews')
@@ -386,6 +412,94 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
         if (insErr) throw insErr;
         if (!inserted?.id) throw new Error('No se pudo crear la reseña.');
         reviewId = inserted.id;
+      }
+
+      const { data: placeRow, error: placeNameErr } = await supabase
+        .from('places')
+        .select('name')
+        .eq('id', placeId)
+        .maybeSingle();
+      if (placeNameErr) throw placeNameErr;
+      const placeNameForPath = placeRow?.name?.trim() || 'lugar';
+      const basePath = reviewMediaBasePathForPlace(placeNameForPath);
+      const slots = Math.max(0, 5 - retainPhotoUrls.length);
+      const uploadedNewPhotoUrls: string[] = [];
+      for (const photo of newPhotos.slice(0, slots)) {
+        const ext = photo.name.split('.').pop() ?? 'jpg';
+        const path = `${basePath}/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('review-media')
+          .upload(path, photo, {
+            contentType: photo.type || undefined,
+            upsert: false,
+          });
+        if (upErr) {
+          throw new Error(
+            `No se pudo subir la foto "${photo.name}": ${upErr.message}`,
+          );
+        }
+        const { data: urlData } = supabase.storage
+          .from('review-media')
+          .getPublicUrl(path);
+        if (urlData.publicUrl) uploadedNewPhotoUrls.push(urlData.publicUrl);
+      }
+      const finalPhotoUrls = [...retainPhotoUrls, ...uploadedNewPhotoUrls].slice(
+        0,
+        5,
+      );
+
+      let finalVideoUrl: string | null = retainVideoUrl;
+      if (newVideo) {
+        const ext = newVideo.name.split('.').pop() ?? 'mp4';
+        const path = `${basePath}/video-${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('review-media')
+          .upload(path, newVideo, {
+            contentType: newVideo.type || undefined,
+            upsert: false,
+          });
+        if (upErr) {
+          throw new Error(`No se pudo subir el video: ${upErr.message}`);
+        }
+        const { data: urlData } = supabase.storage
+          .from('review-media')
+          .getPublicUrl(path);
+        finalVideoUrl = urlData.publicUrl ?? null;
+      }
+
+      const { error: revUpErr } = await supabase
+        .from('reviews')
+        .update({
+          rating: cleanRating,
+          comment: cleanComment,
+          photo_urls: finalPhotoUrls.length > 0 ? finalPhotoUrls : null,
+          video_url: finalVideoUrl,
+        })
+        .eq('id', reviewId);
+      if (revUpErr) throw revUpErr;
+
+      const pathsToRemove: string[] = [];
+      for (const url of previousPhotoUrls) {
+        if (!finalPhotoUrls.includes(url)) {
+          const p = storageObjectPathFromReviewMediaPublicUrl(url);
+          if (p) pathsToRemove.push(p);
+        }
+      }
+      if (previousVideoUrl && previousVideoUrl !== finalVideoUrl) {
+        const p = storageObjectPathFromReviewMediaPublicUrl(previousVideoUrl);
+        if (p) pathsToRemove.push(p);
+      }
+      const uniquePaths = [...new Set(pathsToRemove)];
+      if (uniquePaths.length > 0) {
+        const { error: rmErr } = await supabase.storage
+          .from('review-media')
+          .remove(uniquePaths);
+        if (rmErr) {
+          console.warn(
+            'No se pudieron eliminar archivos antiguos en Storage:',
+            rmErr.message,
+          );
+        }
       }
 
       const { data: accExisting } = await supabase

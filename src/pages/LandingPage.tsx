@@ -461,7 +461,7 @@ export function LandingPage() {
       >
         <div className='mx-auto max-w-7xl'>
           {/* Footer Content */}
-          <div className='grid grid-cols-4 gap-8 mb-12'>
+          <div className='grid grid-cols-2 gap-8 mb-12 sm:grid-cols-4'>
             {/* Brand */}
             <div>
               <h4
@@ -580,7 +580,7 @@ export function LandingPage() {
 
           {/* Footer Bottom */}
           <div
-            className='border-t pt-8 flex items-center justify-between text-sm'
+            className='border-t pt-8 flex flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between'
             style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
           >
             <p>&copy; 2024 IrTranquilo. Con ❤️ para una ciudad sin barreras.</p>

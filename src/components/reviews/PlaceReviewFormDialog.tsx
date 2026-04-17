@@ -57,8 +57,8 @@ export function PlaceReviewFormDialog({
             (isAuthenticated ? 'Editar mi reseña' : 'Dejar una reseña')}
         </Button>
       </DialogTrigger>
-      <DialogContent className='w-[calc(100vw-2rem)] max-w-lg rounded-2xl sm:w-full sm:max-w-2xl'>
-        <DialogHeader>
+      <DialogContent className='flex max-h-[min(98dvh,920px)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:rounded-2xl'>
+        <DialogHeader className='shrink-0 space-y-1.5 border-b border-neutral-100 px-5 pb-3 pt-10 text-left sm:pr-12'>
           <DialogTitle>Tu reseña</DialogTitle>
           <DialogDescription>
             Calificación, accesibilidad y comentario opcional. Se guarda al
@@ -68,7 +68,7 @@ export function PlaceReviewFormDialog({
         {open ? (
           <PlaceReviewForm
             placeId={placeId}
-            className='border-0 p-0 shadow-none'
+            className='flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent p-0 shadow-none'
             onSaved={handleSaved}
           />
         ) : null}

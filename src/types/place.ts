@@ -160,6 +160,8 @@ export interface PlaceReview {
   createdAt?: string | null
   authorId?: string | null
   authorName?: string | null
+  photoUrls?: string[] | null
+  videoUrl?: string | null
 }
 
 export type RatingBand = 'recommended' | 'acceptable' | 'not_recommended'

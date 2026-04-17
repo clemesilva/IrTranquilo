@@ -573,10 +573,54 @@ ON CONFLICT (review_id) DO NOTHING;
 -- ALTER TYPE place_category ADD VALUE 'billing';
 
 -- ============================================================================
+-- 11. STORAGE — bucket `review-media` (subidas desde la app con anon key)
+-- ============================================================================
+-- En Supabase, sin políticas RLS en storage.objects no se puede subir nada.
+-- Además, upload con upsert=true exige políticas SELECT+UPDATE; con upsert=false
+-- basta con INSERT (+ SELECT si quieres leer vía API autenticada).
+--
+-- Crea el bucket público "review-media" en Dashboard > Storage (si no existe).
+-- Luego ejecuta en SQL Editor (idempotente):
+
+DROP POLICY IF EXISTS "review-media: lectura pública" ON storage.objects;
+DROP POLICY IF EXISTS "review-media: subida autenticada" ON storage.objects;
+DROP POLICY IF EXISTS "review-media: borrado autenticado" ON storage.objects;
+
+CREATE POLICY "review-media: lectura pública"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'review-media');
+
+CREATE POLICY "review-media: subida autenticada"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'review-media');
+
+-- Borrado desde la app al quitar fotos/video de una reseña (requiere policy explícita)
+CREATE POLICY "review-media: borrado autenticado"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'review-media');
+
+-- ============================================================================
+-- 12. STORAGE — convención de rutas (solo documentación; no ejecuta nada)
+-- ============================================================================
+-- En Storage no existen “carpetas” como tablas: son prefijos en la clave del
+-- objeto. La app sube a:
+--   review-media / FotosyVideosReview / {slug-nombre-lugar} / {archivo}
+-- Ej.: FotosyVideosReview/mumbai-vitacura/eae89cbf-....webp
+--
+-- Los archivos antiguos (p. ej. Fotos/Videos/… o 24/27/…) siguen válidos hasta
+-- que los borres o migres a mano; las URLs en `reviews` apuntan a la ruta con
+-- la que se subió cada archivo.
+
+-- ============================================================================
 -- FIN DEL SCRIPT
 -- ============================================================================
 -- El schema está listo. Ahora:
 -- 1. Habilita la autenticación en Supabase
 -- 2. Obtén la URL y ANON_KEY de Supabase
 -- 3. Pégalas en el .env del proyecto React
+-- 4. Si las fotos no suben: ejecuta el bloque §11 (Storage) en SQL Editor
+-- 5. Rutas nuevas de media: ver §12 (FotosyVideosReview/… en el bucket review-media)
 -- ============================================================================

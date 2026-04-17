@@ -16,6 +16,7 @@ import {
 } from '../lib/mapPlaceFocus';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
+
 export function ExplorePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -37,6 +38,7 @@ export function ExplorePage() {
     (searchParams.get('category') as PlaceCategory | 'all') || 'all',
   );
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showMobileList, setShowMobileList] = useState(false);
 
   const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
     const map = mapRef.current
@@ -49,81 +51,53 @@ export function ExplorePage() {
     )
   }, [])
 
-  // Initialize search from URL
   useEffect(() => {
-    if (search) {
-      setSearch(search);
-    }
+    if (search) setSearch(search);
   }, [search, setSearch]);
 
-  // Initialize category filter from URL
   useEffect(() => {
     setCategory(category);
   }, [category, setCategory]);
 
-  // Initialize map
   useEffect(() => {
     if (!mapRef.current) {
       try {
-        const map = L.map('explore-map').setView(
-          SANTIAGO_CENTER,
-          SANTIAGO_ZOOM,
-        );
-
+        const map = L.map('explore-map').setView(SANTIAGO_CENTER, SANTIAGO_ZOOM);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap',
           maxZoom: 19,
         }).addTo(map);
-
         mapRef.current = map;
-        // Force Leaflet to recalculate size after render
         setTimeout(() => map.invalidateSize(), 100);
       } catch (error) {
         console.error('Error initializing map:', error);
       }
     }
-
-    return () => {
-      // Cleanup map on unmount
-    };
   }, []);
 
-  // Bloquear interacción del mapa mientras se editan filtros
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
     const toggle = (enabled: boolean) => {
       if (enabled) {
-        map.dragging.enable();
-        map.scrollWheelZoom.enable();
-        map.doubleClickZoom.enable();
-        map.boxZoom.enable();
-        map.keyboard.enable();
-        map.touchZoom.enable();
+        map.dragging.enable(); map.scrollWheelZoom.enable();
+        map.doubleClickZoom.enable(); map.boxZoom.enable();
+        map.keyboard.enable(); map.touchZoom.enable();
       } else {
-        map.dragging.disable();
-        map.scrollWheelZoom.disable();
-        map.doubleClickZoom.disable();
-        map.boxZoom.disable();
-        map.keyboard.disable();
-        map.touchZoom.disable();
+        map.dragging.disable(); map.scrollWheelZoom.disable();
+        map.doubleClickZoom.disable(); map.boxZoom.disable();
+        map.keyboard.disable(); map.touchZoom.disable();
       }
     };
-
     toggle(!showFiltersModal);
     return () => toggle(true);
   }, [showFiltersModal]);
 
-  // Update markers when places change
   useEffect(() => {
     if (!mapRef.current) return;
-
-    // Clear old markers
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    // Add new markers
     filteredPlaces.forEach((place) => {
       if (place.latitude && place.longitude) {
         const isSelected = selectedPlace === place.id;
@@ -132,12 +106,7 @@ export function ExplorePage() {
         const size = isSelected ? 28 : 24
         const icon = L.divIcon({
           className: '',
-          html: buildPinHtml({
-            color: baseColor,
-            glyph: categoryGlyph(place.category),
-            selected: isSelected,
-            size,
-          }),
+          html: buildPinHtml({ color: baseColor, glyph: categoryGlyph(place.category), selected: isSelected, size }),
           iconSize: [size, size + 12],
           iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
           popupAnchor: [0, -Math.round(size + 6)],
@@ -147,6 +116,7 @@ export function ExplorePage() {
           .on('click', (e) => {
             L.DomEvent.stopPropagation(e)
             setSelectedPlace(place.id)
+            setShowMobileList(false)
             panToPlaceForDetail(place)
           })
           .addTo(mapRef.current!);
@@ -169,13 +139,12 @@ export function ExplorePage() {
   }, [filteredPlaces, selectedPlace])
 
   return (
-    <div className='flex h-screen bg-white'>
-      {/* Sidebar */}
+    <div className='flex h-screen bg-white overflow-hidden'>
+      {/* Sidebar desktop — oculto en móvil */}
       <div
-        className='w-96 border-r overflow-hidden flex flex-col'
+        className='hidden md:flex w-96 border-r overflow-hidden flex-col shrink-0'
         style={{ borderColor: COLORS.border }}
       >
-        {/* Header */}
         <div className='border-b p-4' style={{ borderColor: COLORS.border }}>
           <button
             onClick={() => navigate('/')}
@@ -189,36 +158,17 @@ export function ExplorePage() {
           </h2>
         </div>
 
-        {/* Search */}
-        <div
-          className='border-b p-4 space-y-3'
-          style={{ borderColor: COLORS.border }}
-        >
+        <div className='border-b p-4 space-y-3' style={{ borderColor: COLORS.border }}>
           <input
             type='text'
             placeholder='Buscar lugares...'
             value={search}
-            onChange={(e) => {
-              setLocalSearch(e.target.value);
-              setSearch(e.target.value);
-            }}
+            onChange={(e) => { setLocalSearch(e.target.value); setSearch(e.target.value); }}
             className='w-full rounded-lg border px-3 py-2 text-sm'
-            style={{
-              borderColor: COLORS.border,
-              color: COLORS.text,
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = COLORS.primary;
-              e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = COLORS.border;
-              e.currentTarget.style.boxShadow = 'none';
-            }}
+            style={{ borderColor: COLORS.border, color: COLORS.text }}
           />
         </div>
 
-        {/* Results */}
         <div className='flex-1 overflow-y-auto p-4 space-y-3'>
           {filteredPlaces.length === 0 ? (
             <p className='text-center py-8' style={{ color: COLORS.textMuted }}>
@@ -228,35 +178,23 @@ export function ExplorePage() {
             filteredPlaces.map((place) => (
               <button
                 key={place.id}
-                onClick={() => {
-                  setSelectedPlace(place.id);
-                  panToPlaceForDetail(place);
-                }}
+                onClick={() => { setSelectedPlace(place.id); panToPlaceForDetail(place); }}
                 className='w-full text-left p-3 rounded-lg border transition-all'
                 style={{
-                  borderColor:
-                    selectedPlace === place.id ? COLORS.primary : COLORS.border,
-                  backgroundColor:
-                    selectedPlace === place.id
-                      ? `${COLORS.primary}0A`
-                      : 'transparent',
+                  borderColor: selectedPlace === place.id ? COLORS.primary : COLORS.border,
+                  backgroundColor: selectedPlace === place.id ? `${COLORS.primary}0A` : 'transparent',
                 }}
               >
-                <h3 className='font-semibold' style={{ color: COLORS.text }}>
-                  {place.name}
-                </h3>
-                <p className='text-sm' style={{ color: COLORS.textMuted }}>
-                  {getCategoryMeta(place.category).label}
-                </p>
+                <h3 className='font-semibold' style={{ color: COLORS.text }}>{place.name}</h3>
+                <p className='text-sm' style={{ color: COLORS.textMuted }}>{getCategoryMeta(place.category).label}</p>
                 <p className='text-xs mt-1' style={{ color: COLORS.textMuted }}>
-                  ⭐ {place.avgRating.toFixed(1)} • {place.reviewCount} reseñas
+                  ⭐ {place.avgRating.toFixed(1)} · {place.reviewCount} reseñas
                 </p>
               </button>
             ))
           )}
         </div>
 
-        {/* Add Place Button */}
         <div className='border-t p-4' style={{ borderColor: COLORS.border }}>
           <button
             onClick={() => navigate('/places/new')}
@@ -268,7 +206,7 @@ export function ExplorePage() {
         </div>
       </div>
 
-      {/* Map Container - relative parent for overlays */}
+      {/* Map Container */}
       <div className='flex-1 relative'>
         <div
           id='explore-map'
@@ -276,25 +214,47 @@ export function ExplorePage() {
           style={{ pointerEvents: showFiltersModal ? 'none' : 'auto' }}
         />
 
-        {/* Filtros Button - Top Left (outside map) */}
-        <button
-          onClick={() => setShowFiltersModal(true)}
-          className='absolute z-1500 flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-xl border'
-          style={{
-            backgroundColor: COLORS.card,
-            color: COLORS.text,
-            borderColor: COLORS.border,
-            top: '2rem',
-            left: '2rem',
-            zIndex: 1500,
-            pointerEvents: 'auto',
-          }}
-        >
-          <span>⚙️ Filtros</span>
-        </button>
+        {/* Botones flotantes sobre el mapa */}
+        <div className='absolute top-4 left-4 z-[1500] flex gap-2 pointer-events-auto'>
+          {/* Volver — solo móvil */}
+          <button
+            onClick={() => navigate('/')}
+            className='md:hidden flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg border'
+            style={{ backgroundColor: COLORS.card, color: COLORS.text, borderColor: COLORS.border }}
+          >
+            ←
+          </button>
 
+          <button
+            onClick={() => setShowFiltersModal(true)}
+            className='flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg border'
+            style={{ backgroundColor: COLORS.card, color: COLORS.text, borderColor: COLORS.border }}
+          >
+            ⚙️ Filtros
+          </button>
+        </div>
+
+        {/* Botón lista — solo móvil, abajo */}
+        <div className='md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-[1500] flex gap-3 pointer-events-auto'>
+          <button
+            onClick={() => setShowMobileList(true)}
+            className='flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-xl'
+            style={{ backgroundColor: COLORS.primary }}
+          >
+            📋 Ver lista ({filteredPlaces.length})
+          </button>
+          <button
+            onClick={() => navigate('/places/new')}
+            className='flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-xl'
+            style={{ backgroundColor: COLORS.primaryDark ?? COLORS.primary }}
+          >
+            + Lugar
+          </button>
+        </div>
+
+        {/* Detail sidebar — desktop */}
         {selectedPlaceData ? (
-          <div className='absolute inset-y-0 right-0 z-1800 flex w-full justify-end pointer-events-none'>
+          <div className='hidden md:flex absolute inset-y-0 right-0 z-[1800] w-full justify-end pointer-events-none'>
             <div className='pointer-events-auto h-full max-h-full min-w-0'>
               <PlaceMapSidebar
                 place={selectedPlaceData}
@@ -303,361 +263,210 @@ export function ExplorePage() {
             </div>
           </div>
         ) : null}
+
+        {/* Detail bottom sheet — móvil */}
+        {selectedPlaceData ? (
+          <div className='md:hidden absolute inset-x-0 bottom-0 z-[1800] pointer-events-auto'>
+            <div
+              className='rounded-t-2xl shadow-2xl border-t border-neutral-200 bg-white animate-in slide-in-from-bottom-4 duration-200'
+              style={{ maxHeight: '70vh', overflowY: 'auto' }}
+            >
+              <div className='flex items-center justify-between px-4 py-3 border-b border-neutral-100'>
+                <div>
+                  <p className='font-semibold text-neutral-900 text-sm'>{selectedPlaceData.name}</p>
+                  <p className='text-xs text-neutral-500'>
+                    ⭐ {selectedPlaceData.avgRating.toFixed(1)} · {selectedPlaceData.reviewCount} reseñas
+                  </p>
+                </div>
+                <div className='flex gap-2'>
+                  <button
+                    onClick={() => navigate(`/lugares/${selectedPlaceData.id}`)}
+                    className='rounded-full px-4 py-2 text-sm font-semibold text-white'
+                    style={{ backgroundColor: COLORS.primary }}
+                  >
+                    Ver detalle
+                  </button>
+                  <button
+                    onClick={() => setSelectedPlace(null)}
+                    className='rounded-full w-9 h-9 flex items-center justify-center border border-neutral-200 text-neutral-500'
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div className='px-4 py-3 text-sm text-neutral-600'>
+                <p>{selectedPlaceData.address}</p>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPlaceData.latitude},${selectedPlaceData.longitude}`}
+                  target='_blank'
+                  rel='noreferrer'
+                  className='mt-2 inline-flex items-center gap-1.5 text-sm font-medium'
+                  style={{ color: COLORS.primary }}
+                >
+                  🧭 Cómo llegar
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <Dialog open={showFiltersModal} onOpenChange={setShowFiltersModal}>
-        <DialogContent
-          hideClose
-          className='fixed left-0 top-0 z-9001 flex h-full max-h-dvh w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
-          style={{ backgroundColor: COLORS.card }}
-        >
-            {/* Header */}
-            <div
-              className='border-b px-6 py-4 flex items-center justify-between'
-              style={{ borderColor: COLORS.border }}
-            >
-              <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>
-                Filtros y Leyenda
-              </h2>
+      {/* Bottom sheet lista — móvil */}
+      {showMobileList && (
+        <div className='md:hidden fixed inset-0 z-[2000] flex flex-col'>
+          <div
+            className='absolute inset-0 bg-black/40'
+            onClick={() => setShowMobileList(false)}
+          />
+          <div className='relative mt-auto bg-white rounded-t-2xl shadow-2xl flex flex-col max-h-[80vh]'>
+            <div className='flex items-center justify-between px-4 py-3 border-b border-neutral-100 shrink-0'>
+              <div>
+                <h2 className='font-bold text-neutral-900'>Lugares</h2>
+                <p className='text-xs text-neutral-500'>{filteredPlaces.length} resultados</p>
+              </div>
               <button
-                onClick={() => setShowFiltersModal(false)}
-                style={{ color: COLORS.textMuted }}
+                onClick={() => setShowMobileList(false)}
+                className='rounded-full w-9 h-9 flex items-center justify-center border border-neutral-200 text-neutral-500'
               >
                 ✕
               </button>
             </div>
 
-            {/* Content */}
-            <div className='flex-1 overflow-y-auto p-6 space-y-5'>
-              {/* 1. Solo Recomendados */}
-              <div className='space-y-2'>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.recommendedOnly}
-                    onChange={() => toggleFilter('recommendedOnly')}
-                    className='w-4 h-4 rounded border'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span
-                    className='text-sm font-semibold'
-                    style={{ color: COLORS.text }}
-                  >
-                    ⭐ Solo recomendados (4.5+)
-                  </span>
-                </label>
-              </div>
-
-              {/* 2. Categoría */}
-              <div
-                className='space-y-2 pt-3 border-t'
+            <div className='px-4 py-2 shrink-0 border-b border-neutral-100'>
+              <input
+                type='text'
+                placeholder='Buscar lugares...'
+                value={search}
+                onChange={(e) => { setLocalSearch(e.target.value); setSearch(e.target.value); }}
+                className='w-full rounded-lg border px-3 py-2.5 text-sm'
                 style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  📁 Categoría
-                </p>
-                <select
-                  value={category}
-                  onChange={(e) => {
-                    setLocalCategory(e.target.value as PlaceCategory | 'all');
-                    setCategory(e.target.value as PlaceCategory | 'all');
+              />
+            </div>
+
+            <div className='flex-1 overflow-y-auto p-4 space-y-3'>
+              {filteredPlaces.map((place) => (
+                <button
+                  key={place.id}
+                  onClick={() => {
+                    setSelectedPlace(place.id);
+                    panToPlaceForDetail(place);
+                    setShowMobileList(false);
                   }}
-                  className='w-full rounded-lg border px-3 py-2 text-sm'
+                  className='w-full text-left p-3 rounded-xl border transition-all min-h-[64px]'
                   style={{
-                    borderColor: COLORS.border,
-                    color: COLORS.text,
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.primary;
-                    e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.border;
-                    e.currentTarget.style.boxShadow = 'none';
+                    borderColor: selectedPlace === place.id ? COLORS.primary : COLORS.border,
+                    backgroundColor: selectedPlace === place.id ? `${COLORS.primary}0A` : 'transparent',
                   }}
                 >
-                  <option value='all'>Todas</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <h3 className='font-semibold text-sm' style={{ color: COLORS.text }}>{place.name}</h3>
+                  <p className='text-xs mt-0.5' style={{ color: COLORS.textMuted }}>
+                    {getCategoryMeta(place.category).label} · ⭐ {place.avgRating.toFixed(1)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* 3. Accesibilidad - LLEGADA */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🚗 Llegada
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.parking_accessible}
-                    onChange={() => toggleFilter('parking_accessible')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Parking accesible ♿
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.signage_clear}
-                    onChange={() => toggleFilter('signage_clear')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Señalización clara
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.ramp_available}
-                    onChange={() => toggleFilter('ramp_available')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Rampa disponible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.mechanical_stairs}
-                    onChange={() => toggleFilter('mechanical_stairs')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Escalera mecánica
-                  </span>
-                </label>
-              </div>
+      {/* Filters Dialog */}
+      <Dialog open={showFiltersModal} onOpenChange={setShowFiltersModal}>
+        <DialogContent
+          hideClose
+          className='fixed left-0 top-0 z-[9001] flex h-full max-h-dvh w-full max-w-[min(24rem,100vw)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
+          style={{ backgroundColor: COLORS.card }}
+        >
+          <div className='border-b px-6 py-4 flex items-center justify-between' style={{ borderColor: COLORS.border }}>
+            <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>Filtros y Leyenda</h2>
+            <button onClick={() => setShowFiltersModal(false)} style={{ color: COLORS.textMuted }}>✕</button>
+          </div>
 
-              {/* 4. Accesibilidad - ENTRADA */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🚪 Entrada
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.elevator_available}
-                    onChange={() => toggleFilter('elevator_available')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Ascensor
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.wide_entrance}
-                    onChange={() => toggleFilter('wide_entrance')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Entrada ancha para silla de ruedas
-                  </span>
-                </label>
-              </div>
+          <div className='flex-1 overflow-y-auto p-6 space-y-5'>
+            <div className='space-y-2'>
+              <label className='flex items-center gap-3 cursor-pointer'>
+                <input type='checkbox' checked={filters.recommendedOnly} onChange={() => toggleFilter('recommendedOnly')}
+                  className='w-5 h-5 rounded border' style={{ accentColor: COLORS.primary }} />
+                <span className='text-sm font-semibold' style={{ color: COLORS.text }}>⭐ Solo recomendados (4.5+)</span>
+              </label>
+            </div>
 
-              {/* 5. Accesibilidad - INTERIOR */}
-              <div
-                className='space-y-3 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🏢 Interior
-                </p>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.accessible_bathroom}
-                    onChange={() => toggleFilter('accessible_bathroom')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Baño accesible
-                  </span>
-                </label>
-                <label className='flex items-center gap-3 cursor-pointer'>
-                  <input
-                    type='checkbox'
-                    checked={filters.circulation_clear}
-                    onChange={() => toggleFilter('circulation_clear')}
-                    className='w-4 h-4 rounded'
-                    style={{
-                      borderColor: COLORS.border,
-                      accentColor: COLORS.primary,
-                    }}
-                  />
-                  <span className='text-sm' style={{ color: COLORS.text }}>
-                    Circulación interior amplia
-                  </span>
-                </label>
-              </div>
+            <div className='space-y-2 pt-3 border-t' style={{ borderColor: COLORS.border }}>
+              <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>📁 Categoría</p>
+              <select value={category}
+                onChange={(e) => { setLocalCategory(e.target.value as PlaceCategory | 'all'); setCategory(e.target.value as PlaceCategory | 'all'); }}
+                className='w-full rounded-lg border px-3 py-2.5 text-sm' style={{ borderColor: COLORS.border, color: COLORS.text }}>
+                <option value='all'>Todas</option>
+                {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
 
-              {/* 6. Rating Mínimo */}
-              <div
-                className='space-y-2 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  ⭐ Rating mínimo
-                </p>
-                <select
-                  value={filters.minRating ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value
-                      ? parseFloat(e.target.value)
-                      : null;
-                    setFilterValue('minRating', val);
-                  }}
-                  className='w-full rounded-lg border px-3 py-2 text-sm'
-                  style={{
-                    borderColor: COLORS.border,
-                    color: COLORS.text,
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.primary;
-                    e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.border;
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <option value=''>Cualquiera</option>
-                  <option value='1'>1.0+</option>
-                  <option value='2'>2.0+</option>
-                  <option value='3'>3.0+</option>
-                  <option value='4'>4.0+</option>
-                  <option value='4.5'>4.5+</option>
-                </select>
+            {(
+              [
+                { label: '🚗 Llegada', keys: [
+                  { key: 'parking_accessible' as const, label: 'Parking accesible ♿' },
+                  { key: 'signage_clear' as const, label: 'Señalización clara' },
+                  { key: 'ramp_available' as const, label: 'Rampa disponible' },
+                  { key: 'mechanical_stairs' as const, label: 'Escalera mecánica' },
+                ]},
+                { label: '🚪 Entrada', keys: [
+                  { key: 'elevator_available' as const, label: 'Ascensor' },
+                  { key: 'wide_entrance' as const, label: 'Entrada ancha para silla de ruedas' },
+                ]},
+                { label: '🏢 Interior', keys: [
+                  { key: 'accessible_bathroom' as const, label: 'Baño accesible' },
+                  { key: 'circulation_clear' as const, label: 'Circulación interior amplia' },
+                ]},
+              ] as const
+            ).map((group) => (
+              <div key={group.label} className='space-y-3 pt-3 border-t' style={{ borderColor: COLORS.border }}>
+                <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>{group.label}</p>
+                {group.keys.map(({ key, label }) => (
+                  <label key={key} className='flex items-center gap-3 cursor-pointer'>
+                    <input type='checkbox' checked={filters[key]} onChange={() => toggleFilter(key)}
+                      className='w-5 h-5 rounded' style={{ accentColor: COLORS.primary }} />
+                    <span className='text-sm' style={{ color: COLORS.text }}>{label}</span>
+                  </label>
+                ))}
               </div>
+            ))}
 
-              {/* 7. Leyenda */}
-              <div
-                className='space-y-2 pt-3 border-t'
-                style={{ borderColor: COLORS.border }}
-              >
-                <p
-                  className='text-xs font-semibold uppercase'
-                  style={{ color: COLORS.textMuted }}
-                >
-                  🎯 Leyenda de Pines
-                </p>
-                <div className='space-y-2'>
-                  <div className='flex items-center gap-2'>
-                    <div
-                      className='w-5 h-5 rounded-full'
-                      style={{ backgroundColor: COLORS.success }}
-                    ></div>
-                    <span className='text-sm' style={{ color: COLORS.text }}>
-                      Alta (4.5+)
-                    </span>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <div
-                      className='w-5 h-5 rounded-full'
-                      style={{ backgroundColor: COLORS.warning }}
-                    ></div>
-                    <span className='text-sm' style={{ color: COLORS.text }}>
-                      Media (3.5-4.4)
-                    </span>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <div
-                      className='w-5 h-5 rounded-full'
-                      style={{ backgroundColor: COLORS.danger }}
-                    ></div>
-                    <span className='text-sm' style={{ color: COLORS.text }}>
-                      Baja (&lt;3.5)
-                    </span>
-                  </div>
+            <div className='space-y-2 pt-3 border-t' style={{ borderColor: COLORS.border }}>
+              <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>⭐ Rating mínimo</p>
+              <select value={filters.minRating ?? ''}
+                onChange={(e) => setFilterValue('minRating', e.target.value ? parseFloat(e.target.value) : null)}
+                className='w-full rounded-lg border px-3 py-2.5 text-sm' style={{ borderColor: COLORS.border, color: COLORS.text }}>
+                <option value=''>Cualquiera</option>
+                {['1','2','3','4','4.5'].map((v) => <option key={v} value={v}>{v}+</option>)}
+              </select>
+            </div>
+
+            <div className='space-y-2 pt-3 border-t' style={{ borderColor: COLORS.border }}>
+              <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>🎯 Leyenda</p>
+              {[
+                { color: COLORS.success, label: 'Alta (4.5+)' },
+                { color: COLORS.warning, label: 'Media (3.5-4.4)' },
+                { color: COLORS.danger, label: 'Baja (<3.5)' },
+              ].map(({ color, label }) => (
+                <div key={label} className='flex items-center gap-2'>
+                  <div className='w-5 h-5 rounded-full shrink-0' style={{ backgroundColor: color }} />
+                  <span className='text-sm' style={{ color: COLORS.text }}>{label}</span>
                 </div>
-              </div>
+              ))}
             </div>
+          </div>
 
-            {/* Footer */}
-            <div
-              className='border-t px-6 py-4 space-y-3'
-              style={{ borderColor: COLORS.border }}
-            >
-              <button
-                onClick={resetFilters}
-                className='w-full rounded-lg border px-4 py-2 text-sm font-semibold'
-                style={{
-                  borderColor: COLORS.border,
-                  color: COLORS.text,
-                }}
-              >
-                Limpiar filtros
-              </button>
-              <button
-                onClick={() => setShowFiltersModal(false)}
-                className='w-full rounded-lg px-4 py-2 text-sm font-semibold text-white'
-                style={{ backgroundColor: COLORS.primary }}
-              >
-                Ver resultados
-              </button>
-            </div>
+          <div className='border-t px-6 py-4 space-y-3' style={{ borderColor: COLORS.border }}>
+            <button onClick={resetFilters}
+              className='w-full rounded-lg border px-4 py-3 text-sm font-semibold min-h-[48px]'
+              style={{ borderColor: COLORS.border, color: COLORS.text }}>
+              Limpiar filtros
+            </button>
+            <button onClick={() => setShowFiltersModal(false)}
+              className='w-full rounded-lg px-4 py-3 text-sm font-semibold text-white min-h-[48px]'
+              style={{ backgroundColor: COLORS.primary }}>
+              Ver resultados
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

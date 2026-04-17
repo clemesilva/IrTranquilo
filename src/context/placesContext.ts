@@ -9,6 +9,7 @@ import type { AccessibilityConsensusMap } from '../lib/reviewAccessibilityConsen
 import type {
   AccessibilityReviewValues,
   MyReviewWithAccessibility,
+  PlaceReviewMediaInput,
 } from '../types/reviewAccessibility';
 
 export interface AccessibilityFilters {
@@ -81,6 +82,7 @@ export interface PlacesContextValue {
     rating: number,
     comment: string | null,
     accessibility: AccessibilityReviewValues,
+    media: PlaceReviewMediaInput,
   ) => Promise<void>;
   accessibilityConsensusForPlace: (
     placeId: number,

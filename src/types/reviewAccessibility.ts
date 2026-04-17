@@ -85,4 +85,14 @@ export type MyReviewWithAccessibility = {
   rating: number;
   comment: string | null;
   accessibility: AccessibilityReviewValues;
+  photoUrls: string[] | null;
+  videoUrl: string | null;
+};
+
+/** Media al publicar o actualizar una reseña (nuevos archivos + URLs que se conservan). */
+export type PlaceReviewMediaInput = {
+  newPhotos: File[];
+  newVideo: File | null;
+  retainPhotoUrls: string[];
+  retainVideoUrl: string | null;
 };

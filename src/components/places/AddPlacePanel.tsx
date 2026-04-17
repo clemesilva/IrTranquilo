@@ -16,15 +16,19 @@ import {
 } from '@/types/reviewAccessibility';
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete';
 import { TriStateAccessibilityChip } from '@/components/reviews/TriStateAccessibilityChip';
+import { MediaUpload, createEmptyMediaState, type MediaUploadState } from '@/components/reviews/MediaUpload';
 import { CategorySelector } from '@/components/places/CategorySelector';
 import { mapGoogleTypeToCategory } from '../../lib/googleCategory';
+import { reviewMediaBasePathForPlace } from '@/lib/reviewMediaPaths';
 
 function createEmptyAccessibilityNullable(): Record<
   AccessibilityReviewKey,
   boolean | null
 > {
   return Object.fromEntries(
-    ACCESSIBILITY_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => [f.key, null])),
+    ACCESSIBILITY_FIELD_GROUPS.flatMap((g) =>
+      g.fields.map((f) => [f.key, null]),
+    ),
   ) as Record<AccessibilityReviewKey, boolean | null>;
 }
 
@@ -69,6 +73,7 @@ export function AddPlacePanel({
     createEmptyAccessibilityNullable(),
   );
 
+  const [media, setMedia] = useState<MediaUploadState>(createEmptyMediaState());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placeQuery, setPlaceQuery] = useState('');
@@ -164,18 +169,18 @@ export function AddPlacePanel({
       const { error: googleAccErr } = await supabase
         .from('place_accessibility_reviews')
         .insert({
-        place_id: place.id,
-        review_id: null,
-        source: 'google',
-        ramp_available: googleWheelchair,
-        wide_entrance: googleWheelchair,
-        parking_accessible: null,
-        signage_clear: null,
-        mechanical_stairs: null,
-        elevator_available: null,
-        accessible_bathroom: null,
-        circulation_clear: null,
-      });
+          place_id: place.id,
+          review_id: null,
+          source: 'google',
+          ramp_available: googleWheelchair,
+          wide_entrance: googleWheelchair,
+          parking_accessible: null,
+          signage_clear: null,
+          mechanical_stairs: null,
+          elevator_available: null,
+          accessible_bathroom: null,
+          circulation_clear: null,
+        });
       if (googleAccErr) {
         // Evitamos dejar el lugar “a medias” si falla el insert inicial de accesibilidad.
         await supabase.from('places').delete().eq('id', place.id);
@@ -184,9 +189,15 @@ export function AddPlacePanel({
         );
       }
 
-      const anyAccessibility = Object.values(accessibility).some((v) => v === true);
+      const anyAccessibility = Object.values(accessibility).some(
+        (v) => v === true,
+      );
+      const hasMedia = media.photos.length > 0 || media.video !== null;
       const wantsReview =
-        rating > 0 || review.trim().length > 0 || anyAccessibility;
+        rating > 0 ||
+        review.trim().length > 0 ||
+        anyAccessibility ||
+        hasMedia;
 
       if (wantsReview) {
         const effectiveRating = rating > 0 ? rating : 3;
@@ -211,6 +222,58 @@ export function AddPlacePanel({
               ...accessibility,
             });
           if (accErr) throw accErr;
+
+          // Subir media si hay archivos (ruta relativa al bucket; sin upsert → solo hace falta policy INSERT)
+          if (media.photos.length > 0 || media.video) {
+            const basePath = reviewMediaBasePathForPlace(placeName);
+            const photoUrls: string[] = [];
+            for (const photo of media.photos.slice(0, 5)) {
+              const ext = photo.name.split('.').pop() ?? 'jpg';
+              const path = `${basePath}/${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage
+                .from('review-media')
+                .upload(path, photo, {
+                  contentType: photo.type || undefined,
+                  upsert: false,
+                });
+              if (upErr) {
+                throw new Error(
+                  `No se pudo subir la foto "${photo.name}": ${upErr.message}`,
+                );
+              }
+              const { data: u } = supabase.storage
+                .from('review-media')
+                .getPublicUrl(path);
+              if (u.publicUrl) photoUrls.push(u.publicUrl);
+            }
+            let videoUrl: string | null = null;
+            if (media.video) {
+              const ext = media.video.name.split('.').pop() ?? 'mp4';
+              const path = `${basePath}/video-${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage
+                .from('review-media')
+                .upload(path, media.video, {
+                  contentType: media.video.type || undefined,
+                  upsert: false,
+                });
+              if (upErr) {
+                throw new Error(
+                  `No se pudo subir el video: ${upErr.message}`,
+                );
+              }
+              const { data: u } = supabase.storage
+                .from('review-media')
+                .getPublicUrl(path);
+              if (u.publicUrl) videoUrl = u.publicUrl;
+            }
+            if (photoUrls.length > 0 || videoUrl) {
+              await supabase.from('reviews').update({
+                ...(photoUrls.length > 0 ? { photo_urls: photoUrls } : {}),
+                ...(videoUrl ? { video_url: videoUrl } : {}),
+              }).eq('id', rev.id);
+            }
+          }
+
           await syncPlaceReviewStats(place.id);
         }
       }
@@ -229,6 +292,7 @@ export function AddPlacePanel({
       setAddress('');
       setCategory(null);
       setOpeningHours(null);
+      setMedia(createEmptyMediaState());
       onSaved(place.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar el lugar.');
@@ -333,17 +397,6 @@ export function AddPlacePanel({
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='place-description'>Reseña (opcional)</Label>
-            <Textarea
-              id='place-description'
-              value={review}
-              onChange={(e) => setReview(e.target.value)}
-              placeholder='Describe tu experiencia con la accesibilidad del lugar…'
-              className='min-h-[72px]'
-            />
-          </div>
-
-          <div className='space-y-2'>
             <Label>Calificación de accesibilidad</Label>
             <div className='flex items-center gap-1'>
               {Array.from({ length: 5 }).map((_, i) => {
@@ -389,7 +442,10 @@ export function AddPlacePanel({
                         label={f.label}
                         value={accessibility[f.key]}
                         onChange={(next) =>
-                          setAccessibility((prev) => ({ ...prev, [f.key]: next }))
+                          setAccessibility((prev) => ({
+                            ...prev,
+                            [f.key]: next,
+                          }))
                         }
                       />
                     ))}
@@ -404,6 +460,21 @@ export function AddPlacePanel({
               {error ?? googleError}
             </div>
           ) : null}
+          <div className='space-y-2'>
+            <Label htmlFor='place-description'>Comentario (opcional)</Label>
+            <Textarea
+              id='place-description'
+              value={review}
+              onChange={(e) => setReview(e.target.value)}
+              placeholder='Describe tu experiencia con la accesibilidad del lugar…'
+              className='min-h-[72px]'
+            />
+          </div>
+
+          <div className='space-y-2'>
+            <Label>Fotos y video (opcional)</Label>
+            <MediaUpload state={media} onChange={setMedia} />
+          </div>
 
           <div className='flex gap-2 border-t pt-3'>
             <Button

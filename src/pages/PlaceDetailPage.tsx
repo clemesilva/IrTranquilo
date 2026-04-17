@@ -407,6 +407,26 @@ export function PlaceDetailPage() {
                         {r.comment}
                       </p>
                     ) : null}
+                    {r.photoUrls && r.photoUrls.length > 0 ? (
+                      <div className='mt-3 flex flex-wrap gap-2'>
+                        {r.photoUrls.map((url, i) => (
+                          <a key={i} href={url} target='_blank' rel='noreferrer'>
+                            <img
+                              src={url}
+                              alt={`Foto ${i + 1}`}
+                              className='h-20 w-20 rounded-lg object-cover border border-neutral-200 hover:opacity-90 transition'
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                    {r.videoUrl ? (
+                      <video
+                        src={r.videoUrl}
+                        controls
+                        className='mt-3 w-full max-w-xs rounded-lg border border-neutral-200'
+                      />
+                    ) : null}
                   </div>
                 </div>
               </div>
