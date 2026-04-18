@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import { CATEGORIES, type PlaceCategory } from '../types';
+import { ACCESSIBILITY_FIELD_GROUPS } from '../types/reviewAccessibility';
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
@@ -149,7 +150,7 @@ export function LandingPage() {
     markersRef.current.forEach(({ marker }) => marker.remove());
     markersRef.current = [];
 
-        filteredPlaces.forEach((place) => {
+    filteredPlaces.forEach((place) => {
       if (place.latitude && place.longitude) {
         const baseColor = getPinColor(place.avgRating);
         fixLeafletDefaultIcons();
@@ -162,7 +163,7 @@ export function LandingPage() {
             glyph: categoryGlyph(place.category),
             selected: isSelected,
             size,
-              hasAlert: (place.activeReportsCount ?? 0) > 0,
+            hasAlert: (place.activeReportsCount ?? 0) > 0,
           }),
           iconSize: [size, size + 12],
           iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
@@ -697,164 +698,52 @@ export function LandingPage() {
               </select>
             </div>
 
-            {/* 3. Accesibilidad - LLEGADA */}
-            <div
-              className='space-y-3 pt-3 border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
-              >
-                🚗 Llegada
-              </p>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.parking_accessible}
-                  onChange={() => toggleFilter('parking_accessible')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Parking accesible ♿
-                </span>
-              </label>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.signage_clear}
-                  onChange={() => toggleFilter('signage_clear')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Señalización clara
-                </span>
-              </label>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.ramp_available}
-                  onChange={() => toggleFilter('ramp_available')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Rampa disponible
-                </span>
-              </label>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.mechanical_stairs}
-                  onChange={() => toggleFilter('mechanical_stairs')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Escalera mecánica
-                </span>
-              </label>
-            </div>
-
-            {/* 4. Accesibilidad - ENTRADA */}
-            <div
-              className='space-y-3 pt-3 border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
-              >
-                🚪 Entrada
-              </p>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.elevator_available}
-                  onChange={() => toggleFilter('elevator_available')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Ascensor
-                </span>
-              </label>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.wide_entrance}
-                  onChange={() => toggleFilter('wide_entrance')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Entrada ancha para silla de ruedas
-                </span>
-              </label>
-            </div>
-
-            {/* 5. Accesibilidad - INTERIOR */}
-            <div
-              className='space-y-3 pt-3 border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
-              >
-                🏢 Interior
-              </p>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.accessible_bathroom}
-                  onChange={() => toggleFilter('accessible_bathroom')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Baño accesible
-                </span>
-              </label>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.circulation_clear}
-                  onChange={() => toggleFilter('circulation_clear')}
-                  className='w-4 h-4 rounded'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span className='text-sm' style={{ color: COLORS.text }}>
-                  Circulación interior amplia
-                </span>
-              </label>
-            </div>
+            {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
+              const sectionTitle =
+                group.title === 'LLEGADA'
+                  ? '🚗 Llegada'
+                  : group.title === 'ENTRADA'
+                    ? '🚪 Entrada'
+                    : '🏢 Interior';
+              return (
+                <div
+                  key={group.title}
+                  className='space-y-3 border-t pt-3'
+                  style={{ borderColor: COLORS.border }}
+                >
+                  <p
+                    className='text-xs font-semibold uppercase'
+                    style={{ color: COLORS.textMuted }}
+                  >
+                    {sectionTitle}
+                  </p>
+                  {group.fields.map((f) => (
+                    <label
+                      key={f.key}
+                      className='flex cursor-pointer items-center gap-3'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={filters[f.key]}
+                        onChange={() => toggleFilter(f.key)}
+                        className='h-4 w-4 rounded'
+                        style={{
+                          borderColor: COLORS.border,
+                          accentColor: COLORS.primary,
+                        }}
+                      />
+                      <span
+                        className='cursor-help text-sm'
+                        style={{ color: COLORS.text }}
+                        title={f.description}
+                      >
+                        {f.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
 
             {/* 6. Rating Mínimo */}
             <div

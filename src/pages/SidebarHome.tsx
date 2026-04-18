@@ -24,6 +24,24 @@ import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
 import { CATEGORIES, getCategoryMeta, type PlaceCategory } from '../types/place';
+import {
+  ACCESSIBILITY_FIELD_GROUPS,
+  type AccessibilityReviewKey,
+} from '../types/reviewAccessibility';
+
+const SIDEBAR_ACCESSIBILITY_KEYS: AccessibilityReviewKey[] = [
+  'parking_accessible',
+  'nearby_parking',
+  'ramp_available',
+  'accessible_bathroom',
+  'lowered_counter',
+];
+
+const accessibilityFieldByKey = new Map(
+  ACCESSIBILITY_FIELD_GROUPS.flatMap((g) =>
+    g.fields.map((f) => [f.key, f] as const),
+  ),
+);
 
 export function SidebarHome() {
   const {
@@ -125,36 +143,27 @@ export function SidebarHome() {
               Solo recomendados (≥ 4.5)
             </Label>
           </div>
-          <div className='flex items-center gap-2'>
-            <Checkbox
-              id='filter-parking'
-              checked={filters.parking_accessible}
-              onCheckedChange={() => toggleFilter('parking_accessible')}
-            />
-            <Label htmlFor='filter-parking' className='text-sm font-normal'>
-              Parking accesible ♿
-            </Label>
-          </div>
-          <div className='flex items-center gap-2'>
-            <Checkbox
-              id='filter-ramp'
-              checked={filters.ramp_available}
-              onCheckedChange={() => toggleFilter('ramp_available')}
-            />
-            <Label htmlFor='filter-ramp' className='text-sm font-normal'>
-              Rampa disponible
-            </Label>
-          </div>
-          <div className='flex items-center gap-2'>
-            <Checkbox
-              id='filter-restroom'
-              checked={filters.accessible_bathroom}
-              onCheckedChange={() => toggleFilter('accessible_bathroom')}
-            />
-            <Label htmlFor='filter-restroom' className='text-sm font-normal'>
-              Baño adaptado
-            </Label>
-          </div>
+          {SIDEBAR_ACCESSIBILITY_KEYS.map((key) => {
+            const f = accessibilityFieldByKey.get(key);
+            if (!f) return null;
+            const id = `filter-${key}`;
+            return (
+              <div key={key} className='flex items-center gap-2'>
+                <Checkbox
+                  id={id}
+                  checked={filters[key]}
+                  onCheckedChange={() => toggleFilter(key)}
+                />
+                <Label
+                  htmlFor={id}
+                  title={f.description}
+                  className='cursor-help text-sm font-normal'
+                >
+                  {f.label}
+                </Label>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 

@@ -12,11 +12,17 @@ import { supabase } from '@/services/supabase';
 import type { PlaceCategory } from '@/types/place';
 import {
   ACCESSIBILITY_FIELD_GROUPS,
+  ACCESSIBILITY_REVIEW_KEYS,
+  ratingLabelEs,
   type AccessibilityReviewKey,
 } from '@/types/reviewAccessibility';
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete';
 import { TriStateAccessibilityChip } from '@/components/reviews/TriStateAccessibilityChip';
-import { MediaUpload, createEmptyMediaState, type MediaUploadState } from '@/components/reviews/MediaUpload';
+import {
+  MediaUpload,
+  createEmptyMediaState,
+  type MediaUploadState,
+} from '@/components/reviews/MediaUpload';
 import { CategorySelector } from '@/components/places/CategorySelector';
 import { mapGoogleTypeToCategory } from '../../lib/googleCategory';
 import { reviewMediaBasePathForPlace } from '@/lib/reviewMediaPaths';
@@ -164,43 +170,44 @@ export function AddPlacePanel({
 
       if (placeError) throw placeError;
 
-      // Crear registro inicial de accesibilidad con dato de Google (si existe)
       const googleWheelchair = wheelchairAccessible ?? null;
-      const { error: googleAccErr } = await supabase
-        .from('place_accessibility_reviews')
-        .insert({
-          place_id: place.id,
-          review_id: null,
-          source: 'google',
-          ramp_available: googleWheelchair,
-          wide_entrance: googleWheelchair,
-          parking_accessible: null,
-          signage_clear: null,
-          mechanical_stairs: null,
-          elevator_available: null,
-          accessible_bathroom: null,
-          circulation_clear: null,
-        });
-      if (googleAccErr) {
-        // Evitamos dejar el lugar “a medias” si falla el insert inicial de accesibilidad.
-        await supabase.from('places').delete().eq('id', place.id);
-        throw new Error(
-          `Se creó el lugar, pero falló el registro inicial de accesibilidad: ${googleAccErr.message}`,
-        );
-      }
 
       const anyAccessibility = Object.values(accessibility).some(
         (v) => v === true,
       );
       const hasMedia = media.photos.length > 0 || media.video !== null;
       const wantsReview =
-        rating > 0 ||
-        review.trim().length > 0 ||
-        anyAccessibility ||
-        hasMedia;
+        rating > 0 || review.trim().length > 0 || anyAccessibility || hasMedia;
 
-      if (wantsReview) {
+      if (!wantsReview) {
+        const { error: googleRevErr } = await supabase.from('reviews').insert({
+          place_id: place.id,
+          author_id: user.id,
+          rating: null,
+          comment: null,
+          source: 'google',
+          ramp_available: googleWheelchair,
+          wide_entrance: googleWheelchair,
+        });
+        if (googleRevErr) {
+          await supabase.from('places').delete().eq('id', place.id);
+          throw new Error(
+            `Se creó el lugar, pero falló el registro inicial de Google: ${googleRevErr.message}`,
+          );
+        }
+      } else {
         const effectiveRating = rating > 0 ? rating : 3;
+        const merged = { ...accessibility };
+        if (merged.ramp_available == null && googleWheelchair != null) {
+          merged.ramp_available = googleWheelchair;
+        }
+        if (merged.wide_entrance == null && googleWheelchair != null) {
+          merged.wide_entrance = googleWheelchair;
+        }
+        const checklistPayload: Record<string, boolean | null> = {};
+        for (const k of ACCESSIBILITY_REVIEW_KEYS) {
+          checklistPayload[k] = merged[k];
+        }
         const { data: rev, error: reviewError } = await supabase
           .from('reviews')
           .insert({
@@ -208,76 +215,66 @@ export function AddPlacePanel({
             author_id: user.id,
             rating: effectiveRating,
             comment: review.trim() ? review.trim() : null,
+            source: 'user',
+            ...checklistPayload,
           })
           .select('id')
           .single();
         if (reviewError) throw reviewError;
-        if (rev?.id) {
-          const { error: accErr } = await supabase
-            .from('place_accessibility_reviews')
-            .insert({
-              review_id: rev.id,
-              place_id: place.id,
-              source: 'user',
-              ...accessibility,
-            });
-          if (accErr) throw accErr;
 
-          // Subir media si hay archivos (ruta relativa al bucket; sin upsert → solo hace falta policy INSERT)
-          if (media.photos.length > 0 || media.video) {
-            const basePath = reviewMediaBasePathForPlace(placeName);
-            const photoUrls: string[] = [];
-            for (const photo of media.photos.slice(0, 5)) {
-              const ext = photo.name.split('.').pop() ?? 'jpg';
-              const path = `${basePath}/${crypto.randomUUID()}.${ext}`;
-              const { error: upErr } = await supabase.storage
-                .from('review-media')
-                .upload(path, photo, {
-                  contentType: photo.type || undefined,
-                  upsert: false,
-                });
-              if (upErr) {
-                throw new Error(
-                  `No se pudo subir la foto "${photo.name}": ${upErr.message}`,
-                );
-              }
-              const { data: u } = supabase.storage
-                .from('review-media')
-                .getPublicUrl(path);
-              if (u.publicUrl) photoUrls.push(u.publicUrl);
+        if (rev?.id && (media.photos.length > 0 || media.video)) {
+          const basePath = reviewMediaBasePathForPlace(placeName);
+          const photoUrls: string[] = [];
+          for (const photo of media.photos.slice(0, 5)) {
+            const ext = photo.name.split('.').pop() ?? 'jpg';
+            const path = `${basePath}/${crypto.randomUUID()}.${ext}`;
+            const { error: upErr } = await supabase.storage
+              .from('review-media')
+              .upload(path, photo, {
+                contentType: photo.type || undefined,
+                upsert: false,
+              });
+            if (upErr) {
+              throw new Error(
+                `No se pudo subir la foto "${photo.name}": ${upErr.message}`,
+              );
             }
-            let videoUrl: string | null = null;
-            if (media.video) {
-              const ext = media.video.name.split('.').pop() ?? 'mp4';
-              const path = `${basePath}/video-${crypto.randomUUID()}.${ext}`;
-              const { error: upErr } = await supabase.storage
-                .from('review-media')
-                .upload(path, media.video, {
-                  contentType: media.video.type || undefined,
-                  upsert: false,
-                });
-              if (upErr) {
-                throw new Error(
-                  `No se pudo subir el video: ${upErr.message}`,
-                );
-              }
-              const { data: u } = supabase.storage
-                .from('review-media')
-                .getPublicUrl(path);
-              if (u.publicUrl) videoUrl = u.publicUrl;
+            const { data: u } = supabase.storage
+              .from('review-media')
+              .getPublicUrl(path);
+            if (u.publicUrl) photoUrls.push(u.publicUrl);
+          }
+          let videoUrl: string | null = null;
+          if (media.video) {
+            const ext = media.video.name.split('.').pop() ?? 'mp4';
+            const path = `${basePath}/video-${crypto.randomUUID()}.${ext}`;
+            const { error: upErr } = await supabase.storage
+              .from('review-media')
+              .upload(path, media.video, {
+                contentType: media.video.type || undefined,
+                upsert: false,
+              });
+            if (upErr) {
+              throw new Error(`No se pudo subir el video: ${upErr.message}`);
             }
-            if (photoUrls.length > 0 || videoUrl) {
-              await supabase.from('reviews').update({
+            const { data: u } = supabase.storage
+              .from('review-media')
+              .getPublicUrl(path);
+            if (u.publicUrl) videoUrl = u.publicUrl;
+          }
+          if (photoUrls.length > 0 || videoUrl) {
+            await supabase
+              .from('reviews')
+              .update({
                 ...(photoUrls.length > 0 ? { photo_urls: photoUrls } : {}),
                 ...(videoUrl ? { video_url: videoUrl } : {}),
-              }).eq('id', rev.id);
-            }
+              })
+              .eq('id', rev.id);
           }
-
-          await syncPlaceReviewStats(place.id);
         }
       }
 
+      await syncPlaceReviewStats(place.id);
       await refreshPlaces();
       onDraftLatLngChange(null);
       setAccessibility(createEmptyAccessibilityNullable());
@@ -372,10 +369,6 @@ export function AddPlacePanel({
                 <span className='text-xs text-destructive'>{googleError}</span>
               ) : null}
             </div>
-
-            <p className='text-xs text-muted-foreground'>
-              Elige un resultado de Google para fijar la ubicación en el mapa.
-            </p>
           </div>
 
           <div className='space-y-2'>
@@ -398,31 +391,34 @@ export function AddPlacePanel({
 
           <div className='space-y-2'>
             <Label>Calificación de accesibilidad</Label>
-            <div className='flex items-center gap-1'>
-              {Array.from({ length: 5 }).map((_, i) => {
-                const v = i + 1;
-                const active = rating >= v;
-                return (
-                  <button
-                    key={v}
-                    type='button'
-                    className='p-1'
-                    onClick={() => setRating(v)}
-                    aria-label={`Calificar ${v} de 5`}
-                  >
-                    <Star
-                      className={
-                        active
-                          ? 'fill-primary text-primary'
-                          : 'text-muted-foreground'
-                      }
-                      size={18}
-                    />
-                  </button>
-                );
-              })}
-              <span className='ml-2 text-sm text-muted-foreground'>
-                {rating ? `${rating}/5` : 'Haz clic en las estrellas'}
+            <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
+              <div className='flex items-center gap-0.5'>
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const v = i + 1;
+                  const active = rating >= v;
+                  return (
+                    <button
+                      key={v}
+                      type='button'
+                      className='rounded p-0.5'
+                      onClick={() => setRating(v)}
+                      aria-label={`Calificar ${v} de 5`}
+                    >
+                      <Star
+                        className={
+                          active
+                            ? 'fill-blue-600 text-blue-600'
+                            : 'fill-transparent text-neutral-300'
+                        }
+                        size={25}
+                        strokeWidth={active ? 0 : 1.5}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <span className='text-sm font-medium text-neutral-800'>
+                {rating ? ratingLabelEs(rating) : 'Haz clic en las estrellas'}
               </span>
             </div>
           </div>
@@ -440,6 +436,7 @@ export function AddPlacePanel({
                       <TriStateAccessibilityChip
                         key={f.key}
                         label={f.label}
+                        description={f.description}
                         value={accessibility[f.key]}
                         onChange={(next) =>
                           setAccessibility((prev) => ({
@@ -467,7 +464,7 @@ export function AddPlacePanel({
               value={review}
               onChange={(e) => setReview(e.target.value)}
               placeholder='Describe tu experiencia con la accesibilidad del lugar…'
-              className='min-h-[72px]'
+              className='min-h-[72px] border-2 border-neutral-300 bg-white shadow-sm focus-visible:border-primary'
             />
           </div>
 

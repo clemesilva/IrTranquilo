@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Navigation, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -182,11 +182,21 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
 
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
 
+  /** Alineado con la lista cargada desde `reviews`, no solo con `places.review_count`. */
+  const headerReviewStats = useMemo(() => {
+    if (reviewsLoading || reviews.length === 0) {
+      return { avg: place.avgRating, count: place.reviewCount };
+    }
+    const count = reviews.length;
+    const avg = reviews.reduce((s, r) => s + r.rating, 0) / count;
+    return { avg, count };
+  }, [place.avgRating, place.reviewCount, reviews, reviewsLoading]);
+
   // Compartir eliminado del sidebar (solo queda en detalle completo)
 
   const hasStrongRatingSignal =
     place.band === 'recommended' ||
-    (place.reviewCount > 0 && place.avgRating >= 4);
+    (headerReviewStats.count > 0 && headerReviewStats.avg >= 4);
 
   return (
     <div
@@ -241,12 +251,12 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
 
         <div className='mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1'>
           <span className='text-lg font-semibold tabular-nums text-neutral-900 sm:text-xl'>
-            {place.avgRating.toFixed(1).replace('.', ',')}
+            {headerReviewStats.avg.toFixed(1).replace('.', ',')}
           </span>
-          <StarRow rating={place.avgRating} />
+          <StarRow rating={headerReviewStats.avg} />
           <span className='text-xs text-neutral-500'>
-            ({place.reviewCount}{' '}
-            {place.reviewCount === 1 ? 'reseña' : 'reseñas'})
+            ({headerReviewStats.count}{' '}
+            {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'})
           </span>
         </div>
       </header>

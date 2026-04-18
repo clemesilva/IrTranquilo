@@ -118,7 +118,7 @@ export function MediaUpload({
               <img
                 src={src}
                 alt={`Foto guardada ${idx + 1}`}
-                className='h-20 w-20 rounded-lg border border-neutral-200 object-cover'
+                className='h-20 w-20 rounded-lg border-2 border-neutral-300 object-cover shadow-sm'
               />
               <button
                 type='button'
@@ -135,7 +135,7 @@ export function MediaUpload({
               <img
                 src={src}
                 alt={`Foto nueva ${idx + 1}`}
-                className='h-20 w-20 rounded-lg border border-neutral-200 object-cover'
+                className='h-20 w-20 rounded-lg border-2 border-neutral-300 object-cover shadow-sm'
               />
               <button
                 type='button'
@@ -148,7 +148,7 @@ export function MediaUpload({
             </div>
           ))}
           {video && (
-            <div className='relative flex h-20 w-20 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100 text-2xl'>
+            <div className='relative flex h-20 w-20 items-center justify-center rounded-lg border-2 border-neutral-300 bg-neutral-100 text-2xl shadow-sm'>
               🎬
               <span className='absolute bottom-0.5 left-0 right-0 truncate px-0.5 text-[9px] text-neutral-500'>
                 Nuevo
@@ -172,7 +172,7 @@ export function MediaUpload({
             </div>
           )}
           {!video && existingVideoUrl && (
-            <div className='relative flex h-20 w-20 flex-col items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100 text-2xl'>
+            <div className='relative flex h-20 w-20 flex-col items-center justify-center rounded-lg border-2 border-neutral-300 bg-neutral-100 text-2xl shadow-sm'>
               🎬
               <span className='absolute bottom-0.5 left-0 right-0 truncate px-0.5 text-[9px] text-neutral-500'>
                 Guardado
@@ -202,7 +202,7 @@ export function MediaUpload({
         type='button'
         onClick={() => fileInputRef.current?.click()}
         disabled={totalPhotos >= MAX_PHOTOS}
-        className='flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50'
+        className='flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-50/50 px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-primary hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-50'
       >
         📷{' '}
         {totalPhotos >= MAX_PHOTOS

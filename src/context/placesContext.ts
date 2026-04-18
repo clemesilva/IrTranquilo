@@ -21,6 +21,7 @@ export interface AccessibilityFilters {
 
   // 3. Llegada
   parking_accessible: boolean;
+  nearby_parking: boolean;
   signage_clear: boolean;
   ramp_available: boolean;
   mechanical_stairs: boolean;
@@ -32,11 +33,13 @@ export interface AccessibilityFilters {
   // 5. Interior
   accessible_bathroom: boolean;
   circulation_clear: boolean;
+  lowered_counter: boolean;
 }
 
-/** Toggles de accesibilidad en filtros (consenso ≥ 60 % en `place_accessibility_reviews`). */
+/** Toggles de accesibilidad en filtros (consenso ≥ 60 % sobre filas `reviews` con checklist). */
 export const ACCESSIBILITY_FILTER_TOGGLE_KEYS = [
   'parking_accessible',
+  'nearby_parking',
   'signage_clear',
   'ramp_available',
   'mechanical_stairs',
@@ -44,6 +47,7 @@ export const ACCESSIBILITY_FILTER_TOGGLE_KEYS = [
   'wide_entrance',
   'accessible_bathroom',
   'circulation_clear',
+  'lowered_counter',
 ] as const;
 
 export type AccessibilityFilterToggleKey =

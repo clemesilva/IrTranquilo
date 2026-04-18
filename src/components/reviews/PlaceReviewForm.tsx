@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/useAuth';
 import { usePlaces } from '@/context/usePlaces';
@@ -10,7 +11,11 @@ import {
   type AccessibilityReviewValues,
 } from '@/types/reviewAccessibility';
 import { TriStateAccessibilityChip } from './TriStateAccessibilityChip';
-import { MediaUpload, createEmptyMediaState, type MediaUploadState } from './MediaUpload';
+import {
+  MediaUpload,
+  createEmptyMediaState,
+  type MediaUploadState,
+} from './MediaUpload';
 
 type PlaceReviewFormProps = {
   placeId: number;
@@ -53,7 +58,7 @@ export function PlaceReviewForm({
       const mine = await myReviewWithAccessibility(placeId);
       if (mine) {
         setHasExisting(true);
-        setRating(mine.rating);
+        setRating(mine.rating ?? 0);
         setComment(mine.comment ?? '');
         setAccessibility(mine.accessibility);
         setMedia({
@@ -127,8 +132,14 @@ export function PlaceReviewForm({
           className,
         )}
       >
-        <p className='text-sm text-neutral-600'>Inicia sesión para dejar una reseña.</p>
-        <Button type='button' className='mt-3 h-10 w-full' onClick={() => signInWithGoogle()}>
+        <p className='text-sm text-neutral-600'>
+          Inicia sesión para dejar una reseña.
+        </p>
+        <Button
+          type='button'
+          className='mt-3 h-10 w-full'
+          onClick={() => signInWithGoogle()}
+        >
           Iniciar sesión con Google
         </Button>
       </div>
@@ -162,32 +173,37 @@ export function PlaceReviewForm({
             <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>
               Calificación de accesibilidad
             </p>
-            <div className='flex flex-wrap items-center gap-1.5'>
-              {Array.from({ length: 5 }, (_, i) => {
-                const v = i + 1;
-                const active = rating >= v;
-                return (
-                  <button
-                    key={v}
-                    type='button'
-                    className='p-1 leading-none hover:opacity-90'
-                    onClick={() => setRating(v)}
-                    aria-label={`${v} de 5 estrellas`}
-                  >
-                    <span
-                      className={cn(
-                        'text-3xl leading-none sm:text-4xl',
-                        active ? 'text-amber-400' : 'text-neutral-200',
-                      )}
-                      aria-hidden
+            <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
+              <div className='flex items-center gap-0.5'>
+                {Array.from({ length: 5 }, (_, i) => {
+                  const v = i + 1;
+                  const active = rating >= v;
+                  return (
+                    <button
+                      key={v}
+                      type='button'
+                      className='rounded p-0.5 leading-none hover:opacity-90'
+                      onClick={() => setRating(v)}
+                      aria-label={`${v} de 5 estrellas`}
                     >
-                      {'\u2605'}
-                    </span>
-                  </button>
-                );
-              })}
+                      <Star
+                        className={cn(
+                          active
+                            ? 'fill-blue-600 text-blue-600'
+                            : 'fill-transparent text-neutral-300',
+                        )}
+                        size={25}
+                        strokeWidth={active ? 0 : 1.5}
+                        aria-hidden
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <p className='text-sm font-medium text-neutral-800'>
+                {ratingHint}
+              </p>
             </div>
-            <p className='text-xs font-medium text-neutral-700'>{ratingHint}</p>
           </section>
 
           {/* Checklist */}
@@ -195,9 +211,6 @@ export function PlaceReviewForm({
             <div>
               <p className='text-sm font-semibold text-neutral-900'>
                 ¿Qué características de accesibilidad tiene este lugar?
-              </p>
-              <p className='mt-1 text-xs text-neutral-500'>
-                Cada ítem es sí o no según tu experiencia en el lugar
               </p>
             </div>
             {ACCESSIBILITY_FIELD_GROUPS.map((group) => (
@@ -210,6 +223,7 @@ export function PlaceReviewForm({
                     <TriStateAccessibilityChip
                       key={f.key}
                       label={f.label}
+                      description={f.description}
                       value={accessibility[f.key]}
                       onChange={(next) =>
                         setAccessibility((prev) => ({ ...prev, [f.key]: next }))
@@ -230,7 +244,7 @@ export function PlaceReviewForm({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder='Describe tu experiencia... ej: la rampa tiene barandas pero es muy empinada'
-              className='w-full resize-none rounded-lg border border-neutral-200/80 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10'
+              className='w-full resize-none rounded-lg border-2 border-neutral-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15'
               rows={4}
             />
           </section>
@@ -251,7 +265,7 @@ export function PlaceReviewForm({
         </div>
       </div>
 
-      <div className='shrink-0 space-y-2 border-t border-neutral-200/80 bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-3'>
+      <div className='shrink-0 space-y-2 border-t-2 border-neutral-200 bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-3'>
         {error ? <p className='text-sm text-rose-600'>{error}</p> : null}
         <Button
           type='button'
@@ -259,7 +273,11 @@ export function PlaceReviewForm({
           onClick={handleSubmit}
           disabled={!canSubmit}
         >
-          {isSubmitting ? 'Publicando…' : hasExisting ? 'Actualizar reseña' : 'Publicar reseña'}
+          {isSubmitting
+            ? 'Publicando…'
+            : hasExisting
+              ? 'Actualizar reseña'
+              : 'Publicar reseña'}
         </Button>
       </div>
     </div>

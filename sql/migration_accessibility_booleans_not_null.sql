@@ -1,3 +1,4 @@
+-- OBSOLETO (tabla place_accessibility_reviews eliminada). Solo referencia histórica.
 -- Ejecutar en Supabase si place_accessibility_reviews ya existía con BOOLEAN NULL.
 -- Convierte NULL → false y fuerza NOT NULL DEFAULT false en checklist.
 

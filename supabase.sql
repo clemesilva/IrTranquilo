@@ -126,13 +126,30 @@ CREATE TABLE reviews (
   place_id BIGINT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
   author_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
 
-  rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  -- null = fila metadatos Google (sin calificación de usuario)
+  rating SMALLINT CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
   comment TEXT,
 
-  -- Flags útiles
   helpful_count INTEGER DEFAULT 0,
 
-  -- Timestamps
+  photo_urls TEXT[],
+  video_url TEXT,
+
+  -- 'user' | 'google' (metadatos al crear lugar)
+  source TEXT NOT NULL DEFAULT 'user',
+
+  -- Checklist accesibilidad (tri-estado: NULL / true / false)
+  parking_accessible BOOLEAN,
+  nearby_parking BOOLEAN,
+  signage_clear BOOLEAN,
+  ramp_available BOOLEAN,
+  mechanical_stairs BOOLEAN,
+  elevator_available BOOLEAN,
+  wide_entrance BOOLEAN,
+  accessible_bathroom BOOLEAN,
+  circulation_clear BOOLEAN,
+  lowered_counter BOOLEAN,
+
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -142,38 +159,8 @@ CREATE INDEX idx_reviews_author_id ON reviews(author_id);
 CREATE INDEX idx_reviews_rating ON reviews(rating DESC);
 CREATE INDEX idx_reviews_created_at ON reviews(created_at DESC);
 
--- Una reseña por usuario y lugar
+-- Una reseña por usuario y lugar (incluye fila Google + reseña real misma clave)
 CREATE UNIQUE INDEX uq_reviews_place_author ON reviews (place_id, author_id);
-
--- ============================================================================
--- 4b. TABLA: place_accessibility_reviews (checklist por reseña)
--- ============================================================================
-
-CREATE TABLE place_accessibility_reviews (
-  id BIGSERIAL PRIMARY KEY,
-  review_id BIGINT NOT NULL UNIQUE REFERENCES reviews(id) ON DELETE CASCADE,
-  place_id BIGINT NOT NULL REFERENCES places(id) ON DELETE CASCADE,
-
-  parking_available BOOLEAN NOT NULL DEFAULT FALSE,
-  parking_accessible BOOLEAN NOT NULL DEFAULT FALSE,
-  parking_near_entrance BOOLEAN NOT NULL DEFAULT FALSE,
-  signage_clear BOOLEAN NOT NULL DEFAULT FALSE,
-
-  step_free_access BOOLEAN NOT NULL DEFAULT FALSE,
-  ramp_available BOOLEAN NOT NULL DEFAULT FALSE,
-  elevator_available BOOLEAN NOT NULL DEFAULT FALSE,
-  entrance_width_ok BOOLEAN NOT NULL DEFAULT FALSE,
-
-  interior_spacious BOOLEAN NOT NULL DEFAULT FALSE,
-  wheelchair_table_access BOOLEAN NOT NULL DEFAULT FALSE,
-  accessible_bathroom BOOLEAN NOT NULL DEFAULT FALSE,
-  circulation_clear BOOLEAN NOT NULL DEFAULT FALSE,
-
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_place_accessibility_reviews_place_id
-  ON place_accessibility_reviews(place_id);
 
 -- ============================================================================
 -- 5. TABLA: helpful_votes (Votos de "útil" en reseñas)
@@ -258,7 +245,9 @@ BEGIN
   SELECT AVG(rating)::DECIMAL(3, 1), COUNT(*)
   INTO avg, cnt
   FROM reviews
-  WHERE place_id = COALESCE(NEW.place_id, OLD.place_id);
+  WHERE place_id = COALESCE(NEW.place_id, OLD.place_id)
+    AND rating IS NOT NULL
+    AND COALESCE(source, 'user') <> 'google';
 
   -- Si no hay reseñas, values por defecto
   IF cnt = 0 THEN
@@ -338,7 +327,6 @@ CREATE TRIGGER trigger_helpful_votes_count_delete
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE places ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE place_accessibility_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE helpful_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
@@ -395,44 +383,6 @@ CREATE POLICY "Users can delete own reviews"
   ON reviews FOR DELETE
   USING (auth.uid() = author_id);
 
--- POLICIES para 'place_accessibility_reviews'
-CREATE POLICY "Anyone can view place_accessibility_reviews"
-  ON place_accessibility_reviews FOR SELECT
-  USING (true);
-
-CREATE POLICY "Authors can insert accessibility for own review"
-  ON place_accessibility_reviews FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM reviews r
-      WHERE r.id = review_id AND r.author_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Authors can update own accessibility review"
-  ON place_accessibility_reviews FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM reviews r
-      WHERE r.id = review_id AND r.author_id = auth.uid()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM reviews r
-      WHERE r.id = review_id AND r.author_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Authors can delete own accessibility review"
-  ON place_accessibility_reviews FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM reviews r
-      WHERE r.id = review_id AND r.author_id = auth.uid()
-    )
-  );
-
 -- POLICIES para 'helpful_votes'
 -- Usuarios autenticados pueden votar
 CREATE POLICY "Authenticated users can vote"
@@ -465,7 +415,7 @@ CREATE POLICY "Users can delete own favorites"
   USING (auth.uid() = user_id);
 
 -- ============================================================================
--- 9. DATA SEEDING (datos mínimos; la app usa consenso en place_accessibility_reviews)
+-- 9. DATA SEEDING (datos mínimos; consenso de checklist en columnas de `reviews`)
 -- ============================================================================
 
 -- Crear un usuario demo
@@ -518,28 +468,22 @@ INSERT INTO places (
   NULL
 );
 
--- Una reseña demo por lugar (respeta uq_reviews_place_author)
-INSERT INTO reviews (place_id, author_id, rating, comment) VALUES
-(1, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Todo fluido con silla de ruedas.'),
-(2, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Rampa portátil ok; baño complicado.'),
-(3, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Parque muy accesible.'),
-(4, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Edificio moderno, sin problemas.'),
-(5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Revisar mejor entrada.');
-
--- Checklist demo (una fila por reseña seed)
-INSERT INTO place_accessibility_reviews (
-  review_id, place_id,
-  parking_available, parking_accessible, parking_near_entrance, signage_clear,
-  step_free_access, ramp_available, elevator_available, entrance_width_ok,
-  interior_spacious, wheelchair_table_access, accessible_bathroom, circulation_clear
-)
-SELECT r.id, r.place_id,
-  true, true, true, true,
-  true, true, false, true,
-  true, true, true, true
-FROM reviews r
-WHERE r.place_id BETWEEN 1 AND 5
-ON CONFLICT (review_id) DO NOTHING;
+-- Una reseña demo por lugar con checklist (respeta uq_reviews_place_author)
+INSERT INTO reviews (
+  place_id, author_id, rating, comment, source,
+  parking_accessible, nearby_parking, signage_clear, ramp_available, mechanical_stairs,
+  elevator_available, wide_entrance, accessible_bathroom, circulation_clear, lowered_counter
+) VALUES
+(1, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Todo fluido con silla de ruedas.', 'user',
+ true, true, true, true, true, true, true, true, true, true),
+(2, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Rampa portátil ok; baño complicado.', 'user',
+ true, true, true, true, false, false, true, true, true, false),
+(3, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Parque muy accesible.', 'user',
+ true, true, true, true, false, false, true, true, true, true),
+(4, '00000000-0000-0000-0000-000000000001'::uuid, 5, 'Edificio moderno, sin problemas.', 'user',
+ true, true, true, true, true, true, true, true, true, true),
+(5, '00000000-0000-0000-0000-000000000001'::uuid, 3, 'Revisar mejor entrada.', 'user',
+ true, false, true, false, false, true, true, false, true, false);
 
 -- ============================================================================
 -- Migración: ampliar enum place_category (BD ya creada con valores viejos)

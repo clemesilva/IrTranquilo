@@ -11,6 +11,7 @@ import {
 
 const ACCESSIBILITY_FIELD_EMOJI: Record<AccessibilityReviewKey, string> = {
   parking_accessible: '♿',
+  nearby_parking: '🅿️',
   signage_clear: '🪧',
   ramp_available: '🛝',
   mechanical_stairs: '🪜',
@@ -18,17 +19,20 @@ const ACCESSIBILITY_FIELD_EMOJI: Record<AccessibilityReviewKey, string> = {
   wide_entrance: '📏',
   accessible_bathroom: '🚻',
   circulation_clear: '↔️',
+  lowered_counter: '🪑',
 };
 
 function ConsensusCard({
   fieldKey,
   label,
+  description,
   consensus,
   variant,
   className,
 }: {
   fieldKey: AccessibilityReviewKey;
   label: string;
+  description?: string;
   consensus: ConsensusForField;
   variant: 'full' | 'compact';
   className?: string;
@@ -40,9 +44,11 @@ function ConsensusCard({
   if (variant === 'compact') {
     return (
       <div
+        title={description}
         className={cn(
           'inline-flex w-fit max-w-full min-w-0 items-center gap-1.5 rounded-2xl border-2 bg-white px-2 py-1.5 text-neutral-900 shadow-sm',
           'border-neutral-200/80',
+          description ? 'cursor-help' : null,
           className,
         )}
       >
@@ -67,7 +73,9 @@ function ConsensusCard({
 
   const subtitle = (() => {
     if (consensus.source === 'google') {
-      return value ? '♿ Según Google: accesible' : '♿ Según Google: no accesible';
+      return value
+        ? '♿ Según Google: accesible'
+        : '♿ Según Google: no accesible';
     }
     return value
       ? `${consensus.yes}/${consensus.total} confirman que es accesible`
@@ -76,8 +84,10 @@ function ConsensusCard({
 
   return (
     <div
+      title={description}
       className={cn(
         'max-w-full min-w-0 rounded-2xl border px-3 py-2',
+        description ? 'cursor-help' : null,
         bg,
       )}
     >
@@ -151,63 +161,70 @@ export function AccessibilityConsensusGrid({
                 : '',
             )}
           >
-          {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
-            const visibleFields = group.fields.filter((f) => {
-              const c = consensus[f.key];
-              if (!c) return false;
-              if (!onlyMajorityYes) return true;
-              return c.source === 'google' ? c.value === true : c.value === true;
-            });
+            {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
+              const visibleFields = group.fields.filter((f) => {
+                const c = consensus[f.key];
+                if (!c) return false;
+                if (!onlyMajorityYes) return true;
+                return c.source === 'google'
+                  ? c.value === true
+                  : c.value === true;
+              });
 
-            if (visibleFields.length === 0) return null;
+              if (visibleFields.length === 0) return null;
 
-            return (
-              <div key={group.title}>
-                <p
-                  className={cn(
-                    'text-[11px] font-semibold uppercase tracking-wider text-neutral-500',
-                    isCompact ? 'mb-1' : 'mb-1.5',
-                  )}
-                >
-                  {group.title}
-                </p>
-                <div
-                  className={cn(
-                    isCompact
-                      ? 'grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:gap-1.5'
-                      : 'grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4',
-                  )}
-                >
-                  {visibleFields.map((f) => {
-                    const c = consensus[f.key]!;
-                    return (
-                      <div
-                        key={f.key}
-                        className={cn(
-                          isCompact ? 'justify-self-start' : '',
-                          isCompact && f.key === 'wide_entrance'
-                            ? 'col-span-2'
-                            : '',
-                        )}
-                      >
-                        <ConsensusCard
-                          fieldKey={f.key}
-                          label={f.label}
-                          consensus={c}
-                          variant={variant}
-                          className={
-                            isCompact && f.key === 'wide_entrance'
-                              ? 'w-fit'
-                              : undefined
-                          }
-                        />
-                      </div>
-                    );
-                  })}
+              return (
+                <div key={group.title}>
+                  <p
+                    className={cn(
+                      'text-[11px] font-semibold uppercase tracking-wider text-neutral-500',
+                      isCompact ? 'mb-1' : 'mb-1.5',
+                    )}
+                  >
+                    {group.title}
+                  </p>
+                  <div
+                    className={cn(
+                      isCompact
+                        ? 'grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:gap-1.5'
+                        : 'grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4',
+                    )}
+                  >
+                    {visibleFields.map((f) => {
+                      const c = consensus[f.key]!;
+                      return (
+                        <div
+                          key={f.key}
+                          className={cn(
+                            isCompact ? 'justify-self-start' : '',
+                            isCompact &&
+                              (f.key === 'wide_entrance' ||
+                                f.key === 'lowered_counter')
+                              ? 'col-span-2'
+                              : '',
+                          )}
+                        >
+                          <ConsensusCard
+                            fieldKey={f.key}
+                            label={f.label}
+                            description={f.description}
+                            consensus={c}
+                            variant={variant}
+                            className={
+                              isCompact &&
+                              (f.key === 'wide_entrance' ||
+                                f.key === 'lowered_counter')
+                                ? 'w-fit'
+                                : undefined
+                            }
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
             {shouldCollapse && !expandedMobile ? (
               <div className='pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-b from-transparent to-white/95 sm:hidden' />
             ) : null}
@@ -220,7 +237,9 @@ export function AccessibilityConsensusGrid({
                 className='w-full rounded-xl border border-neutral-200/80 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm'
                 onClick={() => setExpandedMobile((v) => !v)}
               >
-                {expandedMobile ? 'Ver menos accesibilidad' : 'Ver más accesibilidad'}
+                {expandedMobile
+                  ? 'Ver menos accesibilidad'
+                  : 'Ver más accesibilidad'}
               </button>
             </div>
           ) : null}

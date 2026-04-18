@@ -28,7 +28,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
       {CATEGORIES.map((cat) => {
         const meta = getCategoryMeta(cat.value)
         const isSelected = value === meta.value
@@ -42,16 +42,16 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
             onTouchStart={() => handleLongPressStart(meta.value)}
             onTouchEnd={handleLongPressEnd}
             className={cn(
-              'relative flex flex-col items-center justify-center rounded-xl border px-2 py-2.5 text-center text-xs transition-colors',
+              'relative flex flex-col items-center justify-center rounded-lg border px-1.5 py-1.5 text-center transition-colors sm:rounded-xl sm:px-2 sm:py-2',
               isSelected
                 ? 'border-primary bg-primary/5'
                 : 'border-neutral-200 bg-white hover:bg-neutral-50',
             )}
           >
-            <div className="text-2xl" aria-hidden>
+            <div className="text-lg leading-none sm:text-xl" aria-hidden>
               {meta.icon}
             </div>
-            <div className="mt-0.5 text-[11px] font-medium text-neutral-800">
+            <div className="mt-0.5 text-[10px] font-medium leading-tight text-neutral-800 sm:text-[11px]">
               {meta.label}
             </div>
 

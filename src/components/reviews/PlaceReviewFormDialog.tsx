@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -58,12 +57,8 @@ export function PlaceReviewFormDialog({
         </Button>
       </DialogTrigger>
       <DialogContent className='flex max-h-[min(98dvh,920px)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:rounded-2xl'>
-        <DialogHeader className='shrink-0 space-y-1.5 border-b border-neutral-100 px-5 pb-3 pt-10 text-left sm:pr-12'>
+        <DialogHeader className='shrink-0 border-b border-neutral-100 px-5 pb-3 pt-4 text-left sm:pr-12'>
           <DialogTitle>Tu reseña</DialogTitle>
-          <DialogDescription>
-            Calificación, accesibilidad y comentario opcional. Se guarda al
-            publicar.
-          </DialogDescription>
         </DialogHeader>
         {open ? (
           <PlaceReviewForm

@@ -5,17 +5,17 @@ import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
 import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
 import { CATEGORIES, getCategoryMeta, type PlaceCategory } from '../types';
+import { ACCESSIBILITY_FIELD_GROUPS } from '../types/reviewAccessibility';
 import { COLORS, getPinColor } from '../styles/colors';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
-import { fixLeafletDefaultIcons } from '../lib/leafletIcon'
-import { buildPinHtml, categoryGlyph } from '../lib/pins'
-import type { PlaceWithStats } from '../context/placesContext'
+import { fixLeafletDefaultIcons } from '../lib/leafletIcon';
+import { buildPinHtml, categoryGlyph } from '../lib/pins';
+import type { PlaceWithStats } from '../context/placesContext';
 import {
   fitMapToPlaceWithUiPadding,
   MAP_UI_PADDING_EXPLORE,
 } from '../lib/mapPlaceFocus';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-
 
 export function ExplorePage() {
   const navigate = useNavigate();
@@ -41,15 +41,15 @@ export function ExplorePage() {
   const [showMobileList, setShowMobileList] = useState(false);
 
   const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
-    const map = mapRef.current
-    if (!map) return
+    const map = mapRef.current;
+    if (!map) return;
     fitMapToPlaceWithUiPadding(
       map,
       place.latitude,
       place.longitude,
       MAP_UI_PADDING_EXPLORE,
-    )
-  }, [])
+    );
+  }, []);
 
   useEffect(() => {
     if (search) setSearch(search);
@@ -62,7 +62,10 @@ export function ExplorePage() {
   useEffect(() => {
     if (!mapRef.current) {
       try {
-        const map = L.map('explore-map').setView(SANTIAGO_CENTER, SANTIAGO_ZOOM);
+        const map = L.map('explore-map').setView(
+          SANTIAGO_CENTER,
+          SANTIAGO_ZOOM,
+        );
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap',
           maxZoom: 19,
@@ -80,13 +83,19 @@ export function ExplorePage() {
     if (!map) return;
     const toggle = (enabled: boolean) => {
       if (enabled) {
-        map.dragging.enable(); map.scrollWheelZoom.enable();
-        map.doubleClickZoom.enable(); map.boxZoom.enable();
-        map.keyboard.enable(); map.touchZoom.enable();
+        map.dragging.enable();
+        map.scrollWheelZoom.enable();
+        map.doubleClickZoom.enable();
+        map.boxZoom.enable();
+        map.keyboard.enable();
+        map.touchZoom.enable();
       } else {
-        map.dragging.disable(); map.scrollWheelZoom.disable();
-        map.doubleClickZoom.disable(); map.boxZoom.disable();
-        map.keyboard.disable(); map.touchZoom.disable();
+        map.dragging.disable();
+        map.scrollWheelZoom.disable();
+        map.doubleClickZoom.disable();
+        map.boxZoom.disable();
+        map.keyboard.disable();
+        map.touchZoom.disable();
       }
     };
     toggle(!showFiltersModal);
@@ -102,22 +111,27 @@ export function ExplorePage() {
       if (place.latitude && place.longitude) {
         const isSelected = selectedPlace === place.id;
         const baseColor = getPinColor(place.avgRating);
-        fixLeafletDefaultIcons()
-        const size = isSelected ? 28 : 24
+        fixLeafletDefaultIcons();
+        const size = isSelected ? 28 : 24;
         const icon = L.divIcon({
           className: '',
-          html: buildPinHtml({ color: baseColor, glyph: categoryGlyph(place.category), selected: isSelected, size }),
+          html: buildPinHtml({
+            color: baseColor,
+            glyph: categoryGlyph(place.category),
+            selected: isSelected,
+            size,
+          }),
           iconSize: [size, size + 12],
           iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
           popupAnchor: [0, -Math.round(size + 6)],
-        })
+        });
 
         const marker = L.marker([place.latitude, place.longitude], { icon })
           .on('click', (e) => {
-            L.DomEvent.stopPropagation(e)
-            setSelectedPlace(place.id)
-            setShowMobileList(false)
-            panToPlaceForDetail(place)
+            L.DomEvent.stopPropagation(e);
+            setSelectedPlace(place.id);
+            setShowMobileList(false);
+            panToPlaceForDetail(place);
           })
           .addTo(mapRef.current!);
 
@@ -127,16 +141,16 @@ export function ExplorePage() {
   }, [filteredPlaces, selectedPlace, panToPlaceForDetail]);
 
   const selectedPlaceData = useMemo(() => {
-    if (selectedPlace == null) return undefined
-    return filteredPlaces.find((p) => p.id === selectedPlace)
-  }, [selectedPlace, filteredPlaces])
+    if (selectedPlace == null) return undefined;
+    return filteredPlaces.find((p) => p.id === selectedPlace);
+  }, [selectedPlace, filteredPlaces]);
 
   useEffect(() => {
-    if (selectedPlace == null) return
+    if (selectedPlace == null) return;
     if (!filteredPlaces.some((p) => p.id === selectedPlace)) {
-      queueMicrotask(() => setSelectedPlace(null))
+      queueMicrotask(() => setSelectedPlace(null));
     }
-  }, [filteredPlaces, selectedPlace])
+  }, [filteredPlaces, selectedPlace]);
 
   return (
     <div className='flex h-screen bg-white overflow-hidden'>
@@ -158,12 +172,18 @@ export function ExplorePage() {
           </h2>
         </div>
 
-        <div className='border-b p-4 space-y-3' style={{ borderColor: COLORS.border }}>
+        <div
+          className='border-b p-4 space-y-3'
+          style={{ borderColor: COLORS.border }}
+        >
           <input
             type='text'
             placeholder='Buscar lugares...'
             value={search}
-            onChange={(e) => { setLocalSearch(e.target.value); setSearch(e.target.value); }}
+            onChange={(e) => {
+              setLocalSearch(e.target.value);
+              setSearch(e.target.value);
+            }}
             className='w-full rounded-lg border px-3 py-2 text-sm'
             style={{ borderColor: COLORS.border, color: COLORS.text }}
           />
@@ -178,15 +198,26 @@ export function ExplorePage() {
             filteredPlaces.map((place) => (
               <button
                 key={place.id}
-                onClick={() => { setSelectedPlace(place.id); panToPlaceForDetail(place); }}
+                onClick={() => {
+                  setSelectedPlace(place.id);
+                  panToPlaceForDetail(place);
+                }}
                 className='w-full text-left p-3 rounded-lg border transition-all'
                 style={{
-                  borderColor: selectedPlace === place.id ? COLORS.primary : COLORS.border,
-                  backgroundColor: selectedPlace === place.id ? `${COLORS.primary}0A` : 'transparent',
+                  borderColor:
+                    selectedPlace === place.id ? COLORS.primary : COLORS.border,
+                  backgroundColor:
+                    selectedPlace === place.id
+                      ? `${COLORS.primary}0A`
+                      : 'transparent',
                 }}
               >
-                <h3 className='font-semibold' style={{ color: COLORS.text }}>{place.name}</h3>
-                <p className='text-sm' style={{ color: COLORS.textMuted }}>{getCategoryMeta(place.category).label}</p>
+                <h3 className='font-semibold' style={{ color: COLORS.text }}>
+                  {place.name}
+                </h3>
+                <p className='text-sm' style={{ color: COLORS.textMuted }}>
+                  {getCategoryMeta(place.category).label}
+                </p>
                 <p className='text-xs mt-1' style={{ color: COLORS.textMuted }}>
                   ⭐ {place.avgRating.toFixed(1)} · {place.reviewCount} reseñas
                 </p>
@@ -220,7 +251,11 @@ export function ExplorePage() {
           <button
             onClick={() => navigate('/')}
             className='md:hidden flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg border'
-            style={{ backgroundColor: COLORS.card, color: COLORS.text, borderColor: COLORS.border }}
+            style={{
+              backgroundColor: COLORS.card,
+              color: COLORS.text,
+              borderColor: COLORS.border,
+            }}
           >
             ←
           </button>
@@ -228,7 +263,11 @@ export function ExplorePage() {
           <button
             onClick={() => setShowFiltersModal(true)}
             className='flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg border'
-            style={{ backgroundColor: COLORS.card, color: COLORS.text, borderColor: COLORS.border }}
+            style={{
+              backgroundColor: COLORS.card,
+              color: COLORS.text,
+              borderColor: COLORS.border,
+            }}
           >
             ⚙️ Filtros
           </button>
@@ -273,9 +312,12 @@ export function ExplorePage() {
             >
               <div className='flex items-center justify-between px-4 py-3 border-b border-neutral-100'>
                 <div>
-                  <p className='font-semibold text-neutral-900 text-sm'>{selectedPlaceData.name}</p>
+                  <p className='font-semibold text-neutral-900 text-sm'>
+                    {selectedPlaceData.name}
+                  </p>
                   <p className='text-xs text-neutral-500'>
-                    ⭐ {selectedPlaceData.avgRating.toFixed(1)} · {selectedPlaceData.reviewCount} reseñas
+                    ⭐ {selectedPlaceData.avgRating.toFixed(1)} ·{' '}
+                    {selectedPlaceData.reviewCount} reseñas
                   </p>
                 </div>
                 <div className='flex gap-2'>
@@ -322,7 +364,9 @@ export function ExplorePage() {
             <div className='flex items-center justify-between px-4 py-3 border-b border-neutral-100 shrink-0'>
               <div>
                 <h2 className='font-bold text-neutral-900'>Lugares</h2>
-                <p className='text-xs text-neutral-500'>{filteredPlaces.length} resultados</p>
+                <p className='text-xs text-neutral-500'>
+                  {filteredPlaces.length} resultados
+                </p>
               </div>
               <button
                 onClick={() => setShowMobileList(false)}
@@ -337,7 +381,10 @@ export function ExplorePage() {
                 type='text'
                 placeholder='Buscar lugares...'
                 value={search}
-                onChange={(e) => { setLocalSearch(e.target.value); setSearch(e.target.value); }}
+                onChange={(e) => {
+                  setLocalSearch(e.target.value);
+                  setSearch(e.target.value);
+                }}
                 className='w-full rounded-lg border px-3 py-2.5 text-sm'
                 style={{ borderColor: COLORS.border }}
               />
@@ -354,13 +401,28 @@ export function ExplorePage() {
                   }}
                   className='w-full text-left p-3 rounded-xl border transition-all min-h-[64px]'
                   style={{
-                    borderColor: selectedPlace === place.id ? COLORS.primary : COLORS.border,
-                    backgroundColor: selectedPlace === place.id ? `${COLORS.primary}0A` : 'transparent',
+                    borderColor:
+                      selectedPlace === place.id
+                        ? COLORS.primary
+                        : COLORS.border,
+                    backgroundColor:
+                      selectedPlace === place.id
+                        ? `${COLORS.primary}0A`
+                        : 'transparent',
                   }}
                 >
-                  <h3 className='font-semibold text-sm' style={{ color: COLORS.text }}>{place.name}</h3>
-                  <p className='text-xs mt-0.5' style={{ color: COLORS.textMuted }}>
-                    {getCategoryMeta(place.category).label} · ⭐ {place.avgRating.toFixed(1)}
+                  <h3
+                    className='font-semibold text-sm'
+                    style={{ color: COLORS.text }}
+                  >
+                    {place.name}
+                  </h3>
+                  <p
+                    className='text-xs mt-0.5'
+                    style={{ color: COLORS.textMuted }}
+                  >
+                    {getCategoryMeta(place.category).label} · ⭐{' '}
+                    {place.avgRating.toFixed(1)}
                   </p>
                 </button>
               ))}
@@ -376,94 +438,186 @@ export function ExplorePage() {
           className='fixed left-0 top-0 z-[9001] flex h-full max-h-dvh w-full max-w-[min(24rem,100vw)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
           style={{ backgroundColor: COLORS.card }}
         >
-          <div className='border-b px-6 py-4 flex items-center justify-between' style={{ borderColor: COLORS.border }}>
-            <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>Filtros y Leyenda</h2>
-            <button onClick={() => setShowFiltersModal(false)} style={{ color: COLORS.textMuted }}>✕</button>
+          <div
+            className='border-b px-6 py-4 flex items-center justify-between'
+            style={{ borderColor: COLORS.border }}
+          >
+            <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>
+              Filtros y Leyenda
+            </h2>
+            <button
+              onClick={() => setShowFiltersModal(false)}
+              style={{ color: COLORS.textMuted }}
+            >
+              ✕
+            </button>
           </div>
 
           <div className='flex-1 overflow-y-auto p-6 space-y-5'>
             <div className='space-y-2'>
               <label className='flex items-center gap-3 cursor-pointer'>
-                <input type='checkbox' checked={filters.recommendedOnly} onChange={() => toggleFilter('recommendedOnly')}
-                  className='w-5 h-5 rounded border' style={{ accentColor: COLORS.primary }} />
-                <span className='text-sm font-semibold' style={{ color: COLORS.text }}>⭐ Solo recomendados (4.5+)</span>
+                <input
+                  type='checkbox'
+                  checked={filters.recommendedOnly}
+                  onChange={() => toggleFilter('recommendedOnly')}
+                  className='w-5 h-5 rounded border'
+                  style={{ accentColor: COLORS.primary }}
+                />
+                <span
+                  className='text-sm font-semibold'
+                  style={{ color: COLORS.text }}
+                >
+                  ⭐ Solo recomendados (4.5+)
+                </span>
               </label>
             </div>
 
-            <div className='space-y-2 pt-3 border-t' style={{ borderColor: COLORS.border }}>
-              <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>📁 Categoría</p>
-              <select value={category}
-                onChange={(e) => { setLocalCategory(e.target.value as PlaceCategory | 'all'); setCategory(e.target.value as PlaceCategory | 'all'); }}
-                className='w-full rounded-lg border px-3 py-2.5 text-sm' style={{ borderColor: COLORS.border, color: COLORS.text }}>
+            <div
+              className='space-y-2 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                📁 Categoría
+              </p>
+              <select
+                value={category}
+                onChange={(e) => {
+                  setLocalCategory(e.target.value as PlaceCategory | 'all');
+                  setCategory(e.target.value as PlaceCategory | 'all');
+                }}
+                className='w-full rounded-lg border px-3 py-2.5 text-sm'
+                style={{ borderColor: COLORS.border, color: COLORS.text }}
+              >
                 <option value='all'>Todas</option>
-                {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
-            </div>
-
-            {(
-              [
-                { label: '🚗 Llegada', keys: [
-                  { key: 'parking_accessible' as const, label: 'Parking accesible ♿' },
-                  { key: 'signage_clear' as const, label: 'Señalización clara' },
-                  { key: 'ramp_available' as const, label: 'Rampa disponible' },
-                  { key: 'mechanical_stairs' as const, label: 'Escalera mecánica' },
-                ]},
-                { label: '🚪 Entrada', keys: [
-                  { key: 'elevator_available' as const, label: 'Ascensor' },
-                  { key: 'wide_entrance' as const, label: 'Entrada ancha para silla de ruedas' },
-                ]},
-                { label: '🏢 Interior', keys: [
-                  { key: 'accessible_bathroom' as const, label: 'Baño accesible' },
-                  { key: 'circulation_clear' as const, label: 'Circulación interior amplia' },
-                ]},
-              ] as const
-            ).map((group) => (
-              <div key={group.label} className='space-y-3 pt-3 border-t' style={{ borderColor: COLORS.border }}>
-                <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>{group.label}</p>
-                {group.keys.map(({ key, label }) => (
-                  <label key={key} className='flex items-center gap-3 cursor-pointer'>
-                    <input type='checkbox' checked={filters[key]} onChange={() => toggleFilter(key)}
-                      className='w-5 h-5 rounded' style={{ accentColor: COLORS.primary }} />
-                    <span className='text-sm' style={{ color: COLORS.text }}>{label}</span>
-                  </label>
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
                 ))}
-              </div>
-            ))}
-
-            <div className='space-y-2 pt-3 border-t' style={{ borderColor: COLORS.border }}>
-              <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>⭐ Rating mínimo</p>
-              <select value={filters.minRating ?? ''}
-                onChange={(e) => setFilterValue('minRating', e.target.value ? parseFloat(e.target.value) : null)}
-                className='w-full rounded-lg border px-3 py-2.5 text-sm' style={{ borderColor: COLORS.border, color: COLORS.text }}>
-                <option value=''>Cualquiera</option>
-                {['1','2','3','4','4.5'].map((v) => <option key={v} value={v}>{v}+</option>)}
               </select>
             </div>
 
-            <div className='space-y-2 pt-3 border-t' style={{ borderColor: COLORS.border }}>
-              <p className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>🎯 Leyenda</p>
+            {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
+              const sectionTitle =
+                group.title === 'LLEGADA'
+                  ? '🚗 Llegada'
+                  : group.title === 'ENTRADA'
+                    ? '🚪 Entrada'
+                    : '🏢 Interior';
+              return (
+                <div
+                  key={group.title}
+                  className='space-y-3 pt-3 border-t'
+                  style={{ borderColor: COLORS.border }}
+                >
+                  <p
+                    className='text-xs font-semibold uppercase'
+                    style={{ color: COLORS.textMuted }}
+                  >
+                    {sectionTitle}
+                  </p>
+                  {group.fields.map((f) => (
+                    <label
+                      key={f.key}
+                      className='flex cursor-pointer items-center gap-3'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={filters[f.key]}
+                        onChange={() => toggleFilter(f.key)}
+                        className='h-5 w-5 rounded'
+                        style={{ accentColor: COLORS.primary }}
+                      />
+                      <span
+                        className='cursor-help text-sm'
+                        style={{ color: COLORS.text }}
+                        title={f.description}
+                      >
+                        {f.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
+
+            <div
+              className='space-y-2 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                ⭐ Rating mínimo
+              </p>
+              <select
+                value={filters.minRating ?? ''}
+                onChange={(e) =>
+                  setFilterValue(
+                    'minRating',
+                    e.target.value ? parseFloat(e.target.value) : null,
+                  )
+                }
+                className='w-full rounded-lg border px-3 py-2.5 text-sm'
+                style={{ borderColor: COLORS.border, color: COLORS.text }}
+              >
+                <option value=''>Cualquiera</option>
+                {['1', '2', '3', '4', '4.5'].map((v) => (
+                  <option key={v} value={v}>
+                    {v}+
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              className='space-y-2 pt-3 border-t'
+              style={{ borderColor: COLORS.border }}
+            >
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                🎯 Leyenda
+              </p>
               {[
                 { color: COLORS.success, label: 'Alta (4.5+)' },
                 { color: COLORS.warning, label: 'Media (3.5-4.4)' },
                 { color: COLORS.danger, label: 'Baja (<3.5)' },
               ].map(({ color, label }) => (
                 <div key={label} className='flex items-center gap-2'>
-                  <div className='w-5 h-5 rounded-full shrink-0' style={{ backgroundColor: color }} />
-                  <span className='text-sm' style={{ color: COLORS.text }}>{label}</span>
+                  <div
+                    className='w-5 h-5 rounded-full shrink-0'
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className='text-sm' style={{ color: COLORS.text }}>
+                    {label}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className='border-t px-6 py-4 space-y-3' style={{ borderColor: COLORS.border }}>
-            <button onClick={resetFilters}
+          <div
+            className='border-t px-6 py-4 space-y-3'
+            style={{ borderColor: COLORS.border }}
+          >
+            <button
+              onClick={resetFilters}
               className='w-full rounded-lg border px-4 py-3 text-sm font-semibold min-h-[48px]'
-              style={{ borderColor: COLORS.border, color: COLORS.text }}>
+              style={{ borderColor: COLORS.border, color: COLORS.text }}
+            >
               Limpiar filtros
             </button>
-            <button onClick={() => setShowFiltersModal(false)}
+            <button
+              onClick={() => setShowFiltersModal(false)}
               className='w-full rounded-lg px-4 py-3 text-sm font-semibold text-white min-h-[48px]'
-              style={{ backgroundColor: COLORS.primary }}>
+              style={{ backgroundColor: COLORS.primary }}
+            >
               Ver resultados
             </button>
           </div>

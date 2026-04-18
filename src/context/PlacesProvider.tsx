@@ -10,7 +10,7 @@ import {
   computeAccessibilityConsensus,
   rowToAccessibilityValues,
   type AccessibilityConsensusMap,
-  type PlaceAccessibilityReviewRow,
+  type PlaceReviewConsensusRow,
   consensusFieldStrictYes,
 } from '../lib/reviewAccessibilityConsensus';
 import { reviewMediaBasePathForPlace } from '../lib/reviewMediaPaths';
@@ -19,7 +19,6 @@ import { syncPlaceReviewStats } from '../lib/syncPlaceReviewStats';
 import type { Place, PlaceCategory } from '../types/place';
 import {
   ACCESSIBILITY_REVIEW_KEYS,
-  createEmptyAccessibilityValues,
   type AccessibilityReviewValues,
   type PlaceReviewMediaInput,
 } from '../types/reviewAccessibility';
@@ -30,10 +29,28 @@ import {
   type PlaceWithStats,
 } from './placesContext';
 
+/** Columnas de checklist en `reviews` (literal fijo para tipos de supabase-js). */
+const REVIEW_CHECKLIST_SELECT =
+  'id, place_id, source, parking_accessible, nearby_parking, signage_clear, ramp_available, mechanical_stairs, elevator_available, wide_entrance, accessible_bathroom, circulation_clear, lowered_counter';
+
+const MY_REVIEW_WITH_ACCESSIBILITY_SELECT =
+  'id, rating, comment, photo_urls, video_url, source, parking_accessible, nearby_parking, signage_clear, ramp_available, mechanical_stairs, elevator_available, wide_entrance, accessible_bathroom, circulation_clear, lowered_counter';
+
+function accessibilityForDbRow(
+  a: AccessibilityReviewValues,
+): Record<string, boolean | null> {
+  const o: Record<string, boolean | null> = {};
+  for (const k of ACCESSIBILITY_REVIEW_KEYS) {
+    o[k] = a[k];
+  }
+  return o;
+}
+
 const defaultFilters: AccessibilityFilters = {
   recommendedOnly: false,
   minRating: null,
   parking_accessible: false,
+  nearby_parking: false,
   signage_clear: false,
   ramp_available: false,
   mechanical_stairs: false,
@@ -41,6 +58,7 @@ const defaultFilters: AccessibilityFilters = {
   wide_entrance: false,
   accessible_bathroom: false,
   circulation_clear: false,
+  lowered_counter: false,
 };
 
 type DbPlaceRow = {
@@ -70,10 +88,11 @@ type DbPlaceRow = {
 
 type DbReviewRow = {
   id: number;
-  rating: number;
+  rating: number | null;
   comment: string | null;
   created_at: string | null;
   author_id: string | null;
+  source?: string | null;
   photo_urls: string[] | null;
   video_url: string | null;
   users?:
@@ -136,9 +155,9 @@ function mapPlaceWithStats(place: DbPlaceRow): PlaceWithStats {
 }
 
 function buildConsensusByPlaceId(
-  rows: PlaceAccessibilityReviewRow[],
+  rows: PlaceReviewConsensusRow[],
 ): Record<number, AccessibilityConsensusMap> {
-  const byPlace: Record<number, PlaceAccessibilityReviewRow[]> = {};
+  const byPlace: Record<number, PlaceReviewConsensusRow[]> = {};
   for (const row of rows) {
     const pid = row.place_id;
     if (pid == null || !Number.isFinite(pid)) continue;
@@ -162,23 +181,23 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
   const refreshPlaces = useCallback(async () => {
     const nowIso = new Date().toISOString();
-    const [placesRes, accRes] = await Promise.all([
+    const [placesRes, revRes] = await Promise.all([
       supabase
         .from('places')
         .select('*, active_reports:place_reports(count)')
         .gt('place_reports.expires_at', nowIso)
         .order('created_at', { ascending: false }),
-      supabase.from('place_accessibility_reviews').select('*'),
+      supabase.from('reviews').select(REVIEW_CHECKLIST_SELECT),
     ]);
 
     if (placesRes.error) throw placesRes.error;
-    if (accRes.error) throw accRes.error;
+    if (revRes.error) throw revRes.error;
 
     const mapped = ((placesRes.data || []) as DbPlaceRow[]).map(
       mapPlaceWithStats,
     );
     const consensusMap = buildConsensusByPlaceId(
-      (accRes.data || []) as PlaceAccessibilityReviewRow[],
+      (revRes.data || []) as unknown as PlaceReviewConsensusRow[],
     );
     for (const p of mapped) {
       if (consensusMap[p.id] == null) {
@@ -261,7 +280,9 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   const reviewsForPlace = useCallback(async (placeId: number) => {
     const { data, error } = await supabase
       .from('reviews')
-      .select('id, rating, comment, created_at, author_id, photo_urls, video_url, users(display_name)')
+      .select(
+        'id, rating, comment, created_at, author_id, source, photo_urls, video_url, users(display_name)',
+      )
       .eq('place_id', placeId)
       .order('created_at', { ascending: false });
 
@@ -270,19 +291,21 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       return [];
     }
 
-    return ((data || []) as DbReviewRow[]).map((r) => ({
-      id: r.id,
-      placeId,
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: r.created_at,
-      authorId: r.author_id,
-      authorName: Array.isArray(r.users)
-        ? (r.users[0]?.display_name ?? null)
-        : (r.users?.display_name ?? null),
-      photoUrls: r.photo_urls ?? null,
-      videoUrl: r.video_url ?? null,
-    }));
+    return ((data || []) as DbReviewRow[])
+      .filter((r) => (r.source ?? 'user').toLowerCase() !== 'google')
+      .map((r) => ({
+        id: r.id,
+        placeId,
+        rating: r.rating ?? 0,
+        comment: r.comment,
+        createdAt: r.created_at,
+        authorId: r.author_id,
+        authorName: Array.isArray(r.users)
+          ? (r.users[0]?.display_name ?? null)
+          : (r.users?.display_name ?? null),
+        photoUrls: r.photo_urls ?? null,
+        videoUrl: r.video_url ?? null,
+      }));
   }, []);
 
   const myReviewWithAccessibility = useCallback(async (placeId: number) => {
@@ -290,9 +313,9 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
     const user = auth.user;
     if (!user) return null;
 
-    const { data: rev, error: revErr } = await supabase
+    const { data: revRaw, error: revErr } = await supabase
       .from('reviews')
-      .select('id, rating, comment, photo_urls, video_url')
+      .select(MY_REVIEW_WITH_ACCESSIBILITY_SELECT)
       .eq('place_id', placeId)
       .eq('author_id', user.id)
       .maybeSingle();
@@ -301,37 +324,28 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       console.error('Error loading my review:', revErr);
       return null;
     }
-    if (!rev) return null;
+    if (!revRaw) return null;
 
-    const { data: acc, error: accErr } = await supabase
-      .from('place_accessibility_reviews')
-      .select('*')
-      .eq('review_id', rev.id)
-      .maybeSingle();
+    const rev = revRaw as unknown as Record<string, unknown>;
 
-    if (accErr) {
-      console.error('Error loading accessibility review:', accErr);
-    }
-
-    const accessibility = acc
-      ? rowToAccessibilityValues(acc as Record<string, unknown>)
-      : createEmptyAccessibilityValues();
+    const accessibility = rowToAccessibilityValues(rev);
 
     return {
-      id: rev.id,
-      rating: rev.rating,
-      comment: rev.comment,
+      id: rev.id as number,
+      rating: rev.rating as number | null,
+      comment: rev.comment as string | null,
       accessibility,
       photoUrls: Array.isArray(rev.photo_urls) ? rev.photo_urls : null,
       videoUrl: typeof rev.video_url === 'string' ? rev.video_url : null,
+      source: (typeof rev.source === 'string' ? rev.source : null) ?? null,
     };
   }, []);
 
   const accessibilityConsensusForPlace = useCallback(
     async (placeId: number) => {
       const { data, error } = await supabase
-        .from('place_accessibility_reviews')
-        .select('*')
+        .from('reviews')
+        .select(REVIEW_CHECKLIST_SELECT)
         .eq('place_id', placeId);
 
       if (error) {
@@ -340,7 +354,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       }
 
       return computeAccessibilityConsensus(
-        (data || []) as PlaceAccessibilityReviewRow[],
+        (data || []) as unknown as PlaceReviewConsensusRow[],
       );
     },
     [],
@@ -396,6 +410,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
       let reviewId: number;
 
+      const checklistRow = accessibilityForDbRow(accessibility);
+
       if (existing?.id != null) {
         reviewId = existing.id;
       } else {
@@ -406,6 +422,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
             author_id: user.id,
             rating: cleanRating,
             comment: cleanComment,
+            source: 'user',
+            ...checklistRow,
           })
           .select('id')
           .single();
@@ -443,10 +461,10 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
           .getPublicUrl(path);
         if (urlData.publicUrl) uploadedNewPhotoUrls.push(urlData.publicUrl);
       }
-      const finalPhotoUrls = [...retainPhotoUrls, ...uploadedNewPhotoUrls].slice(
-        0,
-        5,
-      );
+      const finalPhotoUrls = [
+        ...retainPhotoUrls,
+        ...uploadedNewPhotoUrls,
+      ].slice(0, 5);
 
       let finalVideoUrl: string | null = retainVideoUrl;
       if (newVideo) {
@@ -474,6 +492,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
           comment: cleanComment,
           photo_urls: finalPhotoUrls.length > 0 ? finalPhotoUrls : null,
           video_url: finalVideoUrl,
+          source: 'user',
+          ...checklistRow,
         })
         .eq('id', reviewId);
       if (revUpErr) throw revUpErr;
@@ -500,36 +520,6 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
             rmErr.message,
           );
         }
-      }
-
-      const { data: accExisting } = await supabase
-        .from('place_accessibility_reviews')
-        .select('id')
-        .eq('review_id', reviewId)
-        .maybeSingle();
-
-      if (accExisting?.id != null) {
-        const updatePayload: Record<string, boolean | null> = {};
-        for (const k of ACCESSIBILITY_REVIEW_KEYS) {
-          updatePayload[k] = accessibility[k];
-        }
-        const { error: accUp } = await supabase
-          .from('place_accessibility_reviews')
-          .update(updatePayload)
-          .eq('review_id', reviewId);
-        if (accUp) throw accUp;
-      } else {
-        const insertPayload: Record<string, boolean | null | number> = {
-          review_id: reviewId,
-          place_id: placeId,
-        };
-        for (const k of ACCESSIBILITY_REVIEW_KEYS) {
-          insertPayload[k] = accessibility[k];
-        }
-        const { error: accIns } = await supabase
-          .from('place_accessibility_reviews')
-          .insert(insertPayload);
-        if (accIns) throw accIns;
       }
 
       await syncPlaceReviewStats(placeId);

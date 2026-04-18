@@ -13,9 +13,15 @@ export function PlaceCard({ place }: PlaceCardProps) {
   return (
     <div className='space-y-4'>
       <div>
-        <h3 className='text-lg font-bold' style={{ color: COLORS.text }}>{place.name}</h3>
-        <p className='text-sm' style={{ color: COLORS.textMuted }}>{getCategoryMeta(place.category).label}</p>
-        <p className='text-xs mt-1' style={{ color: COLORS.textMuted }}>{place.address}</p>
+        <h3 className='text-lg font-bold' style={{ color: COLORS.text }}>
+          {place.name}
+        </h3>
+        <p className='text-sm' style={{ color: COLORS.textMuted }}>
+          {getCategoryMeta(place.category).label}
+        </p>
+        <p className='text-xs mt-1' style={{ color: COLORS.textMuted }}>
+          {place.address}
+        </p>
       </div>
 
       <div className='flex items-center gap-2'>

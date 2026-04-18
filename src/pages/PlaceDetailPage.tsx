@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,7 @@ import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityCo
 import { PlaceReviewFormDialog } from '@/components/reviews/PlaceReviewFormDialog';
 import { useAuth } from '@/context/useAuth';
 import { usePlaces } from '@/context/usePlaces';
+import { syncPlaceReviewStats } from '@/lib/syncPlaceReviewStats';
 import { getCategoryMeta, type PlaceReview } from '@/types/place';
 import { supabase } from '@/services/supabase';
 
@@ -87,19 +88,26 @@ export function PlaceDetailPage() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
+  /** Evita re-disparar sync al cambiar la referencia de `place` tras refreshPlaces. */
+  const statsHealDoneRef = useRef(false);
+
+  useEffect(() => {
+    statsHealDoneRef.current = false;
+  }, [placeId]);
+
   const reloadLists = useCallback(async () => {
-    if (!place) return;
+    if (!Number.isFinite(placeId)) return;
     setReviewsLoading(true);
     setConsensusLoading(true);
     setReportsLoading(true);
     try {
       const [revRows, cons, reportsRes] = await Promise.all([
-        reviewsForPlace(place.id),
-        accessibilityConsensusForPlace(place.id),
+        reviewsForPlace(placeId),
+        accessibilityConsensusForPlace(placeId),
         supabase
           .from('place_reports')
           .select('*')
-          .eq('place_id', place.id)
+          .eq('place_id', placeId)
           .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
       ]);
@@ -111,16 +119,62 @@ export function PlaceDetailPage() {
       } else {
         setActiveReports((reportsRes.data || []) as PlaceReportRow[]);
       }
+    } catch (e) {
+      console.error('Error cargando reseñas o consenso:', e);
     } finally {
       setReviewsLoading(false);
       setConsensusLoading(false);
       setReportsLoading(false);
     }
-  }, [place, reviewsForPlace, accessibilityConsensusForPlace]);
+  }, [placeId, reviewsForPlace, accessibilityConsensusForPlace]);
 
   useEffect(() => {
     void reloadLists();
   }, [reloadLists]);
+
+  /** Una sola vez por visita: alinea places.review_count con la tabla reviews si hubo desfase. */
+  useEffect(() => {
+    if (!Number.isFinite(placeId) || !place || reviewsLoading) return;
+    if (statsHealDoneRef.current) return;
+    if (reviews.length === 0) return;
+
+    const avgRev =
+      reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+    const countMismatch = reviews.length !== place.reviewCount;
+    const avgMismatch = Math.abs(avgRev - place.avgRating) > 0.05;
+    if (!countMismatch && !avgMismatch) return;
+
+    statsHealDoneRef.current = true;
+    void (async () => {
+      try {
+        await syncPlaceReviewStats(placeId);
+        await refreshPlaces();
+      } catch (e) {
+        console.warn('syncPlaceReviewStats', e);
+        statsHealDoneRef.current = false;
+      }
+    })();
+  }, [
+    placeId,
+    place,
+    reviews,
+    reviewsLoading,
+    refreshPlaces,
+  ]);
+
+  /** Cabecera alineada con la lista real de reseñas (evita desfase con places.review_count). */
+  const headerReviewStats = useMemo(() => {
+    if (!place) return { avg: 0, count: 0 };
+    if (reviewsLoading) {
+      return { avg: place.avgRating, count: place.reviewCount };
+    }
+    if (reviews.length > 0) {
+      const count = reviews.length;
+      const avg = reviews.reduce((s, r) => s + r.rating, 0) / count;
+      return { avg, count };
+    }
+    return { avg: place.avgRating, count: place.reviewCount };
+  }, [place, reviews, reviewsLoading]);
 
   const directionsUrl =
     place != null
@@ -268,11 +322,11 @@ export function PlaceDetailPage() {
 
           <div className='mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
             <span className='text-3xl font-semibold tabular-nums text-neutral-900'>
-              {place.avgRating.toFixed(1).replace('.', ',')}
+              {headerReviewStats.avg.toFixed(1).replace('.', ',')}
             </span>
             <span className='text-sm text-neutral-600'>
-              <span aria-hidden>⭐</span> · {place.reviewCount}{' '}
-              {place.reviewCount === 1 ? 'reseña' : 'reseñas'}
+              <span aria-hidden>⭐</span> · {headerReviewStats.count}{' '}
+              {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
             </span>
           </div>
 
