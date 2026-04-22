@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { COLORS } from '@/styles/colors';
 import { MessageSquarePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ type PlaceReviewFormDialogProps = {
     | 'secondary'
     | 'ghost'
     | 'destructive';
+  triggerStyle?: React.CSSProperties;
 };
 
 export function PlaceReviewFormDialog({
@@ -34,6 +36,7 @@ export function PlaceReviewFormDialog({
   triggerClassName,
   triggerLabel,
   triggerVariant,
+  triggerStyle,
 }: PlaceReviewFormDialogProps) {
   const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
@@ -50,6 +53,7 @@ export function PlaceReviewFormDialog({
           type='button'
           className={cn('h-10 gap-2 text-sm font-semibold', triggerClassName)}
           variant={triggerVariant ?? (isAuthenticated ? 'default' : 'outline')}
+          style={triggerStyle ?? (isAuthenticated ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary, color: '#fff' } : undefined)}
         >
           <MessageSquarePlus className='h-4 w-4' aria-hidden />
           {triggerLabel ??

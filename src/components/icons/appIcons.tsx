@@ -43,6 +43,7 @@ import {
   Users,
   X,
   TriangleAlert,
+  Send,
 } from 'lucide-react';
 import type { PlaceCategory } from '@/types/place';
 import type { AccessibilityReviewKey } from '@/types/reviewAccessibility';
@@ -149,5 +150,6 @@ export const AppIcons = {
   CircleHelp,
   Construction,
   X,
+  Send,
 } as const;
 

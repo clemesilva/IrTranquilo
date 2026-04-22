@@ -17,6 +17,7 @@ import { syncPlaceReviewStats } from '@/lib/syncPlaceReviewStats';
 import { getCategoryMeta, type PlaceReview } from '@/types/place';
 import { supabase } from '@/services/supabase';
 import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
+import { COLORS } from '@/styles/colors';
 
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
 
@@ -304,101 +305,150 @@ export function PlaceDetailPage() {
   }
 
   return (
-    <div className='mx-auto w-full max-w-[min(92rem,100%-2rem)] px-4 py-5 sm:px-6 lg:px-8'>
-      <div className='flex items-center justify-between gap-3'>
-        <Button
-          type='button'
-          variant='ghost'
-          className='px-0'
-          onClick={() => navigate(-1)}
-        >
-          ← Volver al mapa
-        </Button>
-      </div>
+    <div className='mx-auto w-full max-w-[min(72rem,100%-2rem)] px-4 py-5 sm:px-6 lg:px-8'>
+      <Button
+        type='button'
+        variant='ghost'
+        className='mb-3 px-0 text-sm'
+        onClick={() => navigate(-1)}
+      >
+        ← Volver al mapa
+      </Button>
 
-      <div className='mt-3 flex items-stretch justify-between gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'>
-        <header className='min-w-0 flex-1 rounded-xl border border-neutral-200/80 bg-white px-4 py-3'>
+      {/* Header card */}
+      <header className='overflow-hidden rounded-2xl border bg-white shadow-sm' style={{ borderColor: COLORS.border }}>
+        {/* Hero imagen */}
+        <div className='relative h-44 w-full bg-neutral-100 sm:h-56'>
           {place.googlePhotoUrl ? (
             <img
               src={place.googlePhotoUrl}
               alt={place.name}
-              className='mb-3 h-28 w-full rounded-xl object-cover sm:h-36'
+              className='h-full w-full object-cover'
               loading='lazy'
             />
-          ) : null}
-          <h1 className='text-2xl font-semibold tracking-tight text-neutral-900'>
-            {place.name}
-          </h1>
-          <p className='mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-neutral-50 px-2.5 py-1 text-sm text-neutral-700 ring-1 ring-neutral-200/80'>
-            <CategoryIcon category={place.category} size={16} className='text-neutral-700' />
-            <span>{getCategoryMeta(place.category).label}</span>
-          </p>
+          ) : (
+            <div className='flex h-full w-full items-center justify-center'>
+              <CategoryIcon category={place.category} size={48} className='text-neutral-300' />
+            </div>
+          )}
+          {/* Gradiente inferior */}
+          <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent' />
+          {/* Badge categoría sobre imagen */}
+          <span
+            className='absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm'
+            style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
+          >
+            <CategoryIcon category={place.category} size={13} className='text-white' />
+            {getCategoryMeta(place.category).label}
+          </span>
+        </div>
 
-          <div className='mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
-            <span className='text-3xl font-semibold tabular-nums text-neutral-900'>
-              {headerReviewStats.avg.toFixed(1).replace('.', ',')}
-            </span>
-            <span className='text-sm text-neutral-600'>
-              <AppIcons.Star className='mr-1 inline h-4 w-4 text-amber-500' aria-hidden />·{' '}
-              {headerReviewStats.count}{' '}
-              {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
-            </span>
-          </div>
-
-          <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-700'>
-            {place.phone ? (
+        {/* Info — título arriba, luego dos columnas: datos | botones */}
+        <div className='px-5 py-4'>
+          {/* Nombre + íconos llegar/compartir alineados */}
+          <div className='flex items-start justify-between gap-3'>
+            <h1 className='text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl'>
+              {place.name}
+            </h1>
+            <div className='flex shrink-0 items-center gap-1.5'>
               <a
-                href={`tel:${place.phone}`}
-                className='underline-offset-2 hover:underline'
-              >
-                <AppIcons.Phone className='mr-1 inline h-4 w-4' aria-hidden />
-                {place.phone}
-              </a>
-            ) : null}
-            {place.website ? (
-              <a
-                href={place.website}
+                href={directionsUrl}
                 target='_blank'
                 rel='noreferrer'
-                className='underline-offset-2 hover:underline'
+                aria-label='Cómo llegar'
+                className='flex h-9 w-9 items-center justify-center rounded-xl text-white sm:h-auto sm:w-auto sm:gap-1.5 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-sm sm:font-semibold'
+                style={{ backgroundColor: COLORS.primary }}
               >
-                <AppIcons.Globe className='mr-1 inline h-4 w-4' aria-hidden />
-                Sitio web
+                <AppIcons.Send className='h-4 w-4 shrink-0' aria-hidden />
+                <span className='hidden'>Cómo llegar</span>
               </a>
-            ) : null}
-            {place.priceLevel != null ? (
-              <span className='text-neutral-600'>
-                {precioLabel[place.priceLevel] ?? ''}
-              </span>
-            ) : null}
+              <button
+                type='button'
+                onClick={handleShare}
+                aria-label='Compartir'
+                className='flex h-9 w-9 items-center justify-center rounded-xl border sm:h-auto sm:w-auto sm:gap-1.5 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-sm sm:font-semibold'
+                style={{ borderColor: COLORS.border, color: COLORS.text }}
+              >
+                <AppIcons.Share2 className='h-4 w-4 shrink-0' aria-hidden />
+                <span className='hidden'>Compartir</span>
+              </button>
+            </div>
           </div>
 
-          {place.googleRating != null ? (
-            <p className='mt-1 text-xs text-neutral-500'>
-              <AppIcons.Star className='mr-1 inline h-3.5 w-3.5 text-amber-500' aria-hidden />
-              {place.googleRating} en Google ({place.googleRatingsTotal ?? 0}{' '}
-              reseñas)
-            </p>
-          ) : null}
-        </header>
+          <div className='mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+            {/* Columna izquierda: rating + contacto */}
+            <div className='min-w-0'>
+              <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
+                <span className='text-xl font-bold tabular-nums text-neutral-900'>
+                  {headerReviewStats.avg.toFixed(1).replace('.', ',')}
+                </span>
+                <div className='flex items-center gap-0.5'>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <AppIcons.Star
+                      key={i}
+                      className='h-5 w-5'
+                      aria-hidden
+                      style={{ color: i < Math.round(headerReviewStats.avg) ? COLORS.primary : '#E2E8F0' }}
+                    />
+                  ))}
+                </div>
+                <AppIcons.Accessibility size={20} style={{ color: COLORS.primary }} aria-hidden />
+                <span className='text-sm text-neutral-500'>
+                  · {headerReviewStats.count} {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
+                </span>
+                {place.googleRating != null && (
+                  <span className='text-xs text-neutral-400'>
+                    · {place.googleRating} en Google ({place.googleRatingsTotal ?? 0})
+                  </span>
+                )}
+              </div>
 
-        <div className='flex min-w-0 flex-1 shrink-0 flex-col gap-2 sm:w-auto sm:flex-none sm:items-end sm:justify-end'>
-          <PlaceReviewFormDialog
-            placeId={place.id}
-            onSaved={() => void reloadLists()}
-            triggerClassName='w-full sm:w-auto'
-          />
-          <Button
-            type='button'
-            variant='outline'
-            className='w-full text-sm sm:w-auto'
-            onClick={handleOpenReport}
-          >
-            <AppIcons.TriangleAlert className='mr-2 h-4 w-4' aria-hidden />
-            Reportar problema temporal
-          </Button>
+              <div className='mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm'>
+                <span className='flex items-center gap-1.5 text-neutral-600'>
+                  <AppIcons.MapPin className='h-4 w-4 shrink-0' aria-hidden />
+                  {place.address}
+                </span>
+                {place.phone ? (
+                  <a href={`tel:${place.phone}`} className='flex items-center gap-1.5 hover:underline' style={{ color: COLORS.primary }}>
+                    <AppIcons.Phone className='h-4 w-4' aria-hidden />
+                    {place.phone}
+                  </a>
+                ) : null}
+                {place.website ? (
+                  <a href={place.website} target='_blank' rel='noreferrer' className='flex items-center gap-1.5 hover:underline' style={{ color: COLORS.primary }}>
+                    <AppIcons.Globe className='h-4 w-4' aria-hidden />
+                    Sitio web
+                  </a>
+                ) : null}
+                {place.priceLevel != null ? (
+                  <span className='text-neutral-500'>{precioLabel[place.priceLevel] ?? ''}</span>
+                ) : null}
+              </div>
+
+            </div>
+
+            {/* Columna derecha: botones siempre en paralelo */}
+            <div className='flex shrink-0 gap-2'>
+              <PlaceReviewFormDialog
+                placeId={place.id}
+                onSaved={() => void reloadLists()}
+                triggerClassName='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
+                triggerStyle={{ backgroundColor: COLORS.primary, color: '#fff', borderColor: COLORS.primary }}
+              />
+              <Button
+                type='button'
+                variant='outline'
+                className='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
+                style={{ backgroundColor: '#fefce8', color: '#92400e', borderColor: '#fde68a' }}
+                onClick={handleOpenReport}
+              >
+                <AppIcons.TriangleAlert className='mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4' aria-hidden />
+                Reportar
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
       {reportsLoading ? null : activeReports.length > 0 ? (
         <div className='mt-4 space-y-2'>
@@ -509,23 +559,7 @@ export function PlaceDetailPage() {
         </div>
       </section>
 
-      <footer className='mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2'>
-        <Button className='h-10 w-full text-sm' asChild>
-          <a href={directionsUrl} target='_blank' rel='noreferrer'>
-            Abrir ruta en Google Maps
-          </a>
-        </Button>
-        <Button
-          type='button'
-          className='h-10 w-full text-sm'
-          variant='outline'
-          onClick={handleShare}
-        >
-          Compartir
-        </Button>
-      </footer>
-
-      {/* Derivación a sistema de denuncias según categoría */}
+{/* Derivación a sistema de denuncias según categoría */}
       <div className='mt-4 text-xs text-neutral-500'>
         {(() => {
           const meta = getCategoryMeta(place.category);

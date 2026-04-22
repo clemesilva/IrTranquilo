@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { COLORS } from '@/styles/colors';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/useAuth';
@@ -187,14 +188,13 @@ export function PlaceReviewForm({
                       aria-label={`${v} de 5 estrellas`}
                     >
                       <Star
-                        className={cn(
-                          active
-                            ? 'fill-blue-600 text-blue-600'
-                            : 'fill-transparent text-neutral-300',
-                        )}
                         size={25}
                         strokeWidth={active ? 0 : 1.5}
                         aria-hidden
+                        style={{
+                          fill: active ? COLORS.primary : 'transparent',
+                          color: active ? COLORS.primary : '#D1D5DB',
+                        }}
                       />
                     </button>
                   );
@@ -272,6 +272,7 @@ export function PlaceReviewForm({
           className='h-11 w-full text-sm font-semibold'
           onClick={handleSubmit}
           disabled={!canSubmit}
+          style={{ backgroundColor: COLORS.primary, borderColor: COLORS.primary, color: '#fff' }}
         >
           {isSubmitting
             ? 'Publicando…'
