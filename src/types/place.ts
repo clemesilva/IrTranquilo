@@ -2,84 +2,84 @@ export const CATEGORIES = [
   {
     value: 'alimentacion',
     label: 'Alimentación',
-    icon: '🍽️',
+    icon: '',
     tooltip: 'Restaurante, Café, Bar, Heladería',
     isPublic: false,
   },
   {
     value: 'comercio',
     label: 'Comercio',
-    icon: '🛍️',
+    icon: '',
     tooltip: 'Tienda, Farmacia, Supermercado, Mall',
     isPublic: false,
   },
   {
     value: 'salud',
     label: 'Salud',
-    icon: '🏥',
+    icon: '',
     tooltip: 'Hospital, Clínica, Consultorio, Kinesiología, Dentista',
     isPublic: false,
   },
   {
     value: 'educacion',
     label: 'Educación',
-    icon: '🎓',
+    icon: '',
     tooltip: 'Colegio, Universidad, Capacitación',
     isPublic: false,
   },
   {
     value: 'instituciones',
     label: 'Instituciones públicas',
-    icon: '🏛️',
+    icon: '',
     tooltip: 'Municipalidad, Notaría, Servicios del Estado',
     isPublic: true,
   },
   {
     value: 'servicios',
     label: 'Servicios',
-    icon: '💼',
+    icon: '',
     tooltip: 'Banco, Cajero, Seguros, Correos',
     isPublic: false,
   },
   {
     value: 'espacios_publicos',
     label: 'Espacios públicos',
-    icon: '🌳',
+    icon: '',
     tooltip: 'Parque, Plaza, Playa',
     isPublic: true,
   },
   {
     value: 'cultura',
     label: 'Cultura y ocio',
-    icon: '🎭',
+    icon: '',
     tooltip: 'Museo, Teatro, Cine, Centro cultural',
     isPublic: false,
   },
   {
     value: 'deporte',
     label: 'Deporte',
-    icon: '🏋️',
+    icon: '',
     tooltip: 'Gimnasio, Estadio, Spa, Cancha',
     isPublic: false,
   },
   {
     value: 'alojamiento',
     label: 'Alojamiento',
-    icon: '🏨',
+    icon: '',
     tooltip: 'Hotel, Hostal, Apart',
     isPublic: false,
   },
   {
     value: 'inclusion',
     label: 'Inclusión',
-    icon: '🤝',
+    icon: '',
     tooltip: 'Fundación, ONG, Centro de día',
     isPublic: true,
   },
   {
     value: 'otro',
     label: 'Otro',
-    icon: '📍',
+    icon: '',
     tooltip:
       'Cualquier lugar que no encaje en las categorías anteriores',
     isPublic: false,
@@ -162,6 +162,7 @@ export interface PlaceReview {
   authorName?: string | null
   photoUrls?: string[] | null
   videoUrl?: string | null
+  helpfulCount?: number | null
 }
 
 export type RatingBand = 'recommended' | 'acceptable' | 'not_recommended'

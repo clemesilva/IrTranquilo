@@ -1,6 +1,6 @@
-# 🚀 Setup Supabase - Paso a Paso
+# Setup Supabase - Paso a paso
 
-## 1️⃣ Crear Proyecto en Supabase
+## 1. Crear proyecto en Supabase
 
 1. Ve a [supabase.com](https://supabase.com)
 2. Haz clic en **"New Project"**
@@ -12,7 +12,7 @@
 
 ---
 
-## 2️⃣ Ejecutar el SQL
+## 2. Ejecutar el SQL
 
 1. Una vez creado, haz clic en tu proyecto
 2. Ve a **SQL Editor** (lado izquierdo)
@@ -21,11 +21,11 @@
 5. Pégalo en la ventana de SQL Editor
 6. Haz clic en **"Run"** (triangulito verde)
 
-**Debe mostrar**: ✅ Success - sin errores
+**Debe mostrar**: Success - sin errores
 
 ---
 
-## 3️⃣ Obtener Credenciales
+## 3. Obtener credenciales
 
 1. Ve a **Settings** > **API** (lado izquierdo)
 2. Copia:
@@ -34,7 +34,7 @@
 
 ---
 
-## 4️⃣ Configurar .env en el proyecto React
+## 4. Configurar .env en el proyecto React
 
 Crea un archivo `.env.local` en la raíz del proyecto (junto a package.json):
 
@@ -56,7 +56,7 @@ VITE_API_URL=http://localhost:5173
 Supabase usa tu **auth schema** por defecto. Necesitas habilitar email/password:
 
 1. Ve a **Authentication** > **Providers** (lado izquierdo)
-2. Busca **Email** - asegurate que esté ✅ enabled
+2. Busca **Email** - asegúrate que esté enabled
 3. Ve a **Auth Settings** > **Email Templates**
    - Verifica que tenga templates (por defecto sí)
 
@@ -201,7 +201,7 @@ export default function App() {
 
 ---
 
-## 🟢 ¿Cómo Verificar que Funciona?
+## ¿Cómo verificar que funciona?
 
 Prueba en la consola del navegador:
 
@@ -216,7 +216,7 @@ console.log(data); // Debe mostrar los 5 lugares
 
 ---
 
-## ⚠️ Notas Importantes
+## Notas importantes
 
 - **RLS está habilitado**: Solo usuarios autenticados pueden crear lugares/reseñas
 - **Los datos de demo**: Ya vienen insertados (5 lugares + reviews)
@@ -225,8 +225,8 @@ console.log(data); // Debe mostrar los 5 lugares
 
 ---
 
-## 📝 Siguiente Paso
+## Siguiente paso
 
 Una vez que Supabase esté configurado, actualizaremos `PlacesProvider.tsx` para conectarse a la BD real.
 
-¿Listo? 🚀
+¿Listo?

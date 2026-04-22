@@ -28,6 +28,7 @@ import {
   ACCESSIBILITY_FIELD_GROUPS,
   type AccessibilityReviewKey,
 } from '../types/reviewAccessibility';
+import { AppIcons } from '@/components/icons/appIcons';
 
 const SIDEBAR_ACCESSIBILITY_KEYS: AccessibilityReviewKey[] = [
   'parking_accessible',
@@ -187,7 +188,9 @@ export function SidebarHome() {
                     </Badge>
                   </div>
                   <p className='text-xs text-muted-foreground'>
-                    {getCategoryMeta(p.category).label} · ⭐ {p.avgRating.toFixed(1)}
+                    {getCategoryMeta(p.category).label} ·{' '}
+                    <AppIcons.Star className='inline h-3.5 w-3.5 text-amber-500' aria-hidden />{' '}
+                    {p.avgRating.toFixed(1)}
                   </p>
                 </div>
               </Link>

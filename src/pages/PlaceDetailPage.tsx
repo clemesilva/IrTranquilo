@@ -16,6 +16,7 @@ import { usePlaces } from '@/context/usePlaces';
 import { syncPlaceReviewStats } from '@/lib/syncPlaceReviewStats';
 import { getCategoryMeta, type PlaceReview } from '@/types/place';
 import { supabase } from '@/services/supabase';
+import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
 
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
 
@@ -27,11 +28,24 @@ const EXPIRATION_MS: Record<PlaceReportType, number> = {
 };
 
 const REPORT_LABELS: Record<PlaceReportType, string> = {
-  elevator: '🛗 Ascensor fuera de servicio',
-  ramp: '♿ Rampa bloqueada o en mal estado',
-  construction: '🚧 Obras en la entrada',
-  other: '❓ Problema reportado',
+  elevator: 'Ascensor fuera de servicio',
+  ramp: 'Rampa bloqueada o en mal estado',
+  construction: 'Obras en la entrada',
+  other: 'Otro problema',
 };
+
+function ReportTypeIcon({ type }: { type: PlaceReportType }) {
+  switch (type) {
+    case 'elevator':
+      return <AppIcons.Building2 className='h-4 w-4' aria-hidden />;
+    case 'ramp':
+      return <AppIcons.Accessibility className='h-4 w-4' aria-hidden />;
+    case 'construction':
+      return <AppIcons.Construction className='h-4 w-4' aria-hidden />;
+    case 'other':
+      return <AppIcons.CircleHelp className='h-4 w-4' aria-hidden />;
+  }
+}
 
 interface PlaceReportRow {
   id: number;
@@ -316,7 +330,7 @@ export function PlaceDetailPage() {
             {place.name}
           </h1>
           <p className='mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-neutral-50 px-2.5 py-1 text-sm text-neutral-700 ring-1 ring-neutral-200/80'>
-            <span aria-hidden>{getCategoryMeta(place.category).icon}</span>
+            <CategoryIcon category={place.category} size={16} className='text-neutral-700' />
             <span>{getCategoryMeta(place.category).label}</span>
           </p>
 
@@ -325,7 +339,8 @@ export function PlaceDetailPage() {
               {headerReviewStats.avg.toFixed(1).replace('.', ',')}
             </span>
             <span className='text-sm text-neutral-600'>
-              <span aria-hidden>⭐</span> · {headerReviewStats.count}{' '}
+              <AppIcons.Star className='mr-1 inline h-4 w-4 text-amber-500' aria-hidden />·{' '}
+              {headerReviewStats.count}{' '}
               {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
             </span>
           </div>
@@ -336,7 +351,8 @@ export function PlaceDetailPage() {
                 href={`tel:${place.phone}`}
                 className='underline-offset-2 hover:underline'
               >
-                📞 {place.phone}
+                <AppIcons.Phone className='mr-1 inline h-4 w-4' aria-hidden />
+                {place.phone}
               </a>
             ) : null}
             {place.website ? (
@@ -346,7 +362,8 @@ export function PlaceDetailPage() {
                 rel='noreferrer'
                 className='underline-offset-2 hover:underline'
               >
-                🌐 Sitio web
+                <AppIcons.Globe className='mr-1 inline h-4 w-4' aria-hidden />
+                Sitio web
               </a>
             ) : null}
             {place.priceLevel != null ? (
@@ -358,7 +375,8 @@ export function PlaceDetailPage() {
 
           {place.googleRating != null ? (
             <p className='mt-1 text-xs text-neutral-500'>
-              ⭐ {place.googleRating} en Google ({place.googleRatingsTotal ?? 0}{' '}
+              <AppIcons.Star className='mr-1 inline h-3.5 w-3.5 text-amber-500' aria-hidden />
+              {place.googleRating} en Google ({place.googleRatingsTotal ?? 0}{' '}
               reseñas)
             </p>
           ) : null}
@@ -376,7 +394,8 @@ export function PlaceDetailPage() {
             className='w-full text-sm sm:w-auto'
             onClick={handleOpenReport}
           >
-            ⚠️ Reportar problema temporal
+            <AppIcons.TriangleAlert className='mr-2 h-4 w-4' aria-hidden />
+            Reportar problema temporal
           </Button>
         </div>
       </div>
@@ -389,7 +408,8 @@ export function PlaceDetailPage() {
               className='rounded-lg border border-amber-300/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900'
             >
               <div className='flex items-center gap-2 font-semibold'>
-                <span>⚠️</span>
+                <AppIcons.TriangleAlert className='h-4 w-4' aria-hidden />
+                <ReportTypeIcon type={r.type} />
                 <span>{REPORT_LABELS[r.type]}</span>
               </div>
               <div className='mt-1 text-xs text-amber-900/80'>
@@ -454,7 +474,7 @@ export function PlaceDetailPage() {
                       <span className='font-medium tabular-nums'>
                         {r.rating}/5
                       </span>{' '}
-                      <span aria-hidden>⭐</span>
+                      <AppIcons.Star className='inline h-4 w-4 text-amber-500' aria-hidden />
                     </div>
                     {r.comment ? (
                       <p className='mt-2 text-sm leading-relaxed text-neutral-700'>
@@ -552,7 +572,8 @@ export function PlaceDetailPage() {
                 className='justify-start'
                 onClick={() => setSelectedReportType('elevator')}
               >
-                🛗 Ascensor fuera de servicio
+                <ReportTypeIcon type='elevator' />
+                <span className='ml-2'>{REPORT_LABELS.elevator}</span>
               </Button>
               <Button
                 type='button'
@@ -560,7 +581,8 @@ export function PlaceDetailPage() {
                 className='justify-start'
                 onClick={() => setSelectedReportType('ramp')}
               >
-                ♿ Rampa bloqueada o en mal estado
+                <ReportTypeIcon type='ramp' />
+                <span className='ml-2'>{REPORT_LABELS.ramp}</span>
               </Button>
               <Button
                 type='button'
@@ -570,7 +592,8 @@ export function PlaceDetailPage() {
                 className='justify-start'
                 onClick={() => setSelectedReportType('construction')}
               >
-                🚧 Obras en la entrada
+                <ReportTypeIcon type='construction' />
+                <span className='ml-2'>{REPORT_LABELS.construction}</span>
               </Button>
               <Button
                 type='button'
@@ -578,7 +601,8 @@ export function PlaceDetailPage() {
                 className='justify-start'
                 onClick={() => setSelectedReportType('other')}
               >
-                ❓ Otro problema
+                <ReportTypeIcon type='other' />
+                <span className='ml-2'>{REPORT_LABELS.other}</span>
               </Button>
             </div>
 

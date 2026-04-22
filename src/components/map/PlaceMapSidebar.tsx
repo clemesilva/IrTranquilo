@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation, X } from 'lucide-react';
+import { Heart, MapPin, Navigation, X } from 'lucide-react';
+import { useAuth } from '@/context/useAuth';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { usePlaces } from '@/context/usePlaces';
 import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityConsensusGrid';
 import { PlaceReviewFormDialog } from '@/components/reviews/PlaceReviewFormDialog';
 import type { PlaceWithStats } from '@/context/placesContext';
-import { categoryGlyph } from '@/lib/pins';
 import { formatRelativeTimeEs } from '@/lib/relativeTime';
 import type { AccessibilityConsensusMap } from '@/lib/reviewAccessibilityConsensus';
-import { getCategoryMeta, type PlaceReview } from '@/types/place';
+import type { PlaceReview } from '@/types/place';
 import { COLORS } from '@/styles/colors';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/services/supabase';
+import { AppIcons } from '@/components/icons/appIcons';
 
 type PanelTab = 'overview' | 'reviews';
 
@@ -31,10 +31,8 @@ function StarRow({
       {Array.from({ length: 5 }, (_, i) => (
         <span
           key={i}
-          className={cn(
-            'text-sm leading-none sm:text-base',
-            i < full ? 'text-amber-400' : 'text-neutral-200',
-          )}
+          className='text-sm leading-none sm:text-base'
+          style={{ color: i < full ? COLORS.primary : '#E2E8F0' }}
         >
           {'\u2605'}
         </span>
@@ -53,11 +51,24 @@ interface PlaceMapSidebarProps {
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
 
 const REPORT_LABELS: Record<PlaceReportType, string> = {
-  elevator: '🛗 Ascensor fuera de servicio',
-  ramp: '♿ Rampa bloqueada o en mal estado',
-  construction: '🚧 Obras en la entrada',
-  other: '❓ Problema reportado',
+  elevator: 'Ascensor fuera de servicio',
+  ramp: 'Rampa bloqueada o en mal estado',
+  construction: 'Obras en la entrada',
+  other: 'Problema reportado',
 };
+
+function ReportTypeIcon({ type }: { type: PlaceReportType }) {
+  switch (type) {
+    case 'elevator':
+      return <AppIcons.Building2 className='h-4 w-4' aria-hidden />;
+    case 'ramp':
+      return <AppIcons.Accessibility className='h-4 w-4' aria-hidden />;
+    case 'construction':
+      return <AppIcons.Construction className='h-4 w-4' aria-hidden />;
+    case 'other':
+      return <AppIcons.CircleHelp className='h-4 w-4' aria-hidden />;
+  }
+}
 
 interface PlaceReportRow {
   id: number;
@@ -89,9 +100,85 @@ function timeUntil(dateIso: string) {
   return `Expira en ${days} día${days > 1 ? 's' : ''}`;
 }
 
+function ReviewLikeButton({ reviewId, initialCount, userId }: { reviewId: number; initialCount: number; userId: string | undefined }) {
+  const [liked, setLiked] = useState(false);
+  const [count, setCount] = useState(initialCount);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from('helpful_votes')
+      .select('id')
+      .eq('review_id', reviewId)
+      .eq('user_id', userId)
+      .maybeSingle()
+      .then(({ data }) => setLiked(!!data));
+  }, [reviewId, userId]);
+
+  const toggle = async () => {
+    if (!userId || loading) return;
+    setLoading(true);
+    if (liked) {
+      await supabase.from('helpful_votes').delete().eq('review_id', reviewId).eq('user_id', userId);
+      setLiked(false);
+      setCount((c) => Math.max(0, c - 1));
+    } else {
+      await supabase.from('helpful_votes').insert({ review_id: reviewId, user_id: userId });
+      setLiked(true);
+      setCount((c) => c + 1);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading || !userId}
+      className='flex items-center gap-1 rounded-full px-2 py-1 text-xs transition-colors'
+      style={{
+        color: liked ? '#EF4444' : COLORS.textMuted,
+        backgroundColor: liked ? '#EF444412' : 'transparent',
+      }}
+      aria-label={liked ? 'Quitar like' : 'Me fue útil'}
+    >
+      <Heart className='h-3.5 w-3.5' fill={liked ? '#EF4444' : 'none'} />
+      {count > 0 && <span>{count}</span>}
+    </button>
+  );
+}
+
 export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { reviewsForPlace, accessibilityConsensusForPlace } = usePlaces();
+  const [isFav, setIsFav] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('place_id', place.id)
+      .maybeSingle()
+      .then(({ data }) => setIsFav(!!data));
+  }, [user, place.id]);
+
+  const toggleFav = async () => {
+    if (!user || favLoading) return;
+    setFavLoading(true);
+    if (isFav) {
+      await supabase.from('favorites').delete().eq('user_id', user.id).eq('place_id', place.id);
+      setIsFav(false);
+    } else {
+      await supabase.from('favorites').insert({ user_id: user.id, place_id: place.id });
+      setIsFav(true);
+    }
+    setFavLoading(false);
+  };
+
   const [tab, setTab] = useState<PanelTab>('overview');
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -167,7 +254,10 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
       if (cancelled) return;
       setConsensus(c);
       if (reportsRes.error) {
-        console.error('Error fetching place reports (sidebar init)', reportsRes.error);
+        console.error(
+          'Error fetching place reports (sidebar init)',
+          reportsRes.error,
+        );
         setActiveReports([]);
       } else {
         setActiveReports((reportsRes.data || []) as PlaceReportRow[]);
@@ -194,270 +284,426 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
 
   // Compartir eliminado del sidebar (solo queda en detalle completo)
 
-  const hasStrongRatingSignal =
-    place.band === 'recommended' ||
-    (headerReviewStats.count > 0 && headerReviewStats.avg >= 4);
+  const bandMeta =
+    {
+      recommended: {
+        label: 'Recomendado',
+        bg: `${COLORS.success}18`,
+        color: COLORS.success,
+      },
+      acceptable: {
+        label: 'Aceptable',
+        bg: `${COLORS.warning}20`,
+        color: '#a16207',
+      },
+      not_recommended: {
+        label: 'No recomendado',
+        bg: `${COLORS.danger}15`,
+        color: COLORS.danger,
+      },
+    }[place.band] ?? null;
+
+
 
   return (
     <div
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden bg-white/95 shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur-md animate-in slide-in-from-right-4 duration-200',
-        'h-full w-[min(84vw,22rem)] rounded-l-2xl border-y border-l border-neutral-200/90 sm:w-[min(86vw,24rem)]',
-        'sm:w-104 sm:rounded-l-2xl sm:rounded-r-none sm:border-y sm:border-l sm:border-r-0',
+        'flex min-h-0 flex-col overflow-hidden bg-white shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] animate-in slide-in-from-right-4 duration-200',
+        'h-full w-[min(84vw,22rem)] rounded-l-2xl border-y border-l sm:w-[min(86vw,24rem)]',
       )}
-      style={{ borderLeftColor: COLORS.border }}
+      style={{ borderColor: COLORS.border }}
       role='dialog'
       aria-labelledby='place-map-sidebar-title'
     >
-      {/* Cabecera compacta: encaja con el mapa, sin bloque azul alto */}
-      <header className='shrink-0 border-b border-neutral-200/80 bg-linear-to-b from-white to-slate-50/80 px-3 pb-1.5 pt-2 sm:px-3.5 sm:pb-2 sm:pt-2.5'>
-        <div className='flex items-start justify-between gap-2'>
-          <div className='flex min-w-0 flex-1 gap-2.5'>
-            <span
-              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg shadow-sm ring-1 ring-primary/15 sm:h-10 sm:w-10 sm:text-xl'
-              aria-hidden
+      <ScrollArea className='min-h-0 flex-1'>
+        <div className='px-4 pb-4 pt-5'>
+          {/* Nombre + Cerrar */}
+          <div className='mb-1 flex items-start justify-between gap-2'>
+            <h2
+              id='place-map-sidebar-title'
+              className='text-lg font-bold leading-tight text-neutral-900 sm:text-xl'
             >
-              {categoryGlyph(place.category)}
-            </span>
-            <div className='min-w-0 pt-0.5'>
-              <h2
-                id='place-map-sidebar-title'
-                className='text-sm font-semibold leading-snug tracking-tight text-neutral-900 sm:text-[1.05rem]'
+              {place.name}
+            </h2>
+            <div className='flex shrink-0 items-center gap-0.5'>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='h-7 w-7'
+                onClick={toggleFav}
+                disabled={favLoading}
+                aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                style={{ color: isFav ? '#EF4444' : '#D1D5DB' }}
               >
-                {place.name}
-              </h2>
-              <div className='mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-600 sm:mt-1 sm:text-xs'>
-                <span>{getCategoryMeta(place.category).label}</span>
-                {hasStrongRatingSignal ? (
-                  <span className='inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary'>
-                    <span aria-hidden>{'\u267F'}</span>
-                    Bien valorado
-                  </span>
-                ) : null}
-              </div>
+                <Heart className='h-4 w-4' fill={isFav ? '#EF4444' : 'none'} />
+              </Button>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='h-7 w-7 text-neutral-400 hover:text-neutral-700'
+                onClick={onClose}
+                aria-label='Cerrar'
+              >
+                <X className='h-4 w-4' />
+              </Button>
             </div>
           </div>
-          <Button
-            type='button'
-            variant='ghost'
-            size='icon'
-            className='h-8 w-8 shrink-0 text-neutral-500 hover:bg-neutral-200/60 hover:text-neutral-900'
-            onClick={onClose}
-            aria-label='Cerrar'
-          >
-            <X className='h-4 w-4' />
-          </Button>
-        </div>
 
-        <div className='mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1'>
-          <span className='text-lg font-semibold tabular-nums text-neutral-900 sm:text-xl'>
-            {headerReviewStats.avg.toFixed(1).replace('.', ',')}
-          </span>
-          <StarRow rating={headerReviewStats.avg} />
-          <span className='text-xs text-neutral-500'>
-            ({headerReviewStats.count}{' '}
-            {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'})
-          </span>
-        </div>
-      </header>
-
-      <div className='flex min-h-0 flex-1 flex-col px-3 pb-2 pt-1 sm:px-3.5 sm:pb-2.5 sm:pt-1.5'>
-        <div className='flex shrink-0 gap-0.5 border-b border-neutral-200/80'>
-          {(
-            [
-              ['overview', 'Vista general'],
-              ['reviews', 'Reseñas'],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type='button'
-              onClick={() => setTab(key)}
-              className={cn(
-                '-mb-px flex-1 border-b-2 px-1 py-1.5 text-center text-xs font-medium transition-colors sm:text-[13px]',
-                tab === key
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-neutral-500 hover:text-neutral-800',
-              )}
+          {/* Rating row */}
+          <div className='mb-3 flex flex-wrap items-center gap-2'>
+            <span
+              className='text-sm font-semibold tabular-nums'
+              style={{ color: COLORS.text }}
             >
-              {label}
-            </button>
-          ))}
-        </div>
+              {headerReviewStats.avg.toFixed(1).replace('.', ',')}
+            </span>
+            <StarRow rating={headerReviewStats.avg} />
+            <span className='text-xs text-neutral-500'>
+              ({headerReviewStats.count})
+            </span>
+            <AppIcons.Accessibility
+              size={15}
+              style={{ color: COLORS.primary }}
+              aria-hidden
+            />
+            {bandMeta && (
+              <span
+                className='rounded-full px-2.5 py-0.5 text-xs font-semibold'
+                style={{ backgroundColor: bandMeta.bg, color: bandMeta.color }}
+              >
+                {bandMeta.label}
+              </span>
+            )}
+          </div>
 
-        {/* En Reseñas no mostramos la dirección */}
-        {tab === 'overview' ? (
-          <div className='mt-2 flex shrink-0 items-center gap-2.5 px-0.5 sm:mt-2.5 sm:gap-3'>
+          {/* Teléfono + web */}
+          {(place.phone || place.website) && (
+            <div className='mb-2 flex flex-wrap gap-x-4 gap-y-1'>
+              {place.phone && (
+                <a
+                  href={`tel:${place.phone}`}
+                  className='flex items-center gap-1.5 text-xs'
+                  style={{ color: COLORS.primary }}
+                >
+                  <AppIcons.Phone size={13} aria-hidden />
+                  {place.phone}
+                </a>
+              )}
+              {place.website && (
+                <a
+                  href={place.website}
+                  target='_blank'
+                  rel='noreferrer'
+                  className='flex min-w-0 items-center gap-1.5 text-xs'
+                  style={{ color: COLORS.primary }}
+                >
+                  <AppIcons.Globe size={13} className='shrink-0' aria-hidden />
+                  <span className='truncate max-w-[140px]'>
+                    {(() => {
+                      try {
+                        const u = new URL(place.website)
+                        return u.hostname.replace(/^www\./, '')
+                      } catch {
+                        return place.website.replace(/^https?:\/\//, '').split('/')[0]
+                      }
+                    })()}
+                  </span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Dirección */}
+          <div className='mb-3 flex items-start gap-1.5'>
+            <MapPin
+              size={13}
+              className='mt-0.5 shrink-0'
+              style={{ color: COLORS.primary }}
+              aria-hidden
+            />
+            <p className='text-xs leading-snug text-neutral-600'>
+              {place.address}
+            </p>
+          </div>
+
+          {/* Alertas */}
+          {!reportsLoading && activeReports.length > 0 && (
+            <div className='mb-3 space-y-1.5'>
+              {activeReports.map((r) => (
+                <div
+                  key={r.id}
+                  className='rounded-lg border px-2.5 py-2 text-xs'
+                  style={{
+                    borderColor: COLORS.alertBorder,
+                    backgroundColor: COLORS.alertBg,
+                    color: '#78350f',
+                  }}
+                >
+                  <div className='flex items-center gap-1.5 font-semibold'>
+                    <AppIcons.TriangleAlert
+                      className='h-3.5 w-3.5'
+                      aria-hidden
+                    />
+                    <ReportTypeIcon type={r.type} />
+                    <span>{REPORT_LABELS[r.type]}</span>
+                  </div>
+                  <p className='mt-0.5 text-[11px] opacity-80'>
+                    {timeAgo(r.created_at) ?? 'Reporte reciente'} ·{' '}
+                    {timeUntil(r.expires_at)}
+                  </p>
+                  {r.description && (
+                    <p className='mt-0.5 text-[11px]'>{r.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Botones de acción */}
+          <div className='mb-4 flex gap-2'>
             <a
               href={directionsUrl}
               target='_blank'
               rel='noreferrer'
-              className='shrink-0'
-              aria-label='Cómo llegar'
-              title='Cómo llegar'
+              className='flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold text-white'
+              style={{ backgroundColor: COLORS.primary }}
             >
-              <span
-                className='flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm transition hover:opacity-95 sm:h-7 sm:w-7'
-                style={{ backgroundColor: COLORS.primaryDark }}
-              >
-                <Navigation className='h-3.5 w-3.5 sm:h-4 sm:w-4' strokeWidth={2} />
-              </span>
+              <Navigation size={13} aria-hidden />
+              Cómo llegar
             </a>
-
-            <div className='flex min-w-0 items-start gap-2 rounded-lg bg-slate-50/90 px-3 py-2 ring-1 ring-inset ring-neutral-200/60'>
-              <MapPin
-                className='mt-0.5 h-3.5 w-3.5 shrink-0 text-primary sm:h-4 sm:w-4'
-                strokeWidth={2}
-                aria-hidden
-              />
-              <p className='min-w-0 text-xs font-medium leading-snug text-neutral-900 sm:text-sm'>
-                {place.address}
-              </p>
-            </div>
+            <button
+              onClick={() => navigate(`/lugares/${place.id}`)}
+              className='flex flex-1 items-center justify-center gap-1 rounded-xl border py-2 text-xs font-semibold'
+              style={{ borderColor: COLORS.border, color: COLORS.text }}
+            >
+              Ver detalle
+              <span className='text-neutral-400'>›</span>
+            </button>
           </div>
-        ) : null}
 
-        {tab === 'overview' ? (
-          <>
-            {!reportsLoading && activeReports.length > 0 ? (
-              <div className='mt-2 space-y-1.5 px-0.5'>
-                {activeReports.map((r) => (
-                  <div
-                    key={r.id}
-                    className='rounded-md border border-amber-300/70 bg-amber-50/80 px-2.5 py-2 text-xs text-amber-900'
-                  >
-                    <div className='flex items-center gap-1.5 font-semibold'>
-                      <span>⚠️</span>
-                      <span>{REPORT_LABELS[r.type]}</span>
+          {/* Carrusel de medios de reseñas */}
+          {(() => {
+            // Recopila todos los medios: primero videos, luego fotos
+            type MediaItem = { type: 'video'; url: string } | { type: 'photo'; url: string }
+            const items: MediaItem[] = []
+            for (const r of reviews) {
+              if (r.videoUrl) items.push({ type: 'video', url: r.videoUrl })
+            }
+            for (const r of reviews) {
+              for (const u of r.photoUrls ?? []) items.push({ type: 'photo', url: u })
+            }
+            if (items.length === 0) return null
+
+            // Agrupa: 1 grande + 2 chicas + 1 grande + ...
+            const groups: MediaItem[][] = []
+            let i = 0
+            while (i < items.length) {
+              const big = items[i]
+              const smalls = items.slice(i + 1, i + 3)
+              groups.push([big, ...smalls])
+              i += 1 + smalls.length
+            }
+
+            return (
+              <div className='mb-4 -mx-4'>
+                <div className='flex gap-2 overflow-x-auto px-4 pb-1 scroll-smooth'>
+                  {groups.map((group, gi) => (
+                    <div key={gi} className='flex shrink-0 gap-1'>
+                      {/* Grande */}
+                      {group[0].type === 'video' ? (
+                        <video
+                          src={group[0].url}
+                          className='h-28 w-40 rounded-xl object-cover bg-black'
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          preload='metadata'
+                        />
+                      ) : (
+                        <a href={group[0].url} target='_blank' rel='noreferrer'>
+                          <img
+                            src={group[0].url}
+                            alt='Media'
+                            className='h-28 w-40 rounded-xl object-cover'
+                          />
+                        </a>
+                      )}
+                      {/* 2 chicas apiladas */}
+                      {group.slice(1).length > 0 && (
+                        <div className='flex flex-col gap-1'>
+                          {group.slice(1).map((item, si) =>
+                            item.type === 'video' ? (
+                              <video
+                                key={si}
+                                src={item.url}
+                                className='h-[52px] w-[72px] rounded-lg object-cover bg-black'
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                preload='metadata'
+                              />
+                            ) : (
+                              <a key={si} href={item.url} target='_blank' rel='noreferrer'>
+                                <img
+                                  src={item.url}
+                                  alt='Media'
+                                  className='h-[52px] w-[72px] rounded-lg object-cover'
+                                />
+                              </a>
+                            )
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className='mt-0.5 text-[11px] text-amber-900/80'>
-                      <span>
-                        {timeAgo(r.created_at) ?? 'Reporte reciente'} ·{' '}
-                        {timeUntil(r.expires_at)}
-                      </span>
-                    </div>
-                    {r.description ? (
-                      <p className='mt-0.5 text-[11px] text-amber-950'>
-                        {r.description}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            ) : null}
-            <Separator className='my-2 shrink-0 bg-neutral-200/80 sm:my-2.5' />
-          </>
-        ) : (
-          <div className='h-2.5 shrink-0' />
-        )}
+            )
+          })()}
 
-        <ScrollArea className='min-h-0 flex-1 pr-2'>
-          <div className='pb-2'>
-            {tab === 'overview' && (
-              <div className='space-y-3'>
-                <AccessibilityConsensusGrid
-                  consensus={consensus}
-                  loading={consensusLoading}
-                  heading='Accesibilidad inclusiva'
-                  headingClassName='text-xs font-bold uppercase tracking-widest text-neutral-700 sm:text-sm'
-                  variant='compact'
-                  onlyMajorityYes
+          {/* Tabs */}
+          <div
+            className='mb-2 mt-1 flex border-b'
+            style={{ borderColor: COLORS.border }}
+          >
+            {(
+              [
+                ['overview', 'Accesibilidad'],
+                ['reviews', `Reseñas (${headerReviewStats.count})`],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type='button'
+                onClick={() => setTab(key)}
+                className='-mb-px flex-1 border-b-2 py-2 text-center text-xs font-medium transition-colors sm:text-sm'
+                style={
+                  tab === key
+                    ? { borderColor: COLORS.primary, color: COLORS.primary }
+                    : { borderColor: 'transparent', color: COLORS.textMuted }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Contenido tabs */}
+          {tab === 'overview' && (
+            <div className='scale-[0.88] origin-top-left -mb-4'>
+              <AccessibilityConsensusGrid
+                consensus={consensus}
+                loading={consensusLoading}
+                heading=''
+                headingClassName='hidden'
+                variant='compact'
+              />
+            </div>
+          )}
+
+          {tab === 'reviews' && (
+            <div className='space-y-3'>
+              <div className='flex justify-center'>
+                <PlaceReviewFormDialog
+                  placeId={place.id}
+                  onSaved={() => void reloadSidebarLists()}
+                  triggerLabel='Escribir una reseña'
+                  triggerVariant='outline'
+                  triggerClassName='h-9 w-fit rounded-full border border-[#1A56A0]/30 bg-white px-4 text-[#1A56A0] shadow-sm hover:bg-[#1A56A0]/5'
                 />
               </div>
-            )}
-
-            {tab === 'reviews' && (
-              <div className='space-y-2.5'>
-                <div className='flex justify-center'>
-                  <PlaceReviewFormDialog
-                    placeId={place.id}
-                    onSaved={() => void reloadSidebarLists()}
-                    triggerLabel='Escribir una reseña'
-                    triggerVariant='outline'
-                    triggerClassName='h-9 w-fit rounded-full border-primary/30 bg-white px-4 text-primary shadow-sm hover:bg-primary/5'
-                  />
-                </div>
-                {reviewsLoading ? (
-                  <p className='text-sm text-neutral-500'>Cargando reseñas…</p>
-                ) : reviews.length === 0 ? (
-                  <p className='text-sm leading-relaxed text-neutral-600'>
-                    No hay reseñas todavía. Sé la primera persona en dejar una.
-                  </p>
-                ) : (
-                  reviews.map((r) => (
-                    <div
-                      key={r.id}
-                      className='rounded-lg border border-neutral-200/80 bg-slate-50/60 p-3'
-                    >
-                      <div className='mb-1 flex items-start justify-between gap-3'>
-                        <p className='text-sm font-semibold leading-snug text-neutral-900'>
-                          {r.authorName ?? 'Usuario'}
-                        </p>
-                        {formatRelativeTimeEs(r.createdAt ?? null) ? (
-                          <p className='shrink-0 text-xs text-neutral-500'>
-                            {formatRelativeTimeEs(r.createdAt ?? null)}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className='mb-1 flex items-center gap-2'>
-                        <StarRow rating={r.rating} className='scale-90' />
-                        <span className='text-xs font-medium tabular-nums text-neutral-700'>
-                          {r.rating}/5
-                        </span>
-                      </div>
-                      {r.comment ? (
-                        <p className='text-sm leading-relaxed text-neutral-700'>
-                          {r.comment}
-                        </p>
-                      ) : (
-                        <p className='text-xs italic text-neutral-400'>
-                          Sin comentario
+              {reviewsLoading ? (
+                <p className='text-sm text-neutral-500'>Cargando reseñas…</p>
+              ) : reviews.length === 0 ? (
+                <p className='text-sm leading-relaxed text-neutral-500'>
+                  No hay reseñas todavía. Sé la primera en dejar una.
+                </p>
+              ) : (
+                reviews.map((r) => (
+                  <div
+                    key={r.id}
+                    className='rounded-xl border p-3'
+                    style={{ borderColor: COLORS.border }}
+                  >
+                    <div className='mb-0.5 flex items-center justify-between gap-2'>
+                      <p className='text-sm font-semibold text-neutral-900'>
+                        {r.authorName ?? 'Usuario'}
+                      </p>
+                      {formatRelativeTimeEs(r.createdAt ?? null) && (
+                        <p className='shrink-0 text-xs text-neutral-400'>
+                          {formatRelativeTimeEs(r.createdAt ?? null)}
                         </p>
                       )}
-                      {r.photoUrls && r.photoUrls.length > 0 ? (
-                        <div className='mt-2 flex flex-wrap gap-1.5'>
-                          {r.photoUrls.map((url, i) => (
-                            <a key={i} href={url} target='_blank' rel='noreferrer'>
-                              <img
-                                src={url}
-                                alt={`Foto ${i + 1}`}
-                                className='h-16 w-16 rounded-md object-cover border border-neutral-200 hover:opacity-90 transition'
-                              />
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-                      {r.videoUrl ? (
-                        <video
-                          src={r.videoUrl}
-                          controls
-                          className='mt-2 w-full rounded-md border border-neutral-200'
-                        />
-                      ) : null}
                     </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        <div
-          className='mt-2 shrink-0 border-t border-neutral-200/80 pt-2.5'
-          style={{ borderColor: COLORS.border }}
-        >
-          <div className='mt-3 shrink-0'>
-            <Button
-              type='button'
-              className='h-8 w-full text-xs sm:h-9 sm:text-sm'
-              onClick={() => navigate(`/lugares/${place.id}`)}
-            >
-              Ver detalle completo
-            </Button>
-          </div>
+                    <div className='mb-1.5 flex items-center gap-2'>
+                      <StarRow rating={r.rating} className='scale-90' />
+                      <span className='text-xs tabular-nums text-neutral-500'>
+                        {r.rating}/5
+                      </span>
+                      <div className='ml-auto'>
+                        <ReviewLikeButton
+                          reviewId={r.id}
+                          initialCount={r.helpfulCount ?? 0}
+                          userId={user?.id}
+                        />
+                      </div>
+                    </div>
+                    {r.comment ? (
+                      <p className='text-sm leading-relaxed text-neutral-700'>
+                        {r.comment}
+                      </p>
+                    ) : (
+                      <p className='text-xs italic text-neutral-400'>
+                        Sin comentario
+                      </p>
+                    )}
+                    {(r.videoUrl || (r.photoUrls && r.photoUrls.length > 0)) && (() => {
+                      const MAX_PHOTOS = 2
+                      const photos = r.photoUrls ?? []
+                      const visible = photos.slice(0, MAX_PHOTOS)
+                      const extra = photos.length - MAX_PHOTOS
+                      return (
+                        <div className='mt-2 flex gap-1.5'>
+                          {r.videoUrl && (
+                            <video
+                              src={r.videoUrl}
+                              controls
+                              className='h-20 w-32 shrink-0 rounded-lg border object-cover'
+                              style={{ borderColor: COLORS.border }}
+                            />
+                          )}
+                          {visible.map((url, i) => {
+                            const isLast = i === MAX_PHOTOS - 1 && extra > 0
+                            return (
+                              <a key={i} href={url} target='_blank' rel='noreferrer' className='relative shrink-0'>
+                                <img
+                                  src={url}
+                                  alt={`Foto ${i + 1}`}
+                                  className='h-20 w-20 rounded-lg object-cover border'
+                                  style={{ borderColor: COLORS.border }}
+                                />
+                                {isLast && (
+                                  <div className='absolute inset-0 flex items-center justify-center rounded-lg bg-black/50'>
+                                    <span className='text-sm font-bold text-white'>+{extra}</span>
+                                  </div>
+                                )}
+                              </a>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

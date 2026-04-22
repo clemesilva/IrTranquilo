@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { PlaceCategory } from '@/types/place'
 import { CATEGORIES, getCategoryMeta } from '@/types/place'
 import { cn } from '@/lib/utils'
+import { CategoryIcon } from '@/components/icons/appIcons'
 
 interface CategorySelectorProps {
   value: PlaceCategory | null
@@ -49,7 +50,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
             )}
           >
             <div className="text-lg leading-none sm:text-xl" aria-hidden>
-              {meta.icon}
+              <CategoryIcon category={meta.value} size={20} className="text-neutral-800" />
             </div>
             <div className="mt-0.5 text-[10px] font-medium leading-tight text-neutral-800 sm:text-[11px]">
               {meta.label}

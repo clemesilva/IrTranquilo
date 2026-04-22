@@ -281,7 +281,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('reviews')
       .select(
-        'id, rating, comment, created_at, author_id, source, photo_urls, video_url, users(display_name)',
+        'id, rating, comment, created_at, author_id, source, photo_urls, video_url, helpful_count, users(display_name)',
       )
       .eq('place_id', placeId)
       .order('created_at', { ascending: false });
@@ -305,6 +305,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
           : (r.users?.display_name ?? null),
         photoUrls: r.photo_urls ?? null,
         videoUrl: r.video_url ?? null,
+        helpfulCount: (r as { helpful_count?: number }).helpful_count ?? 0,
       }));
   }, []);
 

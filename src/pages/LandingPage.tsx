@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
 } from '../lib/mapPlaceFocus';
 import { AddPlacePanel } from '../components/places/AddPlacePanel';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -31,15 +32,20 @@ export function LandingPage() {
     filters,
     toggleFilter,
     resetFilters,
-    setFilterValue,
   } = usePlaces();
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ marker: L.Marker; place: PlaceWithStats }[]>([]);
+  const userMarkerRef = useRef<L.CircleMarker | null>(null);
+  const userAccuracyRef = useRef<L.Circle | null>(null);
   const [search, setLocalSearch] = useState('');
   const [category, setLocalCategory] = useState<PlaceCategory | 'all'>('all');
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(() => {
+    const v = searchParams.get('place');
+    return v ? Number(v) : null;
+  });
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
@@ -58,12 +64,28 @@ export function LandingPage() {
     return filteredPlaces.find((p) => p.id === selectedPlaceId) ?? null;
   }, [selectedPlaceId, filteredPlaces]);
 
+  const selectPlace = useCallback(
+    (id: number | null) => {
+      setSelectedPlaceId(id);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id == null) next.delete('place');
+          else next.set('place', String(id));
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   useEffect(() => {
     if (selectedPlaceId == null) return;
     if (!filteredPlaces.some((p) => p.id === selectedPlaceId)) {
-      queueMicrotask(() => setSelectedPlaceId(null));
+      queueMicrotask(() => selectPlace(null));
     }
-  }, [filteredPlaces, selectedPlaceId]);
+  }, [filteredPlaces, selectedPlaceId, selectPlace]);
 
   const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
     const map = mapRef.current;
@@ -77,7 +99,7 @@ export function LandingPage() {
   }, []);
 
   const focusPlaceOnMap = (place: PlaceWithStats) => {
-    setSelectedPlaceId(place.id);
+    selectPlace(place.id);
     panToPlaceForDetail(place);
   };
 
@@ -86,7 +108,8 @@ export function LandingPage() {
     if (!mapRef.current) {
       try {
         const map = L.map('landing-map', {
-          scrollWheelZoom: false, // Desabilitar scroll por defecto
+          scrollWheelZoom: false,
+          zoomControl: false,
         }).setView(SANTIAGO_CENTER, SANTIAGO_ZOOM);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -116,6 +139,41 @@ export function LandingPage() {
     };
   }, []);
 
+  // Ubicación en tiempo real
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const map = mapRef.current;
+        if (!map) return;
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        if (!userMarkerRef.current) {
+          userAccuracyRef.current = L.circle([lat, lng], {
+            radius: accuracy,
+            color: COLORS.primary,
+            fillColor: COLORS.primary,
+            fillOpacity: 0.08,
+            weight: 1,
+          }).addTo(map);
+          userMarkerRef.current = L.circleMarker([lat, lng], {
+            radius: 8,
+            color: '#fff',
+            weight: 2.5,
+            fillColor: COLORS.primary,
+            fillOpacity: 1,
+          }).addTo(map);
+        } else {
+          userMarkerRef.current.setLatLng([lat, lng]);
+          userAccuracyRef.current?.setLatLng([lat, lng]);
+          userAccuracyRef.current?.setRadius(accuracy);
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
   // Bloquear interacción del mapa mientras se editan filtros
   useEffect(() => {
     const map = mapRef.current;
@@ -143,6 +201,44 @@ export function LandingPage() {
     return () => toggle(true);
   }, [showFiltersModal]);
 
+  // Al restaurar un lugar seleccionado desde URL, centrar el mapa en él
+  useEffect(() => {
+    if (!selectedPlaceData) return;
+    const tryPan = () => {
+      if (mapRef.current) {
+        panToPlaceForDetail(selectedPlaceData);
+      } else {
+        setTimeout(tryPan, 150);
+      }
+    };
+    setTimeout(tryPan, 300);
+    // Solo al montar (restauración desde URL)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Ocultar pins normales a zoom bajo
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const MIN_ZOOM = 12;
+    const update = () => {
+      const z = map.getZoom();
+      markersRef.current.forEach(({ marker, place }) => {
+        const isSelected = selectedPlaceId === place.id;
+        if (z >= MIN_ZOOM || isSelected) {
+          if (!map.hasLayer(marker)) marker.addTo(map);
+        } else {
+          if (map.hasLayer(marker)) marker.remove();
+        }
+      });
+    };
+    map.on('zoomend', update);
+    update();
+    return () => {
+      map.off('zoomend', update);
+    };
+  }, [selectedPlaceId]);
+
   // Update markers
   useEffect(() => {
     if (!mapRef.current) return;
@@ -156,6 +252,7 @@ export function LandingPage() {
         fixLeafletDefaultIcons();
         const isSelected = selectedPlaceId === place.id;
         const size = isSelected ? 28 : 24;
+        const triangleH = 10;
         const icon = L.divIcon({
           className: '',
           html: buildPinHtml({
@@ -165,15 +262,15 @@ export function LandingPage() {
             size,
             hasAlert: (place.activeReportsCount ?? 0) > 0,
           }),
-          iconSize: [size, size + 12],
-          iconAnchor: [Math.round(size / 2), Math.round(size + 6)],
-          popupAnchor: [0, -Math.round(size + 6)],
+          iconSize: [size, size + triangleH],
+          iconAnchor: [Math.round(size / 2), size + triangleH],
+          popupAnchor: [0, -(size + triangleH)],
         });
 
         const marker = L.marker([place.latitude, place.longitude], { icon })
           .on('click', (e) => {
             L.DomEvent.stopPropagation(e);
-            setSelectedPlaceId(place.id);
+            selectPlace(place.id);
             panToPlaceForDetail(place);
           })
           .addTo(mapRef.current!);
@@ -181,7 +278,7 @@ export function LandingPage() {
         markersRef.current.push({ marker, place });
       }
     });
-  }, [filteredPlaces, selectedPlaceId, panToPlaceForDetail]);
+  }, [filteredPlaces, selectedPlaceId, panToPlaceForDetail, selectPlace]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -211,70 +308,66 @@ export function LandingPage() {
     >
       {/* Header */}
       <header
-        className='mx-4 mt-3 rounded-2xl border bg-white/70 px-6 py-3 shadow-sm backdrop-blur'
-        style={{ borderColor: COLORS.border }}
+        className='mx-auto mt-5 w-fit rounded-2xl border bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur'
+        style={{ borderColor: `${COLORS.primary}40` }}
       >
-        <div className='mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6'>
-          <div className='min-w-0'>
-            <h1
-              className='truncate text-xl font-bold'
-              style={{ color: COLORS.text }}
-            >
-              IrTranquilo
-            </h1>
-            <p className='text-xs' style={{ color: COLORS.textMuted }}>
-              Lugares con información de accesibilidad
-            </p>
+        <div className='flex items-center justify-between gap-6'>
+          {/* Brand icon */}
+          <div
+            className='flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl'
+            style={{ backgroundColor: `${COLORS.primary}12` }}
+          >
+            <AppIcons.Accessibility
+              size={20}
+              style={{ color: COLORS.primary }}
+            />
           </div>
 
-          <div className='flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4'>
-            <Button
-              size='sm'
-              variant='default'
-              className='h-9 px-4'
+          {/* Actions */}
+          <div className='flex items-center gap-2'>
+            {/* Añadir lugar */}
+            <button
               onClick={() => setShowAddPlaceModal(true)}
+              className='flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors hover:bg-gray-50'
+              style={{ borderColor: COLORS.border, color: COLORS.text }}
+              title='Añadir lugar'
             >
-              + Añadir Lugar
-            </Button>
-            <div className='flex items-center gap-2.5'>
-              <span className='hidden max-w-[220px] truncate text-sm text-muted-foreground sm:inline'>
+              <AppIcons.Plus size={15} aria-hidden />
+              <span className='hidden sm:inline'>Añadir Lugar</span>
+            </button>
+
+            {/* Usuario + cerrar sesión */}
+            <div className='flex items-center gap-1'>
+              <span
+                className='hidden max-w-[160px] truncate px-2 text-sm sm:inline'
+                style={{ color: COLORS.textMuted }}
+              >
                 {userDisplayName}
               </span>
-              <Button size='sm' variant='outline' onClick={signOut}>
-                Salir
-              </Button>
+              <button
+                onClick={signOut}
+                className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
+                style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
+                title='Cerrar sesión'
+              >
+                <AppIcons.LogOut size={16} aria-hidden />
+              </button>
             </div>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section
-        className='px-6 py-10'
-        style={{
-          background: `linear-gradient(to bottom, ${COLORS.background}, white)`,
-        }}
-      >
-        <div className='mx-auto max-w-4xl text-center'>
+      <section className='px-6 pb-8 pt-12'>
+        <div className='mx-auto max-w-3xl text-center'>
           {/* Badge */}
-          <div
-            className='mb-4 inline-flex items-center gap-2 rounded-full px-4 py-2'
-            style={{ backgroundColor: `${COLORS.primary}15` }}
-          >
-            <span
-              className='text-xs font-semibold uppercase tracking-wide'
-              style={{ color: COLORS.primary }}
-            >
-              Descubre • Evalúa • Comparte
-            </span>
-          </div>
 
           {/* Title */}
           <h2
-            className='mb-3 text-2xl font-bold sm:text-3xl'
+            className='mb-4 text-3xl font-extrabold leading-tight sm:text-4xl'
             style={{ color: COLORS.text }}
           >
-            Descubre tu ciudad{' '}
+            Muévete por la ciudad{' '}
             <span
               style={{
                 background: `linear-gradient(to right, ${COLORS.primary}, ${COLORS.success})`,
@@ -288,93 +381,48 @@ export function LandingPage() {
           </h2>
 
           {/* Description */}
-          <p className='mb-6 text-base' style={{ color: COLORS.textMuted }}>
-            Únete a la comunidad que está mapeando la inclusión. Encuentra
-            espacios accesibles, califica tu experiencia y ayuda a otros a
-            moverse con libertad.
+          <p
+            className='mb-8 text-base leading-relaxed'
+            style={{ color: COLORS.textMuted }}
+          >
+            Encuentra espacios accesibles, evalúa sus características y ayuda a
+            construir una ciudad más inclusiva para todos.
           </p>
 
-          {/* Search Bar */}
-          <div className='mx-auto flex w-full max-w-2xl items-center gap-2'>
-            <div className='relative z-2500 w-full'>
-              <Input
-                type='search'
-                placeholder='Busca un lugar por nombre (Ej: Clínica Las Condes)'
-                value={search}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setLocalSearch(v);
-                  setSearch(v);
-                  setShowSearchDropdown(true);
-                }}
-                onFocus={() => setShowSearchDropdown(true)}
-                onBlur={() =>
-                  window.setTimeout(() => setShowSearchDropdown(false), 120)
-                }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const first = searchSuggestions[0];
-                    if (first) {
-                      setLocalSearch(first.name);
-                      setSearch(first.name);
-                      focusPlaceOnMap(first);
-                      setShowSearchDropdown(false);
-                      return;
-                    }
-                    navigate(`/explore?search=${encodeURIComponent(search)}`);
-                  }
-                }}
-                className='h-11 text-base'
-              />
-
-              {showSearchDropdown && searchSuggestions.length > 0 ? (
-                <div className='absolute z-2600 mt-2 w-full max-h-72 overflow-y-auto rounded-md border bg-white shadow-md'>
-                  {searchSuggestions.map((p) => (
-                    <button
-                      key={p.id}
-                      type='button'
-                      className='block w-full px-3 py-2 text-left text-sm hover:bg-gray-50'
-                      onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() => {
-                        setLocalSearch(p.name);
-                        setSearch(p.name);
-                        focusPlaceOnMap(p);
-                        setShowSearchDropdown(false);
-                      }}
-                    >
-                      <div
-                        className='font-medium'
-                        style={{ color: COLORS.text }}
-                      >
-                        {p.name}
-                      </div>
-                      <div
-                        className='text-xs'
-                        style={{ color: COLORS.textMuted }}
-                      >
-                        {p.address}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <Button
-              className='h-11 px-6'
-              onClick={() =>
-                navigate(`/explore?search=${encodeURIComponent(search)}`)
-              }
-            >
-              Buscar
-            </Button>
-          </div>
         </div>
       </section>
 
+      {/* Leyenda del mapa */}
+      <div
+        className='flex items-center justify-end gap-5 mx-4 px-4 -mt-2 pb-3 text-sm'
+        style={{ color: COLORS.textMuted }}
+      >
+        <span className='flex items-center gap-1.5'>
+          <span
+            className='inline-block h-3 w-3 rounded-full'
+            style={{ backgroundColor: COLORS.success }}
+          />
+          Recomendado
+        </span>
+        <span className='flex items-center gap-1.5'>
+          <span
+            className='inline-block h-3 w-3 rounded-full'
+            style={{ backgroundColor: COLORS.warning }}
+          />
+          Aceptable
+        </span>
+        <span className='flex items-center gap-1.5'>
+          <span
+            className='inline-block h-3 w-3 rounded-full'
+            style={{ backgroundColor: COLORS.danger }}
+          />
+          No recomendado
+        </span>
+      </div>
+
       {/* Map Container with Margins */}
       <div
-        className='relative px-4 py-4 h-[60vh] min-h-[420px] max-h-[720px]'
-        style={{ backgroundColor: `${COLORS.border}40` }}
+        className='relative h-[65vh] min-h-110 max-h-195'
       >
         <div
           id='landing-map'
@@ -392,16 +440,77 @@ export function LandingPage() {
             <div className='pointer-events-auto h-full max-h-full min-w-0'>
               <PlaceMapSidebar
                 place={selectedPlaceData}
-                onClose={() => setSelectedPlaceId(null)}
+                onClose={() => { selectPlace(null); setLocalSearch(''); setSearch(''); }}
               />
             </div>
           </div>
         ) : null}
 
-        {/* Filtros Button - Top Left */}
+        {/* Search Bar flotante sobre el mapa */}
+        <div className='absolute top-4 left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto'>
+          <div
+            className='flex items-center gap-2 rounded-2xl border p-2 shadow-lg'
+            style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
+          >
+            <div className='relative flex-1'>
+              <AppIcons.Search
+                size={15}
+                className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2'
+                style={{ color: COLORS.textLight }}
+                aria-hidden
+              />
+              <Input
+                type='search'
+                placeholder='Busca un lugar...'
+                value={search}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setLocalSearch(v);
+                  setSearch(v);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onBlur={() => window.setTimeout(() => setShowSearchDropdown(false), 120)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const first = searchSuggestions[0];
+                    if (first) { setLocalSearch(first.name); setSearch(first.name); focusPlaceOnMap(first); setShowSearchDropdown(false); return; }
+                    navigate(`/?search=${encodeURIComponent(search)}`);
+                  }
+                }}
+                className='h-9 border-0 bg-transparent pl-9 text-sm shadow-none focus-visible:ring-0'
+              />
+              {showSearchDropdown && searchSuggestions.length > 0 && (
+                <div className='absolute z-[2600] mt-2 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl'>
+                  {searchSuggestions.map((p) => (
+                    <button
+                      key={p.id}
+                      type='button'
+                      className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => { setLocalSearch(p.name); setSearch(p.name); focusPlaceOnMap(p); setShowSearchDropdown(false); }}
+                    >
+                      <div className='font-medium' style={{ color: COLORS.text }}>{p.name}</div>
+                      <div className='text-xs' style={{ color: COLORS.textMuted }}>{p.address}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button
+              className='h-9 rounded-xl px-4 text-sm'
+              style={{ backgroundColor: COLORS.primary }}
+              onClick={() => navigate(`/?search=${encodeURIComponent(search)}`)}
+            >
+              Buscar
+            </Button>
+          </div>
+        </div>
+
+        {/* Filtros Button - solo desktop */}
         <button
           onClick={() => setShowFiltersModal(true)}
-          className='absolute top-8 left-8 z-1500 flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-lg border'
+          className='absolute top-8 left-8 z-1500 hidden sm:flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-lg border'
           style={{
             backgroundColor: COLORS.card,
             color: COLORS.text,
@@ -409,11 +518,63 @@ export function LandingPage() {
             pointerEvents: 'auto',
           }}
         >
-          <span>⚙️ Filtros</span>
+          <AppIcons.Settings className='h-4 w-4' aria-hidden />
+          <span>Filtros</span>
           <span className='text-sm' style={{ color: COLORS.textMuted }}>
             ({Object.values(filters).filter((v) => v).length})
           </span>
         </button>
+
+        {/* Filtros + categorías carrusel — solo mobile */}
+        <div className='absolute top-20 left-0 z-1500 w-full pointer-events-auto sm:hidden'>
+          <div
+            className='flex items-center gap-2 overflow-x-auto px-4 pb-1'
+            style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+          >
+            <button
+              onClick={() => setShowFiltersModal(true)}
+              className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md'
+              style={{ backgroundColor: COLORS.card, color: COLORS.text, borderColor: COLORS.border }}
+            >
+              <AppIcons.Settings className='h-3.5 w-3.5' style={{ color: COLORS.primary }} aria-hidden />
+              Filtros
+              {Object.values(filters).filter((v) => v).length > 0 && (
+                <span
+                  className='ml-0.5 rounded-full px-1.5 py-0.5 text-xs text-white'
+                  style={{ backgroundColor: COLORS.primary }}
+                >
+                  {Object.values(filters).filter((v) => v).length}
+                </span>
+              )}
+            </button>
+            {CATEGORIES.map((cat) => {
+              const active = category === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    const next = active ? 'all' : cat.value;
+                    setLocalCategory(next);
+                    setCategory(next);
+                  }}
+                  className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md'
+                  style={{
+                    backgroundColor: active ? COLORS.primary : COLORS.card,
+                    color: active ? '#fff' : COLORS.text,
+                    borderColor: active ? COLORS.primary : COLORS.border,
+                  }}
+                >
+                  <CategoryIcon
+                    category={cat.value}
+                    size={14}
+                    style={{ color: active ? '#fff' : COLORS.primary }}
+                  />
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Resultado Info - Bottom Right */}
         <div
@@ -428,6 +589,132 @@ export function LandingPage() {
           </p>
         </div>
       </div>
+
+      {/* Cómo funciona */}
+      <section className='py-8 sm:px-6 sm:py-16'>
+        <div className='mx-auto max-w-4xl'>
+          <div className='mb-6 px-4 text-center sm:mb-10'>
+            <h3 className='mb-1 text-xl font-bold sm:mb-2 sm:text-2xl' style={{ color: COLORS.text }}>
+              ¿Cómo funciona?
+            </h3>
+            <p className='text-sm' style={{ color: COLORS.textMuted }}>
+              Tres pasos para una ciudad más inclusiva
+            </p>
+          </div>
+
+          {/* Mobile: marquee automático */}
+          <div className='marquee-wrapper sm:hidden'>
+            <div className='marquee-track gap-3 px-4' style={{ animationDuration: '18s' }}>
+              {[...Array(2)].flatMap((_, gi) =>
+                [
+                  { Icon: AppIcons.Search, step: '1', title: 'Busca', desc: 'Encuentra lugares accesibles verificados por la comunidad.' },
+                  { Icon: AppIcons.ClipboardList, step: '2', title: 'Evalúa', desc: 'Revisa rampas, ascensores y baños accesibles antes de visitar.' },
+                  { Icon: AppIcons.Share2, step: '3', title: 'Contribuye', desc: 'Califica tu experiencia y ayuda a otros a moverse con libertad.' },
+                ].map((item) => (
+                  <div
+                    key={`${gi}-${item.step}`}
+                    className='mr-3 flex w-52 shrink-0 flex-col items-center rounded-2xl border p-4 text-center'
+                    style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
+                  >
+                    <div className='mb-3 flex h-10 w-10 items-center justify-center rounded-2xl' style={{ backgroundColor: `${COLORS.primary}12` }}>
+                      <item.Icon size={20} style={{ color: COLORS.primary }} aria-hidden />
+                    </div>
+                    <div className='mb-2 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white' style={{ backgroundColor: COLORS.primary }}>
+                      {item.step}
+                    </div>
+                    <h4 className='mb-1 text-sm font-bold' style={{ color: COLORS.text }}>{item.title}</h4>
+                    <p className='text-xs leading-relaxed' style={{ color: COLORS.textMuted }}>{item.desc}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Desktop: grid normal */}
+          <div className='hidden sm:grid sm:grid-cols-3 sm:gap-5'>
+            {[
+              { Icon: AppIcons.Search, step: '1', title: 'Busca', desc: 'Encuentra lugares en Santiago con información de accesibilidad verificada por la comunidad.' },
+              { Icon: AppIcons.ClipboardList, step: '2', title: 'Evalúa', desc: 'Revisa rampas, ascensores, baños accesibles y más antes de visitar un lugar.' },
+              { Icon: AppIcons.Share2, step: '3', title: 'Contribuye', desc: 'Califica tu experiencia y ayuda a otras personas a moverse con libertad.' },
+            ].map((item) => (
+              <div key={item.step} className='flex flex-col items-center rounded-2xl border p-7 text-center' style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}>
+                <div className='mb-4 flex h-14 w-14 items-center justify-center rounded-2xl' style={{ backgroundColor: `${COLORS.primary}12` }}>
+                  <item.Icon size={26} style={{ color: COLORS.primary }} aria-hidden />
+                </div>
+                <div className='mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white' style={{ backgroundColor: COLORS.primary }}>
+                  {item.step}
+                </div>
+                <h4 className='mb-2 text-base font-bold' style={{ color: COLORS.text }}>{item.title}</h4>
+                <p className='text-sm leading-relaxed' style={{ color: COLORS.textMuted }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Qué evaluamos */}
+      <section className='py-8 sm:px-6 sm:py-14' style={{ backgroundColor: `${COLORS.primary}07` }}>
+        <div className='mx-auto max-w-4xl'>
+          <div className='mb-5 px-4 text-center sm:mb-8'>
+            <h3 className='mb-1 text-xl font-bold sm:mb-2 sm:text-2xl' style={{ color: COLORS.text }}>
+              Qué evaluamos
+            </h3>
+            <p className='text-sm' style={{ color: COLORS.textMuted }}>
+              8 aspectos de accesibilidad en cada lugar
+            </p>
+          </div>
+
+          {/* Mobile: marquee automático */}
+          <div className='marquee-wrapper sm:hidden'>
+            <div className='marquee-track gap-2 px-4' style={{ animationDuration: '24s' }}>
+              {[...Array(2)].flatMap((_, gi) =>
+                [
+                  { Icon: AppIcons.ParkingCircle, label: 'Estacionamiento' },
+                  { Icon: AppIcons.Signpost, label: 'Señalética' },
+                  { Icon: AppIcons.Accessibility, label: 'Rampa' },
+                  { Icon: AppIcons.DoorOpen, label: 'Entrada amplia' },
+                  { Icon: AppIcons.ArrowUpDown, label: 'Ascensor' },
+                  { Icon: AppIcons.Droplets, label: 'Baño accesible' },
+                  { Icon: AppIcons.MoveHorizontal, label: 'Circulación' },
+                  { Icon: AppIcons.MoveVertical, label: 'Esc. mecánica' },
+                ].map((feat) => (
+                  <div
+                    key={`${gi}-${feat.label}`}
+                    className='mr-2 flex w-24 shrink-0 flex-col items-center gap-2 rounded-xl border p-3 text-center'
+                    style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
+                  >
+                    <div className='flex h-8 w-8 items-center justify-center rounded-xl' style={{ backgroundColor: `${COLORS.primary}10` }}>
+                      <feat.Icon size={16} style={{ color: COLORS.primary }} aria-hidden />
+                    </div>
+                    <span className='text-xs font-medium leading-tight' style={{ color: COLORS.text }}>{feat.label}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Desktop: grid normal */}
+          <div className='hidden sm:grid sm:grid-cols-4 sm:gap-3'>
+            {[
+              { Icon: AppIcons.ParkingCircle, label: 'Estacionamiento accesible' },
+              { Icon: AppIcons.Signpost, label: 'Señalética clara' },
+              { Icon: AppIcons.Accessibility, label: 'Rampa disponible' },
+              { Icon: AppIcons.DoorOpen, label: 'Entrada amplia' },
+              { Icon: AppIcons.ArrowUpDown, label: 'Ascensor' },
+              { Icon: AppIcons.Droplets, label: 'Baño accesible' },
+              { Icon: AppIcons.MoveHorizontal, label: 'Circulación interna' },
+              { Icon: AppIcons.MoveVertical, label: 'Escalera mecánica' },
+            ].map((feat) => (
+              <div key={feat.label} className='flex flex-col items-center gap-3 rounded-xl border p-4 text-center transition-shadow hover:shadow-md' style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}>
+                <div className='flex h-10 w-10 items-center justify-center rounded-xl' style={{ backgroundColor: `${COLORS.primary}10` }}>
+                  <feat.Icon size={20} style={{ color: COLORS.primary }} aria-hidden />
+                </div>
+                <span className='text-xs font-medium leading-tight' style={{ color: COLORS.text }}>{feat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* CTA Section */}
       <section className='px-6 py-16' style={{ backgroundColor: COLORS.card }}>
@@ -487,7 +774,7 @@ export function LandingPage() {
               >
                 <li>
                   <button
-                    onClick={() => navigate('/explore')}
+                    onClick={() => navigate('/')}
                     style={{ color: COLORS.textMuted }}
                     className='hover:font-semibold'
                   >
@@ -584,7 +871,14 @@ export function LandingPage() {
             className='border-t pt-8 flex flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between'
             style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
           >
-            <p>&copy; 2024 IrTranquilo. Con ❤️ para una ciudad sin barreras.</p>
+            <p>
+              &copy; 2024 IrTranquilo. Con{' '}
+              <AppIcons.Heart
+                className='inline h-4 w-4 text-rose-600'
+                aria-hidden
+              />{' '}
+              para una ciudad sin barreras.
+            </p>
             <div className='flex gap-4'>
               <a
                 href='#'
@@ -653,7 +947,11 @@ export function LandingPage() {
                   className='text-sm font-semibold'
                   style={{ color: COLORS.text }}
                 >
-                  ⭐ Solo recomendados (4.5+)
+                  <AppIcons.Star
+                    className='inline h-4 w-4 text-amber-500'
+                    aria-hidden
+                  />{' '}
+                  Solo recomendados (4.5+)
                 </span>
               </label>
             </div>
@@ -682,7 +980,7 @@ export function LandingPage() {
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = COLORS.primary;
-                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
+                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(26, 86, 160, 0.1)`;
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = COLORS.border;
@@ -701,10 +999,10 @@ export function LandingPage() {
             {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
               const sectionTitle =
                 group.title === 'LLEGADA'
-                  ? '🚗 Llegada'
+                  ? 'Llegada'
                   : group.title === 'ENTRADA'
-                    ? '🚪 Entrada'
-                    : '🏢 Interior';
+                    ? 'Entrada'
+                    : 'Interior';
               return (
                 <div
                   key={group.title}
@@ -715,6 +1013,22 @@ export function LandingPage() {
                     className='text-xs font-semibold uppercase'
                     style={{ color: COLORS.textMuted }}
                   >
+                    {group.title === 'LLEGADA' ? (
+                      <AppIcons.Car
+                        className='mr-1 inline h-3.5 w-3.5'
+                        aria-hidden
+                      />
+                    ) : group.title === 'ENTRADA' ? (
+                      <AppIcons.DoorOpen
+                        className='mr-1 inline h-3.5 w-3.5'
+                        aria-hidden
+                      />
+                    ) : (
+                      <AppIcons.Building2
+                        className='mr-1 inline h-3.5 w-3.5'
+                        aria-hidden
+                      />
+                    )}
                     {sectionTitle}
                   </p>
                   {group.fields.map((f) => (
@@ -744,48 +1058,6 @@ export function LandingPage() {
                 </div>
               );
             })}
-
-            {/* 6. Rating Mínimo */}
-            <div
-              className='space-y-2 pt-3 border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
-              >
-                ⭐ Rating mínimo
-              </p>
-              <select
-                value={filters.minRating ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value
-                    ? parseFloat(e.target.value)
-                    : null;
-                  setFilterValue('minRating', val);
-                }}
-                className='w-full rounded-lg border px-3 py-2 text-sm'
-                style={{
-                  borderColor: COLORS.border,
-                  color: COLORS.text,
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.primary;
-                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(37, 99, 235, 0.1)`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.border;
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <option value=''>Cualquiera</option>
-                <option value='1'>1.0+</option>
-                <option value='2'>2.0+</option>
-                <option value='3'>3.0+</option>
-                <option value='4'>4.0+</option>
-                <option value='4.5'>4.5+</option>
-              </select>
-            </div>
           </div>
 
           {/* Footer */}
@@ -808,7 +1080,7 @@ export function LandingPage() {
               className='w-full rounded-lg px-4 py-2 text-sm font-semibold text-white'
               style={{ backgroundColor: COLORS.primary }}
             >
-              Ver resultados
+              Aplicar filtros
             </button>
           </div>
         </DialogContent>

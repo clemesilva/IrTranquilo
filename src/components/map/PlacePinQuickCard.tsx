@@ -1,9 +1,10 @@
-import { X } from 'lucide-react'
+import { Accessibility, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { bandLabelEs } from '@/lib/rating'
 import type { PlaceWithStats } from '@/context/placesContext'
 import { getCategoryMeta } from '@/types/place'
+import { AppIcons } from '@/components/icons/appIcons'
 
 function bandClasses(band: PlaceWithStats['band']) {
   switch (band) {
@@ -46,12 +47,13 @@ export function PlacePinQuickCard({
             <span>{getCategoryMeta(place.category).label}</span>
             <span className="text-neutral-400">·</span>
             <span className="font-medium">
-              {place.avgRating.toFixed(1)} <span aria-hidden>⭐</span>
+              {place.avgRating.toFixed(1)}{' '}
+              <AppIcons.Star className="inline h-3.5 w-3.5 text-amber-500" aria-hidden />
             </span>
           </div>
           {place.band === 'recommended' ? (
-            <div className="mt-2 text-lg" aria-hidden>
-              ♿
+            <div className="mt-2" aria-hidden>
+              <Accessibility className="h-5 w-5 text-emerald-700" />
             </div>
           ) : null}
         </div>

@@ -5,7 +5,6 @@ import { PlacesProvider } from './context/PlacesProvider'
 import { useAuth } from './context/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
-import { ExplorePage } from './pages/ExplorePage'
 import { SidebarAddPlace } from './pages/SidebarAddPlace'
 import { PlaceDetailPage } from './pages/PlaceDetailPage'
 
@@ -29,18 +28,6 @@ function AppRoutes() {
           user ? (
             <PlacesProvider>
               <LandingPage />
-            </PlacesProvider>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/explore"
-        element={
-          user ? (
-            <PlacesProvider>
-              <ExplorePage />
             </PlacesProvider>
           ) : (
             <Navigate to="/login" replace />

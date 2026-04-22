@@ -1,6 +1,6 @@
 import L from 'leaflet'
 
-const DETAIL_ZOOM = 16
+const DETAIL_ZOOM = 14
 
 /** Panel derecho (~22rem PlaceMapSidebar + borde) */
 const RIGHT_PANEL_PX = 368
@@ -43,9 +43,10 @@ export function fitMapToPlaceWithUiPadding(
     [lat + delta, lng + delta],
   )
 
-  map.fitBounds(bounds, {
+  map.flyToBounds(bounds, {
     maxZoom: options?.maxZoom ?? DETAIL_ZOOM,
-    animate: options?.animate ?? true,
+    duration: 0.8,
+    easeLinearity: 0.25,
     paddingTopLeft: padding.paddingTopLeft,
     paddingBottomRight: padding.paddingBottomRight,
   })

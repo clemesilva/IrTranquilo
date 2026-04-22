@@ -34,7 +34,7 @@ IrTranquilo is a Spanish-language, single-page React app that maps accessibility
 
 `src/context/PlacesProvider.tsx` is the single source of truth for place/review data. On mount it runs `refreshPlaces()`, which in parallel:
 
-1. Fetches `places` joined with an active-report count (`place_reports` rows whose `expires_at` is in the future — used to render a ⚠️ badge on pins).
+1. Fetches `places` joined with an active-report count (`place_reports` rows whose `expires_at` is in the future — used to render an alert badge on pins).
 2. Fetches all `place_accessibility_reviews` and builds a per-place `AccessibilityConsensusMap`.
 
 Rows are mapped from snake_case DB columns to camelCase TS types via `mapPlaceFromDB` / `mapPlaceWithStats`. The provider also exposes: `filteredPlaces` (search + category + filters + consensus), `submitPlaceReview` (upserts `reviews` + `place_accessibility_reviews` for the current user, then calls `syncPlaceReviewStats` and `refreshPlaces`), `myReviewWithAccessibility`, `reviewsForPlace`, and `accessibilityConsensusForPlace`.

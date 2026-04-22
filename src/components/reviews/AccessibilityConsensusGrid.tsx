@@ -8,19 +8,7 @@ import {
   ACCESSIBILITY_FIELD_GROUPS,
   type AccessibilityReviewKey,
 } from '@/types/reviewAccessibility';
-
-const ACCESSIBILITY_FIELD_EMOJI: Record<AccessibilityReviewKey, string> = {
-  parking_accessible: '♿',
-  nearby_parking: '🅿️',
-  signage_clear: '🪧',
-  ramp_available: '🛝',
-  mechanical_stairs: '🪜',
-  elevator_available: '🛗',
-  wide_entrance: '📏',
-  accessible_bathroom: '🚻',
-  circulation_clear: '↔️',
-  lowered_counter: '🪑',
-};
+import { AccessibilityFieldIcon } from '@/components/icons/appIcons';
 
 function ConsensusCard({
   fieldKey,
@@ -52,9 +40,11 @@ function ConsensusCard({
           className,
         )}
       >
-        <span className='shrink-0' aria-hidden>
-          {ACCESSIBILITY_FIELD_EMOJI[fieldKey]}
-        </span>
+        <AccessibilityFieldIcon
+          fieldKey={fieldKey}
+          className='shrink-0 text-neutral-700'
+          size={16}
+        />
         <span className='min-w-0 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-neutral-900 sm:text-sm'>
           {label}
         </span>
@@ -73,9 +63,7 @@ function ConsensusCard({
 
   const subtitle = (() => {
     if (consensus.source === 'google') {
-      return value
-        ? '♿ Según Google: accesible'
-        : '♿ Según Google: no accesible';
+      return value ? 'Según Google: accesible' : 'Según Google: no accesible';
     }
     return value
       ? `${consensus.yes}/${consensus.total} confirman que es accesible`
@@ -93,9 +81,11 @@ function ConsensusCard({
     >
       <div className='flex min-w-0 items-start justify-between gap-2'>
         <span className='flex min-w-0 items-center gap-2 text-sm font-semibold leading-snug text-neutral-900'>
-          <span className='shrink-0' aria-hidden>
-            {ACCESSIBILITY_FIELD_EMOJI[fieldKey]}
-          </span>
+          <AccessibilityFieldIcon
+            fieldKey={fieldKey}
+            className='shrink-0 text-neutral-800'
+            size={18}
+          />
           <span className='min-w-0 truncate'>{label}</span>
         </span>
       </div>

@@ -15,6 +15,7 @@ import { usePlaces } from '../context/usePlaces';
 import type { AccessibilityConsensusMap } from '../lib/reviewAccessibilityConsensus';
 import { bandBadgeVariant, bandLabelEs } from '../lib/rating';
 import { getCategoryMeta, type PlaceReview } from '../types/place';
+import { AppIcons } from '@/components/icons/appIcons';
 
 export function SidebarPlaceDetail() {
   const { placeId } = useParams();
@@ -90,7 +91,9 @@ export function SidebarPlaceDetail() {
             </Badge>
           </div>
           <CardDescription>
-            {getCategoryMeta(place.category).label} · ⭐ {place.avgRating.toFixed(1)}
+            {getCategoryMeta(place.category).label} ·{' '}
+            <AppIcons.Star className='inline h-3.5 w-3.5 text-amber-500' aria-hidden />{' '}
+            {place.avgRating.toFixed(1)}
           </CardDescription>
           <p className='text-sm text-foreground'>{place.address}</p>
         </CardHeader>
@@ -121,7 +124,10 @@ export function SidebarPlaceDetail() {
                 {i > 0 ? <Separator className='my-2' /> : null}
                 <Card size='sm' className='py-3'>
                   <CardContent className='text-sm'>
-                    <div className='font-medium'>⭐ {r.rating}</div>
+                    <div className='inline-flex items-center gap-1.5 font-medium'>
+                      <AppIcons.Star className='h-4 w-4 text-amber-500' aria-hidden />
+                      {r.rating}
+                    </div>
                     {r.comment ? (
                       <p className='mt-1 text-muted-foreground'>{r.comment}</p>
                     ) : null}

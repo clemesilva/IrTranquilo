@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { COLORS } from '@/styles/colors'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   MapContainer,
@@ -16,6 +17,7 @@ import { bandLabelEs } from '../../lib/rating'
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../../lib/mapDefaults'
 import { buildPinHtml, categoryGlyph } from '../../lib/pins'
 import { getCategoryMeta } from '../../types/place'
+import { AppIcons } from '@/components/icons/appIcons'
 
 fixLeafletDefaultIcons()
 
@@ -77,11 +79,11 @@ export function PlacesMap({ highlightId }: { highlightId?: number }) {
   const pinColor = (band: PlaceWithStats['band']) => {
     switch (band) {
       case 'recommended':
-        return '#22C55E'
+        return COLORS.success
       case 'acceptable':
-        return '#F59E0B'
+        return COLORS.warning
       case 'not_recommended':
-        return '#EF4444'
+        return COLORS.danger
     }
   }
 
@@ -136,10 +138,10 @@ export function PlacesMap({ highlightId }: { highlightId?: number }) {
               selected: highlightId === place.id,
               size: highlightId === place.id ? 28 : 24,
             }),
-            iconSize: [highlightId === place.id ? 28 : 24, (highlightId === place.id ? 28 : 24) + 12],
+            iconSize: [highlightId === place.id ? 28 : 24, (highlightId === place.id ? 28 : 24) + 10],
             iconAnchor: [
               Math.round((highlightId === place.id ? 28 : 24) / 2),
-              Math.round((highlightId === place.id ? 28 : 24) + 6),
+              (highlightId === place.id ? 28 : 24) + 10,
             ],
             popupAnchor: [0, -Math.round((highlightId === place.id ? 28 : 24) + 6)],
           })}
@@ -148,7 +150,9 @@ export function PlacesMap({ highlightId }: { highlightId?: number }) {
             <div className="min-w-[160px] text-sm">
               <strong className="font-semibold">{place.name}</strong>
               <div className="mt-1 text-xs text-muted-foreground">
-                {getCategoryMeta(place.category).label} · ⭐ {place.avgRating.toFixed(1)} (
+                {getCategoryMeta(place.category).label} ·{' '}
+                <AppIcons.Star className="inline h-3.5 w-3.5 text-amber-500" aria-hidden />{' '}
+                {place.avgRating.toFixed(1)} (
                 {bandLabelEs(place.band)})
               </div>
               <div className="mt-2">

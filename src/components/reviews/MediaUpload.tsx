@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { AppIcons } from '@/components/icons/appIcons';
 
 const MAX_PHOTOS = 5;
 const ACCEPTED = 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime';
@@ -149,7 +150,7 @@ export function MediaUpload({
           ))}
           {video && (
             <div className='relative flex h-20 w-20 items-center justify-center rounded-lg border-2 border-neutral-300 bg-neutral-100 text-2xl shadow-sm'>
-              🎬
+              <AppIcons.Film className='h-7 w-7 text-neutral-700' aria-hidden />
               <span className='absolute bottom-0.5 left-0 right-0 truncate px-0.5 text-[9px] text-neutral-500'>
                 Nuevo
               </span>
@@ -173,7 +174,7 @@ export function MediaUpload({
           )}
           {!video && existingVideoUrl && (
             <div className='relative flex h-20 w-20 flex-col items-center justify-center rounded-lg border-2 border-neutral-300 bg-neutral-100 text-2xl shadow-sm'>
-              🎬
+              <AppIcons.Film className='h-7 w-7 text-neutral-700' aria-hidden />
               <span className='absolute bottom-0.5 left-0 right-0 truncate px-0.5 text-[9px] text-neutral-500'>
                 Guardado
               </span>
@@ -204,7 +205,7 @@ export function MediaUpload({
         disabled={totalPhotos >= MAX_PHOTOS}
         className='flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-400 bg-neutral-50/50 px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-primary hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-50'
       >
-        📷{' '}
+        <AppIcons.Camera className='h-4 w-4' aria-hidden />{' '}
         {totalPhotos >= MAX_PHOTOS
           ? `Máximo ${MAX_PHOTOS} fotos`
           : variant === 'edit'
