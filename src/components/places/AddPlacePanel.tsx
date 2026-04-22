@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,8 @@ import {
 import { CategorySelector } from '@/components/places/CategorySelector';
 import { mapGoogleTypeToCategory } from '../../lib/googleCategory';
 import { reviewMediaBasePathForPlace } from '@/lib/reviewMediaPaths';
+import { COLORS } from '@/styles/colors';
+import { AppIcons } from '@/components/icons/appIcons';
 
 function createEmptyAccessibilityNullable(): Record<
   AccessibilityReviewKey,
@@ -56,6 +58,12 @@ export function AddPlacePanel({
 }: AddPlacePanelProps) {
   const { refreshPlaces } = usePlaces();
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => searchInputRef.current?.focus(), 80);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const [category, setCategory] = useState<PlaceCategory | null>(null);
   const [address, setAddress] = useState('');
@@ -303,17 +311,30 @@ export function AddPlacePanel({
       ref={panelRef}
       className={`mx-auto flex w-full max-w-[620px] flex-col gap-3 px-1 pb-1 ${className}`}
     >
-      <div className='flex items-center justify-between gap-2'>
-        <h2 className='text-lg font-semibold tracking-tight'>Añadir lugar</h2>
+      {/* Header con franja azul suave */}
+      <div
+        className='flex items-center gap-2.5 rounded-xl px-4 py-3'
+        style={{ background: `linear-gradient(135deg, ${COLORS.primary}18 0%, ${COLORS.primary}08 100%)`, borderBottom: `1px solid ${COLORS.primary}22` }}
+      >
+        <div
+          className='flex h-8 w-8 shrink-0 items-center justify-center rounded-lg'
+          style={{ backgroundColor: COLORS.primary }}
+        >
+          <AppIcons.Plus size={16} style={{ color: '#fff' }} aria-hidden />
+        </div>
+        <div>
+          <h2 className='text-base font-bold leading-tight' style={{ color: COLORS.text }}>Añadir lugar</h2>
+          <p className='text-xs' style={{ color: COLORS.textMuted }}>Ayuda a la comunidad con información de accesibilidad</p>
+        </div>
       </div>
 
       {draftLatLng ? (
-        <Badge variant='secondary' className='w-fit'>
+        <Badge variant='secondary' className='w-fit' style={{ backgroundColor: `${COLORS.primary}15`, color: COLORS.primary }}>
           Ubicación fijada en el mapa
         </Badge>
       ) : null}
 
-      <Card size='sm' className='overflow-hidden'>
+      <Card size='sm' className='overflow-hidden' style={{ borderColor: `${COLORS.primary}20` }}>
         {/* El scroll lo maneja el modal (DialogContent) para evitar doble barra. */}
         <CardContent className='space-y-4 px-4 pb-6'>
           <div className='space-y-2'>
@@ -337,6 +358,8 @@ export function AddPlacePanel({
                 }}
                 placeholder='Ej: Clínica Las Condes'
                 disabled={!googleReady}
+                autoComplete='off'
+                ref={searchInputRef}
               />
 
               {showDropdown && suggestions.length > 0 ? (
@@ -378,6 +401,7 @@ export function AddPlacePanel({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder='Se completa al seleccionar (puedes editar)'
+              autoComplete='off'
             />
           </div>
 
@@ -405,13 +429,12 @@ export function AddPlacePanel({
                       aria-label={`Calificar ${v} de 5`}
                     >
                       <Star
-                        className={
-                          active
-                            ? 'fill-blue-600 text-blue-600'
-                            : 'fill-transparent text-neutral-300'
-                        }
                         size={25}
                         strokeWidth={active ? 0 : 1.5}
+                        style={{
+                          fill: active ? COLORS.primary : 'transparent',
+                          color: active ? COLORS.primary : '#E2E8F0',
+                        }}
                       />
                     </button>
                   );
@@ -484,9 +507,10 @@ export function AddPlacePanel({
             </Button>
             <Button
               type='button'
-              className='flex-1'
+              className='flex-1 font-semibold'
               onClick={handleSave}
               disabled={!canSave || isSaving}
+              style={{ backgroundColor: COLORS.primary, color: '#fff' }}
             >
               {isSaving ? 'Guardando…' : 'Guardar lugar'}
             </Button>

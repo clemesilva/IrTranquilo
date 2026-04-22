@@ -3,6 +3,7 @@ import type { PlaceCategory } from '@/types/place'
 import { CATEGORIES, getCategoryMeta } from '@/types/place'
 import { cn } from '@/lib/utils'
 import { CategoryIcon } from '@/components/icons/appIcons'
+import { COLORS } from '@/styles/colors'
 
 interface CategorySelectorProps {
   value: PlaceCategory | null
@@ -44,15 +45,14 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
             onTouchEnd={handleLongPressEnd}
             className={cn(
               'relative flex flex-col items-center justify-center rounded-lg border px-1.5 py-1.5 text-center transition-colors sm:rounded-xl sm:px-2 sm:py-2',
-              isSelected
-                ? 'border-primary bg-primary/5'
-                : 'border-neutral-200 bg-white hover:bg-neutral-50',
+              isSelected ? 'border-primary' : 'border-neutral-200 bg-white hover:bg-neutral-50',
             )}
+            style={isSelected ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary } : undefined}
           >
             <div className="text-lg leading-none sm:text-xl" aria-hidden>
-              <CategoryIcon category={meta.value} size={20} className="text-neutral-800" />
+              <CategoryIcon category={meta.value} size={20} style={{ color: isSelected ? '#fff' : undefined }} className={isSelected ? '' : 'text-neutral-800'} />
             </div>
-            <div className="mt-0.5 text-[10px] font-medium leading-tight text-neutral-800 sm:text-[11px]">
+            <div className="mt-0.5 text-[10px] font-medium leading-tight sm:text-[11px]" style={{ color: isSelected ? '#fff' : undefined }}>
               {meta.label}
             </div>
 

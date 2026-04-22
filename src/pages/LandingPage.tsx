@@ -46,6 +46,7 @@ export function LandingPage() {
     const v = searchParams.get('place');
     return v ? Number(v) : null;
   });
+  const [sidebarMobileCollapsed, setSidebarMobileCollapsed] = useState(false);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
@@ -388,7 +389,6 @@ export function LandingPage() {
             Encuentra espacios accesibles, evalúa sus características y ayuda a
             construir una ciudad más inclusiva para todos.
           </p>
-
         </div>
       </section>
 
@@ -421,17 +421,15 @@ export function LandingPage() {
       </div>
 
       {/* Map Container with Margins */}
-      <div
-        className='relative h-[65vh] min-h-110 max-h-195'
-      >
+      <div className='relative h-[65vh] min-h-110 max-h-195'>
         <div
           id='landing-map'
           className='w-full h-full rounded-lg overflow-hidden shadow-lg'
           style={{ pointerEvents: showFiltersModal ? 'none' : 'auto' }}
         />
 
-        {/* Bloqueo del mapa en mobile cuando el sidebar está abierto */}
-        {selectedPlaceData ? (
+        {/* Bloqueo del mapa en mobile cuando el sidebar está abierto y expandido */}
+        {selectedPlaceData && !sidebarMobileCollapsed ? (
           <div className='absolute inset-0 z-1700 bg-black/20 sm:hidden pointer-events-auto' />
         ) : null}
 
@@ -440,11 +438,28 @@ export function LandingPage() {
             <div className='pointer-events-auto h-full max-h-full min-w-0'>
               <PlaceMapSidebar
                 place={selectedPlaceData}
-                onClose={() => { selectPlace(null); setLocalSearch(''); setSearch(''); }}
+                onClose={() => {
+                  selectPlace(null);
+                  setLocalSearch('');
+                  setSearch('');
+                  setSidebarMobileCollapsed(false);
+                }}
+                onCollapseChange={setSidebarMobileCollapsed}
               />
             </div>
           </div>
         ) : null}
+
+        {/* Botón + flotante en esquina superior derecha del mapa */}
+        {!selectedPlaceData && <button
+          onClick={() => setShowAddPlaceModal(true)}
+          className='absolute top-60 right-4 sm:top-12 sm:right-10 z-[2000] flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg pointer-events-auto transition-opacity hover:opacity-90 active:opacity-80'
+          style={{ backgroundColor: COLORS.primary, color: '#fff' }}
+          title='Añadir lugar'
+          aria-label='Añadir lugar'
+        >
+          <AppIcons.Plus size={20} aria-hidden />
+        </button>}
 
         {/* Search Bar flotante sobre el mapa */}
         <div className='absolute top-4 left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto'>
@@ -470,11 +485,19 @@ export function LandingPage() {
                   setShowSearchDropdown(true);
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
-                onBlur={() => window.setTimeout(() => setShowSearchDropdown(false), 120)}
+                onBlur={() =>
+                  window.setTimeout(() => setShowSearchDropdown(false), 120)
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const first = searchSuggestions[0];
-                    if (first) { setLocalSearch(first.name); setSearch(first.name); focusPlaceOnMap(first); setShowSearchDropdown(false); return; }
+                    if (first) {
+                      setLocalSearch(first.name);
+                      setSearch(first.name);
+                      focusPlaceOnMap(first);
+                      setShowSearchDropdown(false);
+                      return;
+                    }
                     navigate(`/?search=${encodeURIComponent(search)}`);
                   }
                 }}
@@ -488,10 +511,25 @@ export function LandingPage() {
                       type='button'
                       className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
                       onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() => { setLocalSearch(p.name); setSearch(p.name); focusPlaceOnMap(p); setShowSearchDropdown(false); }}
+                      onClick={() => {
+                        setLocalSearch(p.name);
+                        setSearch(p.name);
+                        focusPlaceOnMap(p);
+                        setShowSearchDropdown(false);
+                      }}
                     >
-                      <div className='font-medium' style={{ color: COLORS.text }}>{p.name}</div>
-                      <div className='text-xs' style={{ color: COLORS.textMuted }}>{p.address}</div>
+                      <div
+                        className='font-medium'
+                        style={{ color: COLORS.text }}
+                      >
+                        {p.name}
+                      </div>
+                      <div
+                        className='text-xs'
+                        style={{ color: COLORS.textMuted }}
+                      >
+                        {p.address}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -534,9 +572,17 @@ export function LandingPage() {
             <button
               onClick={() => setShowFiltersModal(true)}
               className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md'
-              style={{ backgroundColor: COLORS.card, color: COLORS.text, borderColor: COLORS.border }}
+              style={{
+                backgroundColor: COLORS.card,
+                color: COLORS.text,
+                borderColor: COLORS.border,
+              }}
             >
-              <AppIcons.Settings className='h-3.5 w-3.5' style={{ color: COLORS.primary }} aria-hidden />
+              <AppIcons.Settings
+                className='h-3.5 w-3.5'
+                style={{ color: COLORS.primary }}
+                aria-hidden
+              />
               Filtros
               {Object.values(filters).filter((v) => v).length > 0 && (
                 <span
@@ -594,7 +640,10 @@ export function LandingPage() {
       <section className='py-8 sm:px-6 sm:py-16'>
         <div className='mx-auto max-w-4xl'>
           <div className='mb-6 px-4 text-center sm:mb-10'>
-            <h3 className='mb-1 text-xl font-bold sm:mb-2 sm:text-2xl' style={{ color: COLORS.text }}>
+            <h3
+              className='mb-1 text-xl font-bold sm:mb-2 sm:text-2xl'
+              style={{ color: COLORS.text }}
+            >
               ¿Cómo funciona?
             </h3>
             <p className='text-sm' style={{ color: COLORS.textMuted }}>
@@ -604,28 +653,69 @@ export function LandingPage() {
 
           {/* Mobile: marquee automático */}
           <div className='marquee-wrapper sm:hidden'>
-            <div className='marquee-track gap-3 px-4' style={{ animationDuration: '18s' }}>
+            <div
+              className='marquee-track gap-3 px-4'
+              style={{ animationDuration: '18s' }}
+            >
               {[...Array(2)].flatMap((_, gi) =>
                 [
-                  { Icon: AppIcons.Search, step: '1', title: 'Busca', desc: 'Encuentra lugares accesibles verificados por la comunidad.' },
-                  { Icon: AppIcons.ClipboardList, step: '2', title: 'Evalúa', desc: 'Revisa rampas, ascensores y baños accesibles antes de visitar.' },
-                  { Icon: AppIcons.Share2, step: '3', title: 'Contribuye', desc: 'Califica tu experiencia y ayuda a otros a moverse con libertad.' },
+                  {
+                    Icon: AppIcons.Search,
+                    step: '1',
+                    title: 'Busca',
+                    desc: 'Encuentra lugares accesibles verificados por la comunidad.',
+                  },
+                  {
+                    Icon: AppIcons.ClipboardList,
+                    step: '2',
+                    title: 'Evalúa',
+                    desc: 'Revisa rampas, ascensores y baños accesibles antes de visitar.',
+                  },
+                  {
+                    Icon: AppIcons.Share2,
+                    step: '3',
+                    title: 'Contribuye',
+                    desc: 'Califica tu experiencia y ayuda a otros a moverse con libertad.',
+                  },
                 ].map((item) => (
                   <div
                     key={`${gi}-${item.step}`}
                     className='mr-3 flex w-52 shrink-0 flex-col items-center rounded-2xl border p-4 text-center'
-                    style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
+                    style={{
+                      backgroundColor: COLORS.card,
+                      borderColor: COLORS.border,
+                    }}
                   >
-                    <div className='mb-3 flex h-10 w-10 items-center justify-center rounded-2xl' style={{ backgroundColor: `${COLORS.primary}12` }}>
-                      <item.Icon size={20} style={{ color: COLORS.primary }} aria-hidden />
+                    <div
+                      className='mb-3 flex h-10 w-10 items-center justify-center rounded-2xl'
+                      style={{ backgroundColor: `${COLORS.primary}12` }}
+                    >
+                      <item.Icon
+                        size={20}
+                        style={{ color: COLORS.primary }}
+                        aria-hidden
+                      />
                     </div>
-                    <div className='mb-2 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white' style={{ backgroundColor: COLORS.primary }}>
+                    <div
+                      className='mb-2 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white'
+                      style={{ backgroundColor: COLORS.primary }}
+                    >
                       {item.step}
                     </div>
-                    <h4 className='mb-1 text-sm font-bold' style={{ color: COLORS.text }}>{item.title}</h4>
-                    <p className='text-xs leading-relaxed' style={{ color: COLORS.textMuted }}>{item.desc}</p>
+                    <h4
+                      className='mb-1 text-sm font-bold'
+                      style={{ color: COLORS.text }}
+                    >
+                      {item.title}
+                    </h4>
+                    <p
+                      className='text-xs leading-relaxed'
+                      style={{ color: COLORS.textMuted }}
+                    >
+                      {item.desc}
+                    </p>
                   </div>
-                ))
+                )),
               )}
             </div>
           </div>
@@ -633,19 +723,61 @@ export function LandingPage() {
           {/* Desktop: grid normal */}
           <div className='hidden sm:grid sm:grid-cols-3 sm:gap-5'>
             {[
-              { Icon: AppIcons.Search, step: '1', title: 'Busca', desc: 'Encuentra lugares en Santiago con información de accesibilidad verificada por la comunidad.' },
-              { Icon: AppIcons.ClipboardList, step: '2', title: 'Evalúa', desc: 'Revisa rampas, ascensores, baños accesibles y más antes de visitar un lugar.' },
-              { Icon: AppIcons.Share2, step: '3', title: 'Contribuye', desc: 'Califica tu experiencia y ayuda a otras personas a moverse con libertad.' },
+              {
+                Icon: AppIcons.Search,
+                step: '1',
+                title: 'Busca',
+                desc: 'Encuentra lugares en Santiago con información de accesibilidad verificada por la comunidad.',
+              },
+              {
+                Icon: AppIcons.ClipboardList,
+                step: '2',
+                title: 'Evalúa',
+                desc: 'Revisa rampas, ascensores, baños accesibles y más antes de visitar un lugar.',
+              },
+              {
+                Icon: AppIcons.Share2,
+                step: '3',
+                title: 'Contribuye',
+                desc: 'Califica tu experiencia y ayuda a otras personas a moverse con libertad.',
+              },
             ].map((item) => (
-              <div key={item.step} className='flex flex-col items-center rounded-2xl border p-7 text-center' style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}>
-                <div className='mb-4 flex h-14 w-14 items-center justify-center rounded-2xl' style={{ backgroundColor: `${COLORS.primary}12` }}>
-                  <item.Icon size={26} style={{ color: COLORS.primary }} aria-hidden />
+              <div
+                key={item.step}
+                className='flex flex-col items-center rounded-2xl border p-7 text-center'
+                style={{
+                  backgroundColor: COLORS.card,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <div
+                  className='mb-4 flex h-14 w-14 items-center justify-center rounded-2xl'
+                  style={{ backgroundColor: `${COLORS.primary}12` }}
+                >
+                  <item.Icon
+                    size={26}
+                    style={{ color: COLORS.primary }}
+                    aria-hidden
+                  />
                 </div>
-                <div className='mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white' style={{ backgroundColor: COLORS.primary }}>
+                <div
+                  className='mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white'
+                  style={{ backgroundColor: COLORS.primary }}
+                >
                   {item.step}
                 </div>
-                <h4 className='mb-2 text-base font-bold' style={{ color: COLORS.text }}>{item.title}</h4>
-                <p className='text-sm leading-relaxed' style={{ color: COLORS.textMuted }}>{item.desc}</p>
+                <h4
+                  className='mb-2 text-base font-bold'
+                  style={{ color: COLORS.text }}
+                >
+                  {item.title}
+                </h4>
+                <p
+                  className='text-sm leading-relaxed'
+                  style={{ color: COLORS.textMuted }}
+                >
+                  {item.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -653,10 +785,16 @@ export function LandingPage() {
       </section>
 
       {/* Qué evaluamos */}
-      <section className='py-8 sm:px-6 sm:py-14' style={{ backgroundColor: `${COLORS.primary}07` }}>
+      <section
+        className='py-8 sm:px-6 sm:py-14'
+        style={{ backgroundColor: `${COLORS.primary}07` }}
+      >
         <div className='mx-auto max-w-4xl'>
           <div className='mb-5 px-4 text-center sm:mb-8'>
-            <h3 className='mb-1 text-xl font-bold sm:mb-2 sm:text-2xl' style={{ color: COLORS.text }}>
+            <h3
+              className='mb-1 text-xl font-bold sm:mb-2 sm:text-2xl'
+              style={{ color: COLORS.text }}
+            >
               Qué evaluamos
             </h3>
             <p className='text-sm' style={{ color: COLORS.textMuted }}>
@@ -666,7 +804,10 @@ export function LandingPage() {
 
           {/* Mobile: marquee automático */}
           <div className='marquee-wrapper sm:hidden'>
-            <div className='marquee-track gap-2 px-4' style={{ animationDuration: '24s' }}>
+            <div
+              className='marquee-track gap-2 px-4'
+              style={{ animationDuration: '24s' }}
+            >
               {[...Array(2)].flatMap((_, gi) =>
                 [
                   { Icon: AppIcons.ParkingCircle, label: 'Estacionamiento' },
@@ -681,14 +822,29 @@ export function LandingPage() {
                   <div
                     key={`${gi}-${feat.label}`}
                     className='mr-2 flex w-24 shrink-0 flex-col items-center gap-2 rounded-xl border p-3 text-center'
-                    style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
+                    style={{
+                      backgroundColor: COLORS.card,
+                      borderColor: COLORS.border,
+                    }}
                   >
-                    <div className='flex h-8 w-8 items-center justify-center rounded-xl' style={{ backgroundColor: `${COLORS.primary}10` }}>
-                      <feat.Icon size={16} style={{ color: COLORS.primary }} aria-hidden />
+                    <div
+                      className='flex h-8 w-8 items-center justify-center rounded-xl'
+                      style={{ backgroundColor: `${COLORS.primary}10` }}
+                    >
+                      <feat.Icon
+                        size={16}
+                        style={{ color: COLORS.primary }}
+                        aria-hidden
+                      />
                     </div>
-                    <span className='text-xs font-medium leading-tight' style={{ color: COLORS.text }}>{feat.label}</span>
+                    <span
+                      className='text-xs font-medium leading-tight'
+                      style={{ color: COLORS.text }}
+                    >
+                      {feat.label}
+                    </span>
                   </div>
-                ))
+                )),
               )}
             </div>
           </div>
@@ -696,7 +852,10 @@ export function LandingPage() {
           {/* Desktop: grid normal */}
           <div className='hidden sm:grid sm:grid-cols-4 sm:gap-3'>
             {[
-              { Icon: AppIcons.ParkingCircle, label: 'Estacionamiento accesible' },
+              {
+                Icon: AppIcons.ParkingCircle,
+                label: 'Estacionamiento accesible',
+              },
               { Icon: AppIcons.Signpost, label: 'Señalética clara' },
               { Icon: AppIcons.Accessibility, label: 'Rampa disponible' },
               { Icon: AppIcons.DoorOpen, label: 'Entrada amplia' },
@@ -705,11 +864,30 @@ export function LandingPage() {
               { Icon: AppIcons.MoveHorizontal, label: 'Circulación interna' },
               { Icon: AppIcons.MoveVertical, label: 'Escalera mecánica' },
             ].map((feat) => (
-              <div key={feat.label} className='flex flex-col items-center gap-3 rounded-xl border p-4 text-center transition-shadow hover:shadow-md' style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}>
-                <div className='flex h-10 w-10 items-center justify-center rounded-xl' style={{ backgroundColor: `${COLORS.primary}10` }}>
-                  <feat.Icon size={20} style={{ color: COLORS.primary }} aria-hidden />
+              <div
+                key={feat.label}
+                className='flex flex-col items-center gap-3 rounded-xl border p-4 text-center transition-shadow hover:shadow-md'
+                style={{
+                  backgroundColor: COLORS.card,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <div
+                  className='flex h-10 w-10 items-center justify-center rounded-xl'
+                  style={{ backgroundColor: `${COLORS.primary}10` }}
+                >
+                  <feat.Icon
+                    size={20}
+                    style={{ color: COLORS.primary }}
+                    aria-hidden
+                  />
                 </div>
-                <span className='text-xs font-medium leading-tight' style={{ color: COLORS.text }}>{feat.label}</span>
+                <span
+                  className='text-xs font-medium leading-tight'
+                  style={{ color: COLORS.text }}
+                >
+                  {feat.label}
+                </span>
               </div>
             ))}
           </div>

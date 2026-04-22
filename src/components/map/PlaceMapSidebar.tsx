@@ -46,6 +46,7 @@ function StarRow({
 interface PlaceMapSidebarProps {
   place: PlaceWithStats;
   onClose: () => void;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
@@ -148,12 +149,13 @@ function ReviewLikeButton({ reviewId, initialCount, userId }: { reviewId: number
   );
 }
 
-export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
+export function PlaceMapSidebar({ place, onClose, onCollapseChange }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { reviewsForPlace, accessibilityConsensusForPlace } = usePlaces();
   const [isFav, setIsFav] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
+  const [mobileCollapsed, setMobileCollapsed] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -306,15 +308,57 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
 
 
   return (
+    /* Wrapper externo: maneja la transición y no recorta el handle */
     <div
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden bg-white shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] animate-in slide-in-from-right-4 duration-200',
-        'h-full w-[min(84vw,22rem)] rounded-l-2xl border-y border-l sm:w-[min(86vw,24rem)]',
+        'relative h-full w-[min(84vw,22rem)] sm:w-[min(86vw,24rem)]',
+        'transition-transform duration-300 ease-in-out animate-in slide-in-from-right-4',
+        mobileCollapsed ? 'translate-x-[calc(100%-2.5rem)] sm:translate-x-0' : 'translate-x-0',
+        // Cuando está colapsado en mobile, el wrapper no bloquea el mapa
+        mobileCollapsed ? 'pointer-events-none sm:pointer-events-auto' : 'pointer-events-auto',
       )}
-      style={{ borderColor: COLORS.border }}
       role='dialog'
       aria-labelledby='place-map-sidebar-title'
     >
+      {/* Handle solo para mobile — fuera del div con overflow-hidden */}
+      <button
+        type='button'
+        onClick={() => setMobileCollapsed((v) => { onCollapseChange?.(!v); return !v; })}
+        className='sm:hidden absolute top-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center gap-1 bg-white border border-r-0 shadow-md rounded-l-xl pointer-events-auto'
+        style={{
+          width: '2.5rem',
+          height: '4.5rem',
+          left: '-2.5rem',
+          borderColor: COLORS.border,
+        }}
+        aria-label={mobileCollapsed ? 'Expandir panel' : 'Contraer panel'}
+      >
+        <svg
+          xmlns='http://www.w3.org/2000/svg'
+          width='16'
+          height='16'
+          viewBox='0 0 24 24'
+          fill='none'
+          stroke='currentColor'
+          strokeWidth='2.5'
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          style={{ color: COLORS.primary }}
+          aria-hidden
+        >
+          {mobileCollapsed ? (
+            <polyline points='15 18 9 12 15 6' />
+          ) : (
+            <polyline points='9 18 15 12 9 6' />
+          )}
+        </svg>
+      </button>
+
+      {/* Panel interior con overflow-hidden */}
+      <div
+        className='flex min-h-0 h-full flex-col overflow-hidden bg-white shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] rounded-l-2xl border-y border-l'
+        style={{ borderColor: COLORS.border }}
+      >
       <ScrollArea className='min-h-0 flex-1'>
         <div className='px-4 pb-4 pt-5'>
           {/* Nombre + Cerrar */}
@@ -704,6 +748,7 @@ export function PlaceMapSidebar({ place, onClose }: PlaceMapSidebarProps) {
           )}
         </div>
       </ScrollArea>
+      </div>
     </div>
   );
 }
