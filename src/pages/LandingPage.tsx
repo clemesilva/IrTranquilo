@@ -18,8 +18,10 @@ import {
   MAP_UI_PADDING_LANDING,
 } from '../lib/mapPlaceFocus';
 import { AddPlacePanel } from '../components/places/AddPlacePanel';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
+import { ChevronDown } from 'lucide-react';
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -51,6 +53,7 @@ export function LandingPage() {
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [sidebarSnap, setSidebarSnap] = useState(0);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
+  const [ratingFilterOpen, setRatingFilterOpen] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
   );
@@ -1124,6 +1127,7 @@ export function LandingPage() {
           className='fixed left-0 top-0 z-9001 flex h-full max-h-dvh w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
           style={{ backgroundColor: COLORS.card }}
         >
+          <VisuallyHidden><DialogTitle>Filtros</DialogTitle></VisuallyHidden>
           {/* Header */}
           <div
             className='border-b px-6 py-4 flex items-center justify-between'
@@ -1143,35 +1147,66 @@ export function LandingPage() {
           {/* Content */}
           <div className='flex-1 overflow-y-auto p-6 space-y-5'>
             {/* 1. Calificación */}
-            <div className='space-y-2'>
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
-              >
-                Calificación
-              </p>
-              <select
-                value={filters.ratingBand}
-                onChange={(e) => setFilterValue('ratingBand', e.target.value)}
-                className='w-full rounded-lg border px-3 py-2 text-sm'
-                style={{ borderColor: COLORS.border, color: COLORS.text }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.primary;
-                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(26, 86, 160, 0.1)`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.border;
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <option value='all'>Todas</option>
-                <option value='recommended'>Recomendado (4.5+)</option>
-                <option value='acceptable'>Aceptable (3.5–4.4)</option>
-                <option value='not_recommended'>
-                  No recomendado (&lt;3.5)
-                </option>
-              </select>
-            </div>
+            {(() => {
+              const activeRating = ([
+                { value: 'all', label: 'Todas', sub: null },
+                { value: 'recommended', label: 'Recomendado', sub: '4.5+' },
+                { value: 'acceptable', label: 'Aceptable', sub: '3.5–4.4' },
+                { value: 'not_recommended', label: 'No recomendado', sub: '<3.5' },
+              ] as const).find(o => o.value === filters.ratingBand);
+              return (
+                <div className='rounded-xl border overflow-hidden' style={{ borderColor: COLORS.border }}>
+                  <button
+                    type='button'
+                    onClick={() => setRatingFilterOpen(v => !v)}
+                    className='flex w-full items-center justify-between px-3 py-2.5 text-left'
+                    style={{ backgroundColor: '#fafafa' }}
+                  >
+                    <div className='flex items-center gap-2'>
+                      <AppIcons.Star className='h-3.5 w-3.5' style={{ color: COLORS.primary }} aria-hidden />
+                      <span className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>Calificación</span>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      {filters.ratingBand !== 'all' && (
+                        <span className='text-xs font-medium' style={{ color: COLORS.primary }}>{activeRating?.label}</span>
+                      )}
+                      <ChevronDown className='h-3.5 w-3.5 transition-transform' style={{ color: COLORS.textMuted, transform: ratingFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} aria-hidden />
+                    </div>
+                  </button>
+                  {ratingFilterOpen && (
+                    <div className='flex flex-col divide-y' style={{ borderTopWidth: 1, borderTopColor: COLORS.border }}>
+                      {([
+                        { value: 'all', label: 'Todas', sub: null },
+                        { value: 'recommended', label: 'Recomendado', sub: '4.5+' },
+                        { value: 'acceptable', label: 'Aceptable', sub: '3.5–4.4' },
+                        { value: 'not_recommended', label: 'No recomendado', sub: '<3.5' },
+                      ] as const).map((opt) => {
+                        const active = filters.ratingBand === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type='button'
+                            onClick={() => { setFilterValue('ratingBand', opt.value); setRatingFilterOpen(false); }}
+                            className='flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors'
+                            style={active ? { backgroundColor: `${COLORS.primary}0d`, color: COLORS.primary, fontWeight: 600 } : { backgroundColor: '#fff', color: COLORS.text }}
+                          >
+                            <AppIcons.Star
+                              className='h-3.5 w-3.5 shrink-0'
+                              style={{ color: active ? COLORS.primary : COLORS.border, fill: active ? COLORS.primary : 'none' }}
+                              aria-hidden
+                            />
+                            <span className='flex-1'>{opt.label}</span>
+                            {opt.sub && (
+                              <span className='text-xs' style={{ color: active ? COLORS.primary : COLORS.textMuted }}>{opt.sub}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 2. Categoría */}
             <div
@@ -1314,6 +1349,7 @@ export function LandingPage() {
         }}
       >
         <DialogContent className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg'>
+          <VisuallyHidden><DialogTitle>Añadir lugar</DialogTitle></VisuallyHidden>
           <AddPlacePanel
             draftLatLng={addPlaceDraft}
             onDraftLatLngChange={setAddPlaceDraft}
