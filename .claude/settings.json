@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npx vite *)",
       "Bash(node node_modules/tinyglobby/dist/index.mjs)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "Bash(git checkout *)",
+      "Bash(npm ci *)"
     ],
     "additionalDirectories": [
       "/Users/clementes/Documents/IrTranquiloOficial/node_modules"

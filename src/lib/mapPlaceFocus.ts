@@ -35,7 +35,7 @@ export function fitMapToPlaceWithUiPadding(
     L.FitBoundsOptions,
     'paddingTopLeft' | 'paddingBottomRight'
   >,
-  options?: { maxZoom?: number; animate?: boolean },
+  options?: { maxZoom?: number; animate?: boolean; mobileBottomPx?: number },
 ): void {
   const delta = 0.00005
   const bounds = L.latLngBounds(
@@ -43,10 +43,10 @@ export function fitMapToPlaceWithUiPadding(
     [lat + delta, lng + delta],
   )
 
-  // En mobile fullscreen no hay sidebar lateral — centrar sin padding
   const isMobile = window.innerWidth < 640
+  const bottomPx = options?.mobileBottomPx ?? 160
   const resolvedPadding = isMobile
-    ? { paddingTopLeft: L.point(16, 80), paddingBottomRight: L.point(16, 160) }
+    ? { paddingTopLeft: L.point(16, 80), paddingBottomRight: L.point(16, bottomPx) }
     : { paddingTopLeft: padding.paddingTopLeft, paddingBottomRight: padding.paddingBottomRight }
 
   map.flyToBounds(bounds, {

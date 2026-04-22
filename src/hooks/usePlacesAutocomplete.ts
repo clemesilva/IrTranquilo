@@ -87,6 +87,7 @@ export function usePlacesAutocomplete() {
           componentRestrictions: { country: 'cl' },
           types: ['establishment'],
         },
+        // @ts-expect-error google maps types mismatch
         (
           preds: google.maps.places.AutocompletePrediction[] | null,
           status: google.maps.places.PlacesServiceStatus,
@@ -140,6 +141,7 @@ export function usePlacesAutocomplete() {
             'price_level',
           ],
         },
+        // @ts-expect-error google maps callback types mismatch
         (
           place: google.maps.places.PlaceResult | null,
           status: google.maps.places.PlacesServiceStatus,

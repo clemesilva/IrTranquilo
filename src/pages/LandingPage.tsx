@@ -103,16 +103,22 @@ export function LandingPage() {
     }
   }, [filteredPlaces, selectedPlaceId, selectPlace]);
 
-  const panToPlaceForDetail = useCallback((place: PlaceWithStats) => {
+  const panToPlaceForDetail = useCallback((place: PlaceWithStats, snap?: number) => {
     const map = mapRef.current;
     if (!map) return;
+    // En mobile snap=1 → panel ocupa ~47vh, dejamos ese espacio libre abajo
+    const resolvedSnap = snap ?? sidebarSnap;
+    const mobileBottomPx = resolvedSnap >= 1
+      ? Math.round(window.innerHeight * 0.47) + 16
+      : 80;
     fitMapToPlaceWithUiPadding(
       map,
       place.latitude,
       place.longitude,
       MAP_UI_PADDING_LANDING,
+      { mobileBottomPx },
     );
-  }, []);
+  }, [sidebarSnap]);
 
   const enterMapFullscreen = useCallback(() => {
     // Solo en mobile (ancho < 640px)
