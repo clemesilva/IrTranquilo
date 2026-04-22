@@ -54,6 +54,7 @@ export function LandingPage() {
   const [sidebarSnap, setSidebarSnap] = useState(0);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [ratingFilterOpen, setRatingFilterOpen] = useState(false);
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
   );
@@ -1196,14 +1197,16 @@ export function LandingPage() {
                             className='flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors'
                             style={active ? { backgroundColor: `${COLORS.primary}0d`, color: COLORS.primary, fontWeight: 600 } : { backgroundColor: '#fff', color: COLORS.text }}
                           >
-                            <AppIcons.Star
-                              className='h-3.5 w-3.5 shrink-0'
-                              style={{ color: active ? COLORS.primary : COLORS.border, fill: active ? COLORS.primary : 'none' }}
-                              aria-hidden
-                            />
                             <span className='flex-1'>{opt.label}</span>
                             {opt.sub && (
-                              <span className='text-xs' style={{ color: active ? COLORS.primary : COLORS.textMuted }}>{opt.sub}</span>
+                              <span className='flex items-center gap-1 text-xs' style={{ color: active ? COLORS.primary : COLORS.textMuted }}>
+                                {opt.sub}
+                                <AppIcons.Star
+                                  className='h-3 w-3 shrink-0'
+                                  style={{ color: active ? COLORS.primary : COLORS.textLight, fill: active ? COLORS.primary : 'none' }}
+                                  aria-hidden
+                                />
+                              </span>
                             )}
                           </button>
                         );
@@ -1215,43 +1218,51 @@ export function LandingPage() {
             })()}
 
             {/* 2. Categoría */}
-            <div
-              className='space-y-2 pt-3 border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <p
-                className='text-xs font-semibold uppercase'
-                style={{ color: COLORS.textMuted }}
+            <div className='rounded-xl border overflow-hidden border-t' style={{ borderColor: COLORS.border }}>
+              <button
+                type='button'
+                onClick={() => setCategoryFilterOpen(v => !v)}
+                className='flex w-full items-center justify-between px-3 py-2.5 text-left'
+                style={{ backgroundColor: '#fafafa' }}
               >
-                Categoría
-              </p>
-              <select
-                value={category}
-                onChange={(e) => {
-                  setLocalCategory(e.target.value as PlaceCategory | 'all');
-                  setCategory(e.target.value as PlaceCategory | 'all');
-                }}
-                className='w-full rounded-lg border px-3 py-2 text-sm'
-                style={{
-                  borderColor: COLORS.border,
-                  color: COLORS.text,
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.primary;
-                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(26, 86, 160, 0.1)`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.border;
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <option value='all'>Todas</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                <div className='flex items-center gap-2'>
+                  <AppIcons.Tag className='h-3.5 w-3.5' style={{ color: COLORS.primary }} aria-hidden />
+                  <span className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>Categoría</span>
+                </div>
+                <div className='flex items-center gap-2'>
+                  {category !== 'all' && (
+                    <span className='text-xs font-medium' style={{ color: COLORS.primary }}>
+                      {CATEGORIES.find(c => c.value === category)?.label}
+                    </span>
+                  )}
+                  <ChevronDown className='h-3.5 w-3.5 transition-transform' style={{ color: COLORS.textMuted, transform: categoryFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} aria-hidden />
+                </div>
+              </button>
+              {categoryFilterOpen && (
+                <div className='flex flex-col divide-y' style={{ borderTopWidth: 1, borderTopColor: COLORS.border }}>
+                  {([{ value: 'all' as const, label: 'Todas' }, ...CATEGORIES]).map((c) => {
+                    const active = category === c.value;
+                    return (
+                      <button
+                        key={c.value}
+                        type='button'
+                        onClick={() => {
+                          setLocalCategory(c.value);
+                          setCategory(c.value);
+                          setCategoryFilterOpen(false);
+                        }}
+                        className='flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors'
+                        style={active ? { backgroundColor: `${COLORS.primary}0d`, color: COLORS.primary, fontWeight: 600 } : { backgroundColor: '#fff', color: COLORS.text }}
+                      >
+                        {c.value !== 'all' && (
+                          <CategoryIcon category={c.value} size={14} style={{ color: active ? COLORS.primary : COLORS.textMuted }} />
+                        )}
+                        <span className='flex-1'>{c.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
