@@ -51,7 +51,7 @@ export function PlaceReviewFormDialog({
       <DialogTrigger asChild>
         <Button
           type='button'
-          className={cn('h-10 gap-2 text-sm font-semibold', triggerClassName)}
+          className={cn('gap-1.5 font-semibold', triggerClassName)}
           variant={triggerVariant ?? (isAuthenticated ? 'default' : 'outline')}
           style={triggerStyle ?? (isAuthenticated ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary, color: '#fff' } : undefined)}
         >

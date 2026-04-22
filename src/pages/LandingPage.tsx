@@ -31,6 +31,7 @@ export function LandingPage() {
     setCategory,
     filters,
     toggleFilter,
+    setFilterValue,
     resetFilters,
   } = usePlaces();
   const mapRef = useRef<L.Map | null>(null);
@@ -46,11 +47,22 @@ export function LandingPage() {
     const v = searchParams.get('place');
     return v ? Number(v) : null;
   });
-  const [sidebarMobileCollapsed, setSidebarMobileCollapsed] = useState(false);
+
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [sidebarSnap, setSidebarSnap] = useState(0);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
   );
+
+  const activeFilterCount =
+    (filters.recommendedOnly ? 1 : 0) +
+    (filters.ratingBand !== 'all' ? 1 : 0) +
+    (filters.minRating !== null ? 1 : 0) +
+    (['parking_accessible','nearby_parking','signage_clear','ramp_available',
+      'mechanical_stairs','elevator_available','wide_entrance','accessible_bathroom',
+      'circulation_clear','lowered_counter'] as const
+    ).filter((k) => filters[k]).length;
 
   const searchSuggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,9 +111,22 @@ export function LandingPage() {
     );
   }, []);
 
+  const enterMapFullscreen = useCallback(() => {
+    // Solo en mobile (ancho < 640px)
+    if (window.innerWidth >= 640) return;
+    setMapFullscreen(true);
+    setTimeout(() => mapRef.current?.invalidateSize(), 50);
+  }, []);
+
+  const exitMapFullscreen = useCallback(() => {
+    setMapFullscreen(false);
+    setTimeout(() => mapRef.current?.invalidateSize(), 50);
+  }, []);
+
   const focusPlaceOnMap = (place: PlaceWithStats) => {
     selectPlace(place.id);
     panToPlaceForDetail(place);
+    enterMapFullscreen();
   };
 
   // Initialize map
@@ -273,13 +298,14 @@ export function LandingPage() {
             L.DomEvent.stopPropagation(e);
             selectPlace(place.id);
             panToPlaceForDetail(place);
+            enterMapFullscreen();
           })
           .addTo(mapRef.current!);
 
         markersRef.current.push({ marker, place });
       }
     });
-  }, [filteredPlaces, selectedPlaceId, panToPlaceForDetail, selectPlace]);
+  }, [filteredPlaces, selectedPlaceId, panToPlaceForDetail, selectPlace, enterMapFullscreen]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -421,48 +447,54 @@ export function LandingPage() {
       </div>
 
       {/* Map Container with Margins */}
-      <div className='relative h-[65vh] min-h-110 max-h-195'>
+      <div
+        className={
+          mapFullscreen
+            ? 'fixed inset-0 z-[9000] sm:relative sm:inset-auto sm:z-auto sm:h-[65vh] sm:min-h-110 sm:max-h-195'
+            : 'relative h-[65vh] min-h-110 max-h-195'
+        }
+      >
+        {/* Botón Volver — solo mobile fullscreen */}
+        {mapFullscreen && (
+          <button
+            onClick={() => { exitMapFullscreen(); selectPlace(null); setLocalSearch(''); setSearch(''); }}
+            className='absolute top-4 left-4 z-[9100] sm:hidden flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-sm font-semibold shadow-lg'
+            style={{ backgroundColor: COLORS.card, borderColor: COLORS.border, color: COLORS.text }}
+          >
+            <AppIcons.ArrowLeft size={15} aria-hidden />
+            Volver
+          </button>
+        )}
+
         <div
           id='landing-map'
           className='w-full h-full rounded-lg overflow-hidden shadow-lg'
           style={{ pointerEvents: showFiltersModal ? 'none' : 'auto' }}
         />
 
-        {/* Bloqueo del mapa en mobile cuando el sidebar está abierto y expandido */}
-        {selectedPlaceData && !sidebarMobileCollapsed ? (
-          <div className='absolute inset-0 z-1700 bg-black/20 sm:hidden pointer-events-auto' />
-        ) : null}
-
         {selectedPlaceData ? (
-          <div className='absolute inset-y-0 right-0 z-1800 flex max-h-full w-full justify-end pointer-events-none'>
-            <div className='pointer-events-auto h-full max-h-full min-w-0'>
-              <PlaceMapSidebar
-                place={selectedPlaceData}
-                onClose={() => {
-                  selectPlace(null);
-                  setLocalSearch('');
-                  setSearch('');
-                  setSidebarMobileCollapsed(false);
-                }}
-                onCollapseChange={setSidebarMobileCollapsed}
-              />
-            </div>
-          </div>
+          <PlaceMapSidebar
+            place={selectedPlaceData}
+            onClose={() => { selectPlace(null); setLocalSearch(''); setSearch(''); }}
+            onSnapChange={setSidebarSnap}
+          />
         ) : null}
 
         {/* Botón + flotante en esquina superior derecha del mapa */}
-        {!selectedPlaceData && <button
-          onClick={() => setShowAddPlaceModal(true)}
-          className='absolute top-60 right-4 sm:top-12 sm:right-10 z-[2000] flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg pointer-events-auto transition-opacity hover:opacity-90 active:opacity-80'
-          style={{ backgroundColor: COLORS.primary, color: '#fff' }}
-          title='Añadir lugar'
-          aria-label='Añadir lugar'
-        >
-          <AppIcons.Plus size={20} aria-hidden />
-        </button>}
+        {!selectedPlaceData && (
+          <button
+            onClick={() => setShowAddPlaceModal(true)}
+            className='absolute top-60 right-4 sm:top-12 sm:right-10 z-[2000] flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg pointer-events-auto transition-opacity hover:opacity-90 active:opacity-80'
+            style={{ backgroundColor: COLORS.primary, color: '#fff' }}
+            title='Añadir lugar'
+            aria-label='Añadir lugar'
+          >
+            <AppIcons.Plus size={20} aria-hidden />
+          </button>
+        )}
 
         {/* Search Bar flotante sobre el mapa */}
-        <div className='absolute top-4 left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto'>
+        <div className={`absolute ${mapFullscreen ? 'top-16 sm:top-4' : 'top-4'} left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto ${mapFullscreen && selectedPlaceData && sidebarSnap === 2 ? 'hidden sm:block' : ''}`}>
           <div
             className='flex items-center gap-2 rounded-2xl border p-2 shadow-lg'
             style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
@@ -481,7 +513,8 @@ export function LandingPage() {
                 onChange={(e) => {
                   const v = e.target.value;
                   setLocalSearch(v);
-                  setSearch(v);
+                  if (window.innerWidth >= 640) setSearch(v);
+                  else if (!v) setSearch('');
                   setShowSearchDropdown(true);
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
@@ -559,12 +592,12 @@ export function LandingPage() {
           <AppIcons.Settings className='h-4 w-4' aria-hidden />
           <span>Filtros</span>
           <span className='text-sm' style={{ color: COLORS.textMuted }}>
-            ({Object.values(filters).filter((v) => v).length})
+            ({activeFilterCount})
           </span>
         </button>
 
         {/* Filtros + categorías carrusel — solo mobile */}
-        <div className='absolute top-20 left-0 z-1500 w-full pointer-events-auto sm:hidden'>
+        <div className={`absolute ${mapFullscreen ? 'top-32 sm:top-20' : 'top-20'} left-0 z-1500 w-full pointer-events-auto sm:hidden`}>
           <div
             className='flex items-center gap-2 overflow-x-auto px-4 pb-1'
             style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
@@ -584,12 +617,12 @@ export function LandingPage() {
                 aria-hidden
               />
               Filtros
-              {Object.values(filters).filter((v) => v).length > 0 && (
+              {activeFilterCount > 0 && (
                 <span
                   className='ml-0.5 rounded-full px-1.5 py-0.5 text-xs text-white'
                   style={{ backgroundColor: COLORS.primary }}
                 >
-                  {Object.values(filters).filter((v) => v).length}
+                  {activeFilterCount}
                 </span>
               )}
             </button>
@@ -602,6 +635,7 @@ export function LandingPage() {
                     const next = active ? 'all' : cat.value;
                     setLocalCategory(next);
                     setCategory(next);
+                    enterMapFullscreen();
                   }}
                   className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md'
                   style={{
@@ -1108,30 +1142,35 @@ export function LandingPage() {
 
           {/* Content */}
           <div className='flex-1 overflow-y-auto p-6 space-y-5'>
-            {/* 1. Solo Recomendados */}
+            {/* 1. Calificación */}
             <div className='space-y-2'>
-              <label className='flex items-center gap-3 cursor-pointer'>
-                <input
-                  type='checkbox'
-                  checked={filters.recommendedOnly}
-                  onChange={() => toggleFilter('recommendedOnly')}
-                  className='w-4 h-4 rounded border'
-                  style={{
-                    borderColor: COLORS.border,
-                    accentColor: COLORS.primary,
-                  }}
-                />
-                <span
-                  className='text-sm font-semibold'
-                  style={{ color: COLORS.text }}
-                >
-                  <AppIcons.Star
-                    className='inline h-4 w-4 text-amber-500'
-                    aria-hidden
-                  />{' '}
-                  Solo recomendados (4.5+)
-                </span>
-              </label>
+              <p
+                className='text-xs font-semibold uppercase'
+                style={{ color: COLORS.textMuted }}
+              >
+                Calificación
+              </p>
+              <select
+                value={filters.ratingBand}
+                onChange={(e) => setFilterValue('ratingBand', e.target.value)}
+                className='w-full rounded-lg border px-3 py-2 text-sm'
+                style={{ borderColor: COLORS.border, color: COLORS.text }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.primary;
+                  e.currentTarget.style.boxShadow = `0 0 0 2px rgba(26, 86, 160, 0.1)`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border;
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <option value='all'>Todas</option>
+                <option value='recommended'>Recomendado (4.5+)</option>
+                <option value='acceptable'>Aceptable (3.5–4.4)</option>
+                <option value='not_recommended'>
+                  No recomendado (&lt;3.5)
+                </option>
+              </select>
             </div>
 
             {/* 2. Categoría */}
@@ -1254,7 +1293,10 @@ export function LandingPage() {
               Limpiar filtros
             </button>
             <button
-              onClick={() => setShowFiltersModal(false)}
+              onClick={() => {
+                setShowFiltersModal(false);
+                enterMapFullscreen();
+              }}
               className='w-full rounded-lg px-4 py-2 text-sm font-semibold text-white'
               style={{ backgroundColor: COLORS.primary }}
             >

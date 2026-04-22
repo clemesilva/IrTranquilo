@@ -48,6 +48,7 @@ function accessibilityForDbRow(
 
 const defaultFilters: AccessibilityFilters = {
   recommendedOnly: false,
+  ratingBand: 'all',
   minRating: null,
   parking_accessible: false,
   nearby_parking: false,
@@ -232,7 +233,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setFilterValue = useCallback(
-    (key: keyof AccessibilityFilters, value: boolean | number | null) => {
+    (key: keyof AccessibilityFilters, value: boolean | number | string | null) => {
       setFilters((prev) => ({ ...prev, [key]: value }));
     },
     [],
@@ -254,6 +255,7 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
       }
 
       if (filters.recommendedOnly && p.band !== 'recommended') return false;
+      if (filters.ratingBand !== 'all' && p.band !== filters.ratingBand) return false;
 
       if (filters.minRating !== null && p.avgRating < filters.minRating) {
         return false;

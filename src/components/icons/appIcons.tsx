@@ -1,13 +1,16 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import type { ComponentProps } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Accessibility,
+  ArrowLeft,
   ArrowUpDown,
   Armchair,
-  Backpack,
+  BookOpen,
   Banknote,
   Building2,
-  Bus,
+  Dumbbell,
   Camera,
   Car,
   CircleHelp,
@@ -79,10 +82,10 @@ export function CategoryIcon({
       return render(TreePine, props);
     case 'cultura':
       // Fallback: “cultura” sin TheatreMask en algunas versiones
-      return render(Backpack, props);
+      return render(BookOpen, props);
     case 'deporte':
       // Fallback: “deporte” sin Dumbbell en algunas versiones
-      return render(Bus, props);
+      return render(Dumbbell, props);
     case 'alojamiento':
       return render(Building2, props);
     case 'inclusion':
@@ -90,6 +93,15 @@ export function CategoryIcon({
     case 'otro':
       return render(Flag, props);
   }
+}
+
+export function categoryIconSvgString(
+  category: PlaceCategory,
+  size = 13,
+  color = 'white',
+): string {
+  const icon = createElement(CategoryIcon, { category, size, stroke: color, color });
+  return renderToStaticMarkup(icon);
 }
 
 export function AccessibilityFieldIcon({
@@ -122,6 +134,7 @@ export function AccessibilityFieldIcon({
 
 export const AppIcons = {
   Accessibility,
+  ArrowLeft,
   ArrowUpDown,
   ClipboardList,
   Droplets,

@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
@@ -587,79 +586,78 @@ export function PlaceDetailPage() {
       </div>
 
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>¿Qué problema encontraste?</DialogTitle>
-            <DialogDescription>
-              Elige el tipo de problema temporal y, si quieres, agrega una
-              descripción. El reporte se eliminará automáticamente cuando
-              expire.
+        <DialogContent className='w-[calc(100vw-2rem)] max-w-sm rounded-3xl p-0 overflow-hidden sm:max-w-sm'>
+          {/* Header con fondo suave */}
+          <div className='px-5 pt-5 pb-3' style={{ background: 'linear-gradient(135deg, #fef9f0 0%, #fef3e2 100%)' }}>
+            <div className='flex items-center gap-2.5 mb-0.5'>
+              <div className='flex h-8 w-8 items-center justify-center rounded-xl' style={{ backgroundColor: '#fde68a' }}>
+                <AppIcons.TriangleAlert className='h-4 w-4' style={{ color: '#92400e' }} aria-hidden />
+              </div>
+              <DialogTitle className='text-base font-bold text-neutral-900'>¿Qué problema encontraste?</DialogTitle>
+            </div>
+            <DialogDescription className='text-xs text-neutral-500 ml-[42px]'>
+              El reporte expira automáticamente.
             </DialogDescription>
-          </DialogHeader>
-          <div className='mt-3 space-y-3'>
-            <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
-              <Button
-                type='button'
-                variant={
-                  selectedReportType === 'elevator' ? 'default' : 'outline'
-                }
-                className='justify-start'
-                onClick={() => setSelectedReportType('elevator')}
-              >
-                <ReportTypeIcon type='elevator' />
-                <span className='ml-2'>{REPORT_LABELS.elevator}</span>
-              </Button>
-              <Button
-                type='button'
-                variant={selectedReportType === 'ramp' ? 'default' : 'outline'}
-                className='justify-start'
-                onClick={() => setSelectedReportType('ramp')}
-              >
-                <ReportTypeIcon type='ramp' />
-                <span className='ml-2'>{REPORT_LABELS.ramp}</span>
-              </Button>
-              <Button
-                type='button'
-                variant={
-                  selectedReportType === 'construction' ? 'default' : 'outline'
-                }
-                className='justify-start'
-                onClick={() => setSelectedReportType('construction')}
-              >
-                <ReportTypeIcon type='construction' />
-                <span className='ml-2'>{REPORT_LABELS.construction}</span>
-              </Button>
-              <Button
-                type='button'
-                variant={selectedReportType === 'other' ? 'default' : 'outline'}
-                className='justify-start'
-                onClick={() => setSelectedReportType('other')}
-              >
-                <ReportTypeIcon type='other' />
-                <span className='ml-2'>{REPORT_LABELS.other}</span>
-              </Button>
+          </div>
+
+          <div className='px-5 pb-5 space-y-3'>
+            {/* Opciones de tipo */}
+            <div className='grid grid-cols-1 gap-1.5 sm:grid-cols-2'>
+              {(['elevator', 'ramp', 'construction', 'other'] as const).map((type) => {
+                const selected = selectedReportType === type;
+                return (
+                  <button
+                    key={type}
+                    type='button'
+                    onClick={() => setSelectedReportType(type)}
+                    className='flex items-center gap-2.5 rounded-xl border-2 px-3 py-2 text-left text-sm font-medium transition-all'
+                    style={selected ? {
+                      borderColor: COLORS.primary,
+                      backgroundColor: `${COLORS.primary}12`,
+                      color: COLORS.primary,
+                    } : {
+                      borderColor: '#e5e7eb',
+                      backgroundColor: '#fff',
+                      color: '#374151',
+                    }}
+                  >
+                    <span
+                      className='flex h-6 w-6 shrink-0 items-center justify-center rounded-lg'
+                      style={selected ? { backgroundColor: COLORS.primary, color: '#fff' } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                    >
+                      <ReportTypeIcon type={type} />
+                    </span>
+                    {REPORT_LABELS[type]}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className='space-y-1.5'>
-              <p className='text-sm font-medium text-neutral-800'>
-                Describe el problema (opcional)
-              </p>
+            {/* Descripción */}
+            <div className='space-y-1'>
+              <p className='text-xs font-semibold text-neutral-700'>Describe el problema <span className='font-normal text-neutral-400'>(opcional)</span></p>
               <Textarea
                 placeholder='Ej: La rampa está bloqueada por una reja.'
                 value={reportDescription}
                 onChange={(e) => setReportDescription(e.target.value)}
-                className='min-h-[80px]'
+                className='min-h-[64px] rounded-xl border-neutral-200 resize-none text-sm focus-visible:ring-1'
+                style={{ '--tw-ring-color': COLORS.primary } as React.CSSProperties}
               />
             </div>
 
             {reportError ? (
-              <p className='text-sm text-red-600'>{reportError}</p>
+              <p className='text-sm text-red-500 flex items-center gap-1.5'>
+                <AppIcons.TriangleAlert className='h-4 w-4 shrink-0' aria-hidden />
+                {reportError}
+              </p>
             ) : null}
 
-            <div className='flex justify-end gap-2 pt-2'>
+            {/* Botones */}
+            <div className='flex gap-2 pt-1'>
               <Button
                 type='button'
                 variant='outline'
+                className='flex-1 rounded-2xl border-neutral-200 text-neutral-600'
                 onClick={() => setReportDialogOpen(false)}
                 disabled={reportSubmitting}
               >
@@ -667,10 +665,12 @@ export function PlaceDetailPage() {
               </Button>
               <Button
                 type='button'
+                className='flex-1 rounded-2xl font-semibold'
                 onClick={handleSubmitReport}
                 disabled={reportSubmitting}
+                style={{ backgroundColor: COLORS.primary, borderColor: COLORS.primary, color: '#fff' }}
               >
-                {reportSubmitting ? 'Enviando…' : 'Reportar'}
+                {reportSubmitting ? 'Enviando…' : 'Reportar problema'}
               </Button>
             </div>
           </div>

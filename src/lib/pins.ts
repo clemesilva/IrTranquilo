@@ -1,9 +1,9 @@
 import type { PlaceCategory } from '../types/place'
-import { CATEGORY_ICON } from '../types/place'
 import { COLORS } from '../styles/colors'
+import { categoryIconSvgString } from '../components/icons/appIcons'
 
 export function categoryGlyph(category: PlaceCategory): string {
-  return CATEGORY_ICON[category] ?? ''
+  return categoryIconSvgString(category, 13, 'white')
 }
 
 export function buildPinHtml(params: {
@@ -31,6 +31,7 @@ export function buildPinHtml(params: {
           display:flex;align-items:center;justify-content:center;
         ">
           <div style="transform:rotate(45deg);width:${r}px;height:${r}px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;">
+            ${glyph.replace(/stroke="white"/g, `stroke="${COLORS.primary}"`)}
           </div>
         </div>
         ${hasAlert ? `<span style="position:absolute;top:-4px;right:-4px;background:${COLORS.alertBg};color:${COLORS.text};border-radius:999px;font-size:10px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1px solid ${COLORS.alertBorder}">!</span>` : ''}

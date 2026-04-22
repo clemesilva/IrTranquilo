@@ -16,6 +16,9 @@ export interface AccessibilityFilters {
   // 1. Recomendado
   recommendedOnly: boolean;
 
+  // 1b. Filtro por banda de rating
+  ratingBand: RatingBand | 'all';
+
   // 2. Rating mínimo
   minRating: number | null;
 
@@ -73,7 +76,7 @@ export interface PlacesContextValue {
   toggleFilter: (key: keyof AccessibilityFilters) => void;
   setFilterValue: (
     key: keyof AccessibilityFilters,
-    value: boolean | number | null,
+    value: boolean | number | string | null,
   ) => void;
   resetFilters: () => void;
   getPlaceById: (id: number) => PlaceWithStats | undefined;

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(node node_modules/tinyglobby/dist/index.mjs)",
+      "Bash(kill %1)"
+    ],
+    "additionalDirectories": [
+      "/Users/clementes/Documents/IrTranquiloOficial/node_modules"
+    ]
+  }
+}

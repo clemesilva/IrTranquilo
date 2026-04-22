@@ -57,7 +57,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
             </div>
 
             {tooltip === meta.value ? (
-              <div className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/80 px-2.5 py-1 text-[10px] font-medium text-white shadow-lg">
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 w-max max-w-[160px] -translate-x-1/2 rounded-lg bg-black/80 px-2.5 py-1.5 text-center text-[10px] font-medium leading-snug text-white shadow-lg">
                 {meta.tooltip}
               </div>
             ) : null}

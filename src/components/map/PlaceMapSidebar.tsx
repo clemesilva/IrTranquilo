@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Navigation, X } from 'lucide-react';
 import { useAuth } from '@/context/useAuth';
@@ -46,7 +46,7 @@ function StarRow({
 interface PlaceMapSidebarProps {
   place: PlaceWithStats;
   onClose: () => void;
-  onCollapseChange?: (collapsed: boolean) => void;
+  onSnapChange?: (snap: number) => void;
 }
 
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
@@ -149,13 +149,39 @@ function ReviewLikeButton({ reviewId, initialCount, userId }: { reviewId: number
   );
 }
 
-export function PlaceMapSidebar({ place, onClose, onCollapseChange }: PlaceMapSidebarProps) {
+export function PlaceMapSidebar({ place, onClose, onSnapChange }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { reviewsForPlace, accessibilityConsensusForPlace } = usePlaces();
   const [isFav, setIsFav] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [mobileCollapsed, setMobileCollapsed] = useState(false);
+
+  // Bottom sheet snap: 0=12vh, 1=47vh, 2=88vh
+  const SNAPS: ['12vh', '47vh', '88vh'] = ['12vh', '47vh', '88vh'];
+  const [snap, setSnap] = useState(0);
+  const dragStartY = useRef<number | null>(null);
+
+  useEffect(() => {
+    queueMicrotask(() => setSnap(1));
+  }, [place.id]);
+
+  useEffect(() => {
+    onSnapChange?.(snap);
+  }, [snap, onSnapChange]);
+
+  const onHandlePointerDown = (e: React.PointerEvent) => {
+    dragStartY.current = e.clientY;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onHandlePointerUp = (e: React.PointerEvent) => {
+    if (dragStartY.current === null) return;
+    const dy = dragStartY.current - e.clientY;
+    dragStartY.current = null;
+    if (dy > 30) setSnap((s) => Math.min(s + 1, 2));
+    else if (dy < -30) setSnap((s) => Math.max(s - 1, 0));
+    else setSnap((s) => (s < 2 ? s + 1 : 0));
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -307,58 +333,8 @@ export function PlaceMapSidebar({ place, onClose, onCollapseChange }: PlaceMapSi
 
 
 
-  return (
-    /* Wrapper externo: maneja la transición y no recorta el handle */
-    <div
-      className={cn(
-        'relative h-full w-[min(84vw,22rem)] sm:w-[min(86vw,24rem)]',
-        'transition-transform duration-300 ease-in-out animate-in slide-in-from-right-4',
-        mobileCollapsed ? 'translate-x-[calc(100%-2.5rem)] sm:translate-x-0' : 'translate-x-0',
-        // Cuando está colapsado en mobile, el wrapper no bloquea el mapa
-        mobileCollapsed ? 'pointer-events-none sm:pointer-events-auto' : 'pointer-events-auto',
-      )}
-      role='dialog'
-      aria-labelledby='place-map-sidebar-title'
-    >
-      {/* Handle solo para mobile — fuera del div con overflow-hidden */}
-      <button
-        type='button'
-        onClick={() => setMobileCollapsed((v) => { onCollapseChange?.(!v); return !v; })}
-        className='sm:hidden absolute top-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center gap-1 bg-white border border-r-0 shadow-md rounded-l-xl pointer-events-auto'
-        style={{
-          width: '2.5rem',
-          height: '4.5rem',
-          left: '-2.5rem',
-          borderColor: COLORS.border,
-        }}
-        aria-label={mobileCollapsed ? 'Expandir panel' : 'Contraer panel'}
-      >
-        <svg
-          xmlns='http://www.w3.org/2000/svg'
-          width='16'
-          height='16'
-          viewBox='0 0 24 24'
-          fill='none'
-          stroke='currentColor'
-          strokeWidth='2.5'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-          style={{ color: COLORS.primary }}
-          aria-hidden
-        >
-          {mobileCollapsed ? (
-            <polyline points='15 18 9 12 15 6' />
-          ) : (
-            <polyline points='9 18 15 12 9 6' />
-          )}
-        </svg>
-      </button>
-
-      {/* Panel interior con overflow-hidden */}
-      <div
-        className='flex min-h-0 h-full flex-col overflow-hidden bg-white shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] rounded-l-2xl border-y border-l'
-        style={{ borderColor: COLORS.border }}
-      >
+  // Contenido compartido entre mobile y desktop
+  const panelContent = (
       <ScrollArea className='min-h-0 flex-1'>
         <div className='px-4 pb-4 pt-5'>
           {/* Nombre + Cerrar */}
@@ -369,12 +345,12 @@ export function PlaceMapSidebar({ place, onClose, onCollapseChange }: PlaceMapSi
             >
               {place.name}
             </h2>
-            <div className='flex shrink-0 items-center gap-0.5'>
+            <div className='flex shrink-0 items-start gap-0.5 mt-2'>
               <Button
                 type='button'
                 variant='ghost'
                 size='icon'
-                className='h-7 w-7'
+                className='hidden sm:flex h-7 w-7'
                 onClick={toggleFav}
                 disabled={favLoading}
                 aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
@@ -386,7 +362,7 @@ export function PlaceMapSidebar({ place, onClose, onCollapseChange }: PlaceMapSi
                 type='button'
                 variant='ghost'
                 size='icon'
-                className='h-7 w-7 text-neutral-400 hover:text-neutral-700'
+                className='hidden sm:flex h-7 w-7 text-neutral-400 hover:text-neutral-700'
                 onClick={onClose}
                 aria-label='Cerrar'
               >
@@ -748,7 +724,74 @@ export function PlaceMapSidebar({ place, onClose, onCollapseChange }: PlaceMapSi
           )}
         </div>
       </ScrollArea>
+  );
+
+  return (
+    <>
+      {/* ── MOBILE: bottom sheet con 3 niveles de snap ── */}
+      <div
+        className='sm:hidden fixed inset-x-0 bottom-0 z-[9050] flex flex-col'
+        style={{
+          height: SNAPS[snap as 0 | 1 | 2],
+          transition: 'height 0.3s cubic-bezier(0.32,0.72,0,1)',
+        }}
+        role='dialog'
+        aria-labelledby='place-map-sidebar-title'
+      >
+        {/* Drag handle */}
+        <div
+          className='flex w-full cursor-grab touch-none items-center justify-center rounded-t-2xl border-t border-x bg-white pt-3 pb-2 active:cursor-grabbing'
+          style={{ borderColor: COLORS.border }}
+          onPointerDown={onHandlePointerDown}
+          onPointerUp={onHandlePointerUp}
+        >
+          <div className='h-1 w-10 rounded-full bg-neutral-300' />
+        </div>
+
+        {/* Contenido */}
+        <div
+          className='flex min-h-0 flex-1 flex-col overflow-hidden border-x border-b bg-white shadow-[0_-8px_30px_-8px_rgba(15,23,42,0.18)]'
+          style={{ borderColor: COLORS.border }}
+        >
+          {/* Corazón + Cerrar — mobile */}
+          <div className='absolute top-12 right-4 z-10 flex items-center gap-1'>
+            <button
+              type='button'
+              onClick={toggleFav}
+              disabled={favLoading}
+              aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              className='flex h-7 w-7 items-center justify-center rounded-full border bg-white transition-colors'
+              style={{ borderColor: COLORS.border, color: isFav ? '#EF4444' : '#D1D5DB' }}
+            >
+              <Heart className='h-4 w-4' fill={isFav ? '#EF4444' : 'none'} />
+            </button>
+            <button
+              type='button'
+              onClick={onClose}
+              className='flex h-7 w-7 items-center justify-center rounded-full border bg-white text-neutral-400'
+              style={{ borderColor: COLORS.border }}
+              aria-label='Cerrar'
+            >
+              <X className='h-4 w-4' />
+            </button>
+          </div>
+          {panelContent}
+        </div>
       </div>
-    </div>
+
+      {/* ── DESKTOP: panel lateral derecho ── */}
+      <div
+        className='hidden sm:flex absolute top-0 right-0 bottom-0 z-[9050] w-[min(86vw,24rem)] flex-col animate-in slide-in-from-right-4 pointer-events-auto'
+        role='dialog'
+        aria-labelledby='place-map-sidebar-title'
+      >
+        <div
+          className='flex min-h-0 h-full flex-col overflow-hidden bg-white shadow-[0_0_40px_-12px_rgba(15,23,42,0.35)] rounded-l-2xl border-y border-l'
+          style={{ borderColor: COLORS.border }}
+        >
+          {panelContent}
+        </div>
+      </div>
+    </>
   );
 }

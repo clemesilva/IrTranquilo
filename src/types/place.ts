@@ -52,14 +52,14 @@ export const CATEGORIES = [
     value: 'cultura',
     label: 'Cultura y ocio',
     icon: '',
-    tooltip: 'Museo, Teatro, Cine, Centro cultural',
+    tooltip: 'Museo, Teatro, Cine, Biblioteca, Centro cultural',
     isPublic: false,
   },
   {
     value: 'deporte',
     label: 'Deporte',
-    icon: '',
-    tooltip: 'Gimnasio, Estadio, Spa, Cancha',
+    icon: '🏋️',
+    tooltip: 'Gimnasio, Estadio, Cancha',
     isPublic: false,
   },
   {
