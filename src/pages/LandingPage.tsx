@@ -450,7 +450,7 @@ export function LandingPage() {
             className='mb-4 text-3xl font-extrabold leading-tight sm:text-4xl'
             style={{ color: COLORS.text }}
           >
-            Muévete por la ciudad{' '}
+            Anda tranquilo,{' '}
             <span
               style={{
                 background: `linear-gradient(to right, ${COLORS.primary}, ${COLORS.success})`,
@@ -459,17 +459,26 @@ export function LandingPage() {
                 backgroundClip: 'text',
               }}
             >
-              sin barreras
+              nosotros ya fuimos.
             </span>
           </h2>
 
           {/* Description */}
           <p
-            className='mb-8 text-base leading-relaxed'
+            className='mb-4 text-base leading-relaxed'
             style={{ color: COLORS.textMuted }}
           >
-            Encuentra espacios accesibles para personas con movilidad reducida y
-            ayuda a construir una ciudad más inclusiva.
+            Descubre qué tan accesible es un lugar antes de ir — rampas, escaleras,
+            estacionamiento, baños y más, reportado por gente que ya estuvo ahí.
+          </p>
+
+          {/* CTA secundario */}
+          <p
+            className='mb-8 text-sm leading-relaxed'
+            style={{ color: COLORS.textLight }}
+          >
+            ¿Ya fuiste a algún lugar? Agrégalo, califica su accesibilidad
+            y ayuda a otros a ir tranquilos también.
           </p>
         </div>
       </section>
