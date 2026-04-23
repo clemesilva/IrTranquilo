@@ -188,9 +188,6 @@ export function PlaceMapSidebar({
   }, [snap, onSnapChange]);
 
   const onHandlePointerDown = (e: React.PointerEvent) => {
-    // No iniciar drag si se tocó un elemento interactivo
-    const target = e.target as HTMLElement;
-    if (target.closest('button, a, input, select, textarea, video')) return;
     dragStartY.current = e.clientY;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -358,9 +355,10 @@ export function PlaceMapSidebar({
       },
     }[place.band] ?? null;
 
-  // ── Header: nombre → tabs bar (drag zone en mobile) ──
-  const panelHeader = (
-    <div className='px-4 pt-5 pb-0'>
+  // Contenido compartido entre mobile y desktop
+  const panelContent = (
+    <ScrollArea className='min-h-0 flex-1'>
+      <div className='px-4 pb-4 pt-5'>
         {/* Nombre + Cerrar */}
         <div className='mb-1 flex items-start justify-between gap-2'>
           <h2
@@ -616,9 +614,9 @@ export function PlaceMapSidebar({
           );
         })()}
 
-        {/* Tabs bar */}
+        {/* Tabs */}
         <div
-          className='mb-0 mt-1 flex border-b'
+          className='mb-2 mt-1 flex border-b'
           style={{ borderColor: COLORS.border }}
         >
           {(
@@ -642,12 +640,8 @@ export function PlaceMapSidebar({
             </button>
           ))}
         </div>
-      </div>
-  );
 
-  // ── Contenido de tabs (solo esto scrollea en mobile) ──
-  const panelTabContent = (
-    <div className='px-4 pb-4 pt-3'>
+        {/* Contenido tabs */}
         {tab === 'overview' && (
           <div className='scale-[0.88] origin-top-left -mb-4'>
             <AccessibilityConsensusGrid
@@ -766,14 +760,7 @@ export function PlaceMapSidebar({
             )}
           </div>
         )}
-    </div>
-  );
-
-  // Desktop: todo en un ScrollArea
-  const panelContent = (
-    <ScrollArea className='min-h-0 flex-1'>
-      {panelHeader}
-      {panelTabContent}
+      </div>
     </ScrollArea>
   );
 
@@ -788,31 +775,34 @@ export function PlaceMapSidebar({
         }}
         role='dialog'
         aria-labelledby='place-map-sidebar-title'
-        onPointerDown={onHandlePointerDown}
-        onPointerUp={onHandlePointerUp}
       >
-        {/* Drag handle pill */}
+        {/* Drag handle */}
         <div
           className='flex w-full cursor-grab touch-none items-center justify-center rounded-t-2xl border-t border-x bg-white pt-3 pb-2 active:cursor-grabbing'
           style={{ borderColor: COLORS.border }}
+          onPointerDown={onHandlePointerDown}
+          onPointerUp={onHandlePointerUp}
         >
           <div className='h-1 w-10 rounded-full bg-neutral-300' />
         </div>
 
-        {/* Header: nombre → tabs bar (drag zone completa) */}
+        {/* Contenido */}
         <div
-          className='relative border-x bg-white cursor-grab active:cursor-grabbing'
+          className='flex min-h-0 flex-1 flex-col overflow-hidden border-x border-b bg-white shadow-[0_-8px_30px_-8px_rgba(15,23,42,0.18)]'
           style={{ borderColor: COLORS.border }}
         >
-          {/* Corazón + Cerrar */}
-          <div className='absolute top-3 right-4 z-10 flex items-center gap-1' onPointerDown={e => e.stopPropagation()}>
+          {/* Corazón + Cerrar — mobile */}
+          <div className='absolute top-12 right-4 z-10 flex items-center gap-1'>
             <button
               type='button'
               onClick={toggleFav}
               disabled={favLoading}
               aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
               className='flex h-7 w-7 items-center justify-center rounded-full border bg-white transition-colors'
-              style={{ borderColor: COLORS.border, color: isFav ? '#EF4444' : '#D1D5DB' }}
+              style={{
+                borderColor: COLORS.border,
+                color: isFav ? '#EF4444' : '#D1D5DB',
+              }}
             >
               <Heart className='h-4 w-4' fill={isFav ? '#EF4444' : 'none'} />
             </button>
@@ -826,17 +816,7 @@ export function PlaceMapSidebar({
               <X className='h-4 w-4' />
             </button>
           </div>
-          {panelHeader}
-        </div>
-
-        {/* Contenido tabs — solo esto scrollea */}
-        <div
-          className='flex min-h-0 flex-1 flex-col overflow-hidden border-x border-b bg-white shadow-[0_-8px_30px_-8px_rgba(15,23,42,0.18)]'
-          style={{ borderColor: COLORS.border }}
-        >
-          <ScrollArea className='min-h-0 flex-1'>
-            {panelTabContent}
-          </ScrollArea>
+          {panelContent}
         </div>
       </div>
 
