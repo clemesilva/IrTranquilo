@@ -85,7 +85,7 @@ export function PlaceReviewForm({
   }, [isAuthenticated, user, myReviewWithAccessibility, placeId]);
 
   useEffect(() => {
-    void loadMine();
+    void loadMine(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [loadMine]);
 
   const canSubmit =
@@ -167,8 +167,8 @@ export function PlaceReviewForm({
         className,
       )}
     >
-      <div className='min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4'>
-        <div className='space-y-4'>
+      <div className='min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3'>
+        <div className='space-y-3'>
           {/* Rating */}
           <section className='space-y-2'>
             <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>

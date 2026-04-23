@@ -17,6 +17,7 @@ import { getCategoryMeta, type PlaceReview } from '@/types/place';
 import { supabase } from '@/services/supabase';
 import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
 import { COLORS } from '@/styles/colors';
+import { ReviewMedia } from '@/components/reviews/ReviewMedia';
 
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
 
@@ -285,7 +286,9 @@ export function PlaceDetailPage() {
           type='button'
           variant='ghost'
           className='px-0'
-          onClick={() => navigate(`/?place=${placeId}`, { state: { mapFullscreen: true } })}
+          onClick={() =>
+            navigate(`/?place=${placeId}`, { state: { mapFullscreen: true } })
+          }
         >
           ← Volver al mapa
         </Button>
@@ -302,7 +305,9 @@ export function PlaceDetailPage() {
         type='button'
         variant='ghost'
         className='mb-3 px-0 text-sm'
-        onClick={() => navigate(`/?place=${placeId}`, { state: { mapFullscreen: true } })}
+        onClick={() =>
+          navigate(`/?place=${placeId}`, { state: { mapFullscreen: true } })
+        }
       >
         ← Volver al mapa
       </Button>
@@ -601,31 +606,10 @@ export function PlaceDetailPage() {
                         {r.comment}
                       </p>
                     ) : null}
-                    {r.photoUrls && r.photoUrls.length > 0 ? (
-                      <div className='mt-3 flex flex-wrap gap-2'>
-                        {r.photoUrls.map((url, i) => (
-                          <a
-                            key={i}
-                            href={url}
-                            target='_blank'
-                            rel='noreferrer'
-                          >
-                            <img
-                              src={url}
-                              alt={`Foto ${i + 1}`}
-                              className='h-20 w-20 rounded-lg object-cover border border-neutral-200 hover:opacity-90 transition'
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    ) : null}
-                    {r.videoUrl ? (
-                      <video
-                        src={r.videoUrl}
-                        controls
-                        className='mt-3 w-full max-w-xs rounded-lg border border-neutral-200'
-                      />
-                    ) : null}
+                    <ReviewMedia
+                      photoUrls={r.photoUrls ?? []}
+                      videoUrl={r.videoUrl}
+                    />
                   </div>
                 </div>
               </div>
@@ -633,33 +617,6 @@ export function PlaceDetailPage() {
           )}
         </div>
       </section>
-
-      {/* Derivación a sistema de denuncias según categoría */}
-      <div className='mt-4 text-xs text-neutral-500'>
-        {(() => {
-          const meta = getCategoryMeta(place.category);
-          const isPublic = meta.isPublic ?? false;
-          return isPublic ? (
-            <a
-              href='https://www.siac.cl'
-              target='_blank'
-              rel='noreferrer'
-              className='underline-offset-2 hover:underline'
-            >
-              Denunciar en SIAC (institución pública)
-            </a>
-          ) : (
-            <a
-              href='https://www.sernac.cl'
-              target='_blank'
-              rel='noreferrer'
-              className='underline-offset-2 hover:underline'
-            >
-              Denunciar en SERNAC (empresa privada)
-            </a>
-          );
-        })()}
-      </div>
 
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogContent className='w-[calc(100vw-2rem)] max-w-sm rounded-3xl p-0 overflow-hidden sm:max-w-sm'>

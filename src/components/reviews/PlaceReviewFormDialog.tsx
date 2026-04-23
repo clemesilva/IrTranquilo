@@ -60,7 +60,7 @@ export function PlaceReviewFormDialog({
             (isAuthenticated ? 'Editar mi reseña' : 'Dejar una reseña')}
         </Button>
       </DialogTrigger>
-      <DialogContent className='flex max-h-[min(98dvh,920px)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl sm:rounded-2xl'>
+      <DialogContent className='flex max-h-[min(92dvh,680px)] w-[calc(100vw-2rem)] max-w-md flex-col gap-0 overflow-hidden rounded-2xl p-0'>
         <DialogHeader className='shrink-0 border-b border-neutral-100 px-5 pb-3 pt-4 text-left sm:pr-12'>
           <DialogTitle>Tu reseña</DialogTitle>
         </DialogHeader>
