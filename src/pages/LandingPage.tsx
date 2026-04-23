@@ -71,14 +71,17 @@ export function LandingPage() {
       [
         'parking_accessible',
         'nearby_parking',
-        'signage_clear',
+        'service_dogs_allowed',
         'ramp_available',
-        'mechanical_stairs',
+        'non_slip_surface',
+        'accessible_route',
         'elevator_available',
+        'mechanical_stairs',
         'wide_entrance',
-        'accessible_bathroom',
         'circulation_clear',
         'lowered_counter',
+        'accessible_bathroom',
+        'dining_table_accessible',
       ] as const
     ).filter((k) => filters[k]).length;
 
@@ -394,6 +397,20 @@ export function LandingPage() {
 
           {/* Actions */}
           <div className='flex items-center gap-2'>
+            {/* Marco Legal */}
+            <button
+              onClick={() => navigate('/marco-legal')}
+              className='flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors hover:bg-gray-50'
+              style={{ borderColor: COLORS.border, color: COLORS.text }}
+              title='Marco Legal'
+            >
+              <AppIcons.Scale size={15} aria-hidden />
+              <span className='hidden sm:inline'>Marco Legal</span>
+            </button>
+
+            {/* Separador */}
+            <div className='h-5 w-px' style={{ backgroundColor: COLORS.border }} />
+
             {/* Añadir lugar */}
             <button
               onClick={() => {
@@ -463,8 +480,9 @@ export function LandingPage() {
             className='mb-4 text-base leading-relaxed'
             style={{ color: COLORS.textMuted }}
           >
-            Descubre qué tan accesible es un lugar antes de ir — rampas, escaleras,
-            estacionamiento, baños y más, reportado por gente que ya estuvo ahí.
+            Descubre qué tan accesible es un lugar antes de ir — rampas,
+            escaleras, estacionamiento, baños y más, reportado por gente que ya
+            estuvo ahí.
           </p>
 
           {/* CTA secundario */}
@@ -472,8 +490,8 @@ export function LandingPage() {
             className='mb-8 text-sm leading-relaxed'
             style={{ color: COLORS.textLight }}
           >
-            ¿Ya fuiste a algún lugar? Agrégalo, califica su accesibilidad
-            y ayuda a otros a ir tranquilos también.
+            ¿Ya fuiste a algún lugar? Agrégalo, califica su accesibilidad y
+            ayuda a otros a ir tranquilos también.
           </p>
         </div>
       </section>
@@ -1050,7 +1068,7 @@ export function LandingPage() {
                 className='text-lg font-bold mb-2'
                 style={{ color: COLORS.text }}
               >
-                IrTranquilo
+                AndaTranquilo
               </h4>
               <p className='text-sm' style={{ color: COLORS.textMuted }}>
                 Un mundo más accesible, un lugar a la vez.
@@ -1166,7 +1184,7 @@ export function LandingPage() {
             style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
           >
             <p>
-              &copy; 2024 IrTranquilo. Con{' '}
+              &copy; 2024 AndaTranquilo. Con{' '}
               <AppIcons.Heart
                 className='inline h-4 w-4 text-rose-600'
                 aria-hidden
@@ -1458,12 +1476,12 @@ export function LandingPage() {
             </div>
 
             {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
-              const sectionTitle =
-                group.title === 'LLEGADA'
-                  ? 'Llegada'
-                  : group.title === 'ENTRADA'
-                    ? 'Entrada'
-                    : 'Interior';
+              const groupIconMap: Record<string, React.ReactNode> = {
+                'LLEGADA': <AppIcons.Car className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
+                'ACCESO': <AppIcons.Accessibility className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
+                'DESPLAZAMIENTO VERTICAL': <AppIcons.MoveVertical className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
+                'INTERIOR': <AppIcons.Building2 className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
+              };
               return (
                 <div
                   key={group.title}
@@ -1474,23 +1492,8 @@ export function LandingPage() {
                     className='text-xs font-semibold uppercase'
                     style={{ color: COLORS.textMuted }}
                   >
-                    {group.title === 'LLEGADA' ? (
-                      <AppIcons.Car
-                        className='mr-1 inline h-3.5 w-3.5'
-                        aria-hidden
-                      />
-                    ) : group.title === 'ENTRADA' ? (
-                      <AppIcons.DoorOpen
-                        className='mr-1 inline h-3.5 w-3.5'
-                        aria-hidden
-                      />
-                    ) : (
-                      <AppIcons.Building2
-                        className='mr-1 inline h-3.5 w-3.5'
-                        aria-hidden
-                      />
-                    )}
-                    {sectionTitle}
+                    {groupIconMap[group.title] ?? <AppIcons.Building2 className='mr-1 inline h-3.5 w-3.5' aria-hidden />}
+                    {group.title.charAt(0) + group.title.slice(1).toLowerCase()}
                   </p>
                   {group.fields.map((f) => (
                     <label

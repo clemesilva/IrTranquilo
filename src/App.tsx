@@ -7,6 +7,7 @@ import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
 import { SidebarAddPlace } from './pages/SidebarAddPlace'
 import { PlaceDetailPage } from './pages/PlaceDetailPage'
+import { MarcoLegalPage } from './pages/MarcoLegalPage'
 
 function AppRoutes() {
   const { user, isLoading } = useAuth()
@@ -58,6 +59,7 @@ function AppRoutes() {
           )
         }
       />
+      <Route path="/marco-legal" element={<MarcoLegalPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

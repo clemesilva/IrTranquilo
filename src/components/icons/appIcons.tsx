@@ -33,7 +33,6 @@ import {
   ParkingCircle,
   Phone,
   Plus,
-  Ruler,
   Search,
   Settings,
   Share2,
@@ -48,6 +47,20 @@ import {
   X,
   TriangleAlert,
   Send,
+  Scale,
+  FileText,
+  ExternalLink,
+  Footprints,
+  TriangleRight,
+  Route,
+  Toilet,
+  Shuffle,
+  PawPrint,
+  ChevronDown,
+  Dog,
+  SquareArrowUp,
+  Bath,
+  MoveRight,
 } from 'lucide-react';
 import type { PlaceCategory } from '@/types/place';
 import type { AccessibilityReviewKey } from '@/types/reviewAccessibility';
@@ -114,22 +127,28 @@ export function AccessibilityFieldIcon({
       return render(Accessibility, props);
     case 'nearby_parking':
       return render(ParkingCircle, props);
-    case 'signage_clear':
-      return render(Signpost, props);
+    case 'service_dogs_allowed':
+      return render(PawPrint, props);
     case 'ramp_available':
-      return render(DoorOpen, props);
-    case 'mechanical_stairs':
-      return render(DoorOpen, props);
+      return render(TriangleRight, props);
+    case 'non_slip_surface':
+      return render(Footprints, props);
+    case 'accessible_route':
+      return render(Route, props);
     case 'elevator_available':
-      return render(MoveHorizontal, props);
+      return render(ArrowUpDown, props);
+    case 'mechanical_stairs':
+      return render(Shuffle, props);
     case 'wide_entrance':
-      return render(Ruler, props);
-    case 'accessible_bathroom':
-      return render(Building2, props);
+      return render(DoorOpen, props);
     case 'circulation_clear':
       return render(MoveHorizontal, props);
     case 'lowered_counter':
       return render(Armchair, props);
+    case 'accessible_bathroom':
+      return render(Toilet, props);
+    case 'dining_table_accessible':
+      return render(Utensils, props);
   }
 }
 
@@ -166,5 +185,20 @@ export const AppIcons = {
   Construction,
   X,
   Send,
+  Scale,
+  FileText,
+  ExternalLink,
+  BookOpen,
+  ChevronDown,
+  Dog,
+  SquareArrowUp,
+  Bath,
+  MoveRight,
+  Footprints,
+  Route,
+  Toilet,
+  PawPrint,
+  Utensils,
+  TriangleRight,
 } as const;
 

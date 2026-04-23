@@ -77,7 +77,7 @@ export function SidebarHome() {
         <CardHeader>
           <div className='flex items-center justify-between'>
             <div>
-              <CardTitle>IrTranquilo</CardTitle>
+              <CardTitle>AndaTranquilo</CardTitle>
               <CardDescription>
                 Lugares con información de accesibilidad
               </CardDescription>

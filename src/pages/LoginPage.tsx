@@ -75,7 +75,7 @@ export function LoginPage() {
             <LogoPin size={60} />
           </div>
           <div>
-            <h1 className='text-4xl font-extrabold text-white'>IrTranquilo</h1>
+            <h1 className='text-4xl font-extrabold text-white'>AndaTranquilo</h1>
             <p className='mt-2 text-lg text-white/70'>
               Anda tranquilo, nosotros ya fuimos.
             </p>
@@ -110,7 +110,7 @@ export function LoginPage() {
         </div>
 
         <p className='text-xs text-white/40 mt-4'>
-          © 2024 IrTranquilo · Santiago, Chile
+          © 2024 AndaTranquilo · Santiago, Chile
         </p>
       </div>
 
@@ -125,7 +125,7 @@ export function LoginPage() {
             className='text-xl font-extrabold'
             style={{ color: COLORS.text }}
           >
-            IrTranquilo
+            AndaTranquilo
           </span>
         </div>
 
@@ -143,7 +143,7 @@ export function LoginPage() {
             </h2>
             <p className='mt-1 text-sm' style={{ color: COLORS.textMuted }}>
               {isSignUp
-                ? 'Únete a la comunidad de IrTranquilo'
+                ? 'Únete a la comunidad de AndaTranquilo'
                 : 'Inicia sesión para continuar'}
             </p>
           </div>

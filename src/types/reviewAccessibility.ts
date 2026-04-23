@@ -2,14 +2,17 @@
 export const ACCESSIBILITY_REVIEW_KEYS = [
   'parking_accessible',
   'nearby_parking',
-  'signage_clear',
+  'service_dogs_allowed',
   'ramp_available',
-  'mechanical_stairs',
+  'non_slip_surface',
+  'accessible_route',
   'elevator_available',
+  'mechanical_stairs',
   'wide_entrance',
-  'accessible_bathroom',
   'circulation_clear',
   'lowered_counter',
+  'accessible_bathroom',
+  'dining_table_accessible',
 ] as const;
 
 export type AccessibilityReviewKey = (typeof ACCESSIBILITY_REVIEW_KEYS)[number];
@@ -25,6 +28,8 @@ export type AccessibilityFieldDef = {
   label: string;
   /** Detalle largo: mostrar solo en tooltip (title) al pasar el mouse. */
   description: string;
+  /** Si el campo está respaldado por legislación chilena vigente. */
+  isLaw: boolean;
 };
 
 export type AccessibilityFieldGroup = {
@@ -38,43 +43,66 @@ export const ACCESSIBILITY_FIELD_GROUPS: AccessibilityFieldGroup[] = [
     fields: [
       {
         key: 'parking_accessible',
-        label: 'Parking preferencial',
-        description: 'Estacionamiento reservado para PcD',
+        label: 'Estacionamiento preferencial',
+        description:
+          'Estacionamiento reservado para personas con discapacidad (Ley 19.900)',
+        isLaw: true,
       },
       {
         key: 'nearby_parking',
-        label: 'Parking cercano',
+        label: 'Estacionamiento cercano',
         description: 'Hay estacionamiento a menos de 50 m del local',
+        isLaw: false,
       },
       {
-        key: 'signage_clear',
-        label: 'Señalización clara',
-        description: 'Señalética visible desde la calle',
-      },
-      {
-        key: 'ramp_available',
-        label: 'Rampa disponible',
-        description: 'Rampa de acceso al local',
-      },
-      {
-        key: 'mechanical_stairs',
-        label: 'Escalera mecánica',
-        description: 'Alternativa para personas mayores',
+        key: 'service_dogs_allowed',
+        label: 'Perros de asistencia',
+        description:
+          'Se permite el ingreso de perros guía o de servicio (Ley 20.025)',
+        isLaw: true,
       },
     ],
   },
   {
-    title: 'ENTRADA',
+    title: 'ACCESO',
+    fields: [
+      {
+        key: 'ramp_available',
+        label: 'Rampa accesible',
+        description: 'Rampa de acceso al local (OGUC Art. 4.1.7)',
+        isLaw: true,
+      },
+      {
+        key: 'non_slip_surface',
+        label: 'Piso antideslizante',
+        description:
+          'Piso antideslizante en acceso y circulación (OGUC Art. 4.1.7)',
+        isLaw: true,
+      },
+      {
+        key: 'accessible_route',
+        label: 'Ruta sin obstáculos',
+        description:
+          'Ruta despejada desde el acceso hasta el interior (OGUC Art. 4.1.7)',
+        isLaw: true,
+      },
+    ],
+  },
+  {
+    title: 'DESPLAZAMIENTO VERTICAL',
     fields: [
       {
         key: 'elevator_available',
         label: 'Ascensor',
-        description: 'Para locales en altura',
+        description:
+          'Ascensor habilitado para personas con movilidad reducida (OGUC Art. 4.1.7)',
+        isLaw: true,
       },
       {
-        key: 'wide_entrance',
-        label: 'Entrada ancha',
-        description: 'Puerta de al menos 90 cm para silla de ruedas',
+        key: 'mechanical_stairs',
+        label: 'Escalera mecánica',
+        description: 'Alternativa de desplazamiento vertical',
+        isLaw: false,
       },
     ],
   },
@@ -82,19 +110,37 @@ export const ACCESSIBILITY_FIELD_GROUPS: AccessibilityFieldGroup[] = [
     title: 'INTERIOR',
     fields: [
       {
-        key: 'accessible_bathroom',
-        label: 'Baño accesible',
-        description: 'Baño adaptado para PcD',
+        key: 'wide_entrance',
+        label: 'Entrada ancha',
+        description:
+          'Puerta de al menos 90 cm para silla de ruedas (OGUC Art. 4.1.7)',
+        isLaw: true,
       },
       {
         key: 'circulation_clear',
         label: 'Circulación amplia',
-        description: 'Pasillos sin obstáculos',
+        description: 'Pasillos interiores sin obstáculos (OGUC Art. 4.1.7)',
+        isLaw: true,
       },
       {
         key: 'lowered_counter',
-        label: 'Mesón rebajado',
-        description: 'Atención a altura de silla de ruedas',
+        label: 'Mesón accesible',
+        description:
+          'Mesón de atención a altura de silla de ruedas (OGUC Art. 4.1.7)',
+        isLaw: true,
+      },
+      {
+        key: 'accessible_bathroom',
+        label: 'Baño accesible',
+        description:
+          'Baño adaptado para personas con discapacidad (OGUC Art. 4.1.7)',
+        isLaw: true,
+      },
+      {
+        key: 'dining_table_accessible',
+        label: 'Mesa accesible',
+        description: 'Mesa con altura y espacio adecuado para silla de ruedas',
+        isLaw: false,
       },
     ],
   },
