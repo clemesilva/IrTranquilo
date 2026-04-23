@@ -152,8 +152,7 @@ export function PlaceDetailPage() {
     if (statsHealDoneRef.current) return;
     if (reviews.length === 0) return;
 
-    const avgRev =
-      reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+    const avgRev = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
     const countMismatch = reviews.length !== place.reviewCount;
     const avgMismatch = Math.abs(avgRev - place.avgRating) > 0.05;
     if (!countMismatch && !avgMismatch) return;
@@ -168,13 +167,7 @@ export function PlaceDetailPage() {
         statsHealDoneRef.current = false;
       }
     })();
-  }, [
-    placeId,
-    place,
-    reviews,
-    reviewsLoading,
-    refreshPlaces,
-  ]);
+  }, [placeId, place, reviews, reviewsLoading, refreshPlaces]);
 
   /** Cabecera alineada con la lista real de reseñas (evita desfase con places.review_count). */
   const headerReviewStats = useMemo(() => {
@@ -292,7 +285,7 @@ export function PlaceDetailPage() {
           type='button'
           variant='ghost'
           className='px-0'
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(`/?place=${placeId}`, { state: { mapFullscreen: true } })}
         >
           ← Volver al mapa
         </Button>
@@ -309,13 +302,16 @@ export function PlaceDetailPage() {
         type='button'
         variant='ghost'
         className='mb-3 px-0 text-sm'
-        onClick={() => navigate(-1)}
+        onClick={() => navigate(`/?place=${placeId}`, { state: { mapFullscreen: true } })}
       >
         ← Volver al mapa
       </Button>
 
       {/* Header card */}
-      <header className='overflow-hidden rounded-2xl border bg-white shadow-sm' style={{ borderColor: COLORS.border }}>
+      <header
+        className='overflow-hidden rounded-2xl border bg-white shadow-sm'
+        style={{ borderColor: COLORS.border }}
+      >
         {/* Hero imagen */}
         <div className='relative h-44 w-full bg-neutral-100 sm:h-56'>
           {place.googlePhotoUrl ? (
@@ -327,7 +323,11 @@ export function PlaceDetailPage() {
             />
           ) : (
             <div className='flex h-full w-full items-center justify-center'>
-              <CategoryIcon category={place.category} size={48} className='text-neutral-300' />
+              <CategoryIcon
+                category={place.category}
+                size={48}
+                className='text-neutral-300'
+              />
             </div>
           )}
           {/* Gradiente inferior */}
@@ -337,7 +337,11 @@ export function PlaceDetailPage() {
             className='absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm'
             style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
           >
-            <CategoryIcon category={place.category} size={13} className='text-white' />
+            <CategoryIcon
+              category={place.category}
+              size={13}
+              className='text-white'
+            />
             {getCategoryMeta(place.category).label}
           </span>
         </div>
@@ -387,43 +391,98 @@ export function PlaceDetailPage() {
                       key={i}
                       className='h-5 w-5'
                       aria-hidden
-                      style={{ color: i < Math.round(headerReviewStats.avg) ? COLORS.primary : '#E2E8F0' }}
+                      style={{
+                        color:
+                          i < Math.round(headerReviewStats.avg)
+                            ? COLORS.primary
+                            : '#E2E8F0',
+                      }}
                     />
                   ))}
                 </div>
-                <AppIcons.Accessibility size={20} style={{ color: COLORS.primary }} aria-hidden />
+                <AppIcons.Accessibility
+                  size={20}
+                  style={{ color: COLORS.primary }}
+                  aria-hidden
+                />
                 <span className='text-sm text-neutral-500'>
-                  · {headerReviewStats.count} {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
+                  · {headerReviewStats.count}{' '}
+                  {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
                 </span>
                 {place.googleRating != null && (
                   <span className='text-xs text-neutral-400'>
-                    · {place.googleRating} en Google ({place.googleRatingsTotal ?? 0})
+                    · {place.googleRating} en Google (
+                    {place.googleRatingsTotal ?? 0})
                   </span>
                 )}
               </div>
 
-              <div className='mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm'>
+              <div className='mt-2.5 flex flex-col gap-y-1.5 text-sm'>
                 <span className='flex items-center gap-1.5 text-neutral-600'>
                   <AppIcons.MapPin className='h-4 w-4 shrink-0' aria-hidden />
                   {place.address}
                 </span>
-                {place.phone ? (
-                  <a href={`tel:${place.phone}`} className='flex items-center gap-1.5 hover:underline' style={{ color: COLORS.primary }}>
-                    <AppIcons.Phone className='h-4 w-4' aria-hidden />
-                    {place.phone}
-                  </a>
-                ) : null}
-                {place.website ? (
-                  <a href={place.website} target='_blank' rel='noreferrer' className='flex items-center gap-1.5 hover:underline' style={{ color: COLORS.primary }}>
-                    <AppIcons.Globe className='h-4 w-4' aria-hidden />
-                    Sitio web
-                  </a>
-                ) : null}
-                {place.priceLevel != null ? (
-                  <span className='text-neutral-500'>{precioLabel[place.priceLevel] ?? ''}</span>
-                ) : null}
+                <div className='flex flex-wrap items-center gap-x-4 gap-y-1'>
+                  {place.phone ? (
+                    <a
+                      href={`tel:${place.phone}`}
+                      className='flex sm:hidden items-center gap-1.5 hover:underline'
+                      style={{ color: COLORS.primary }}
+                    >
+                      <AppIcons.Phone className='h-4 w-4' aria-hidden />
+                      {place.phone}
+                    </a>
+                  ) : null}
+                  {place.phone ? (
+                    <a
+                      href={`tel:${place.phone}`}
+                      className='hidden sm:flex items-center gap-1.5 hover:underline'
+                      style={{ color: COLORS.primary }}
+                    >
+                      <AppIcons.Phone className='h-4 w-4' aria-hidden />
+                      {place.phone}
+                    </a>
+                  ) : null}
+                  {place.website ? (
+                    <a
+                      href={place.website}
+                      target='_blank'
+                      rel='noreferrer'
+                      className='flex items-center gap-1.5 hover:underline'
+                      style={{ color: COLORS.primary }}
+                    >
+                      <AppIcons.Globe
+                        className='h-4 w-4 shrink-0'
+                        aria-hidden
+                      />
+                      {(() => {
+                        try {
+                          const host = new URL(place.website).hostname.replace(
+                            /^www\./,
+                            '',
+                          );
+                          return (
+                            <span className='truncate max-w-[180px] sm:max-w-[280px]'>
+                              {host}
+                            </span>
+                          );
+                        } catch {
+                          return (
+                            <span className='truncate max-w-[180px] sm:max-w-[280px]'>
+                              Sitio web
+                            </span>
+                          );
+                        }
+                      })()}
+                    </a>
+                  ) : null}
+                  {place.priceLevel != null ? (
+                    <span className='text-neutral-500'>
+                      {precioLabel[place.priceLevel] ?? ''}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-
             </div>
 
             {/* Columna derecha: botones siempre en paralelo */}
@@ -432,16 +491,27 @@ export function PlaceDetailPage() {
                 placeId={place.id}
                 onSaved={() => void reloadLists()}
                 triggerClassName='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
-                triggerStyle={{ backgroundColor: COLORS.primary, color: '#fff', borderColor: COLORS.primary }}
+                triggerStyle={{
+                  backgroundColor: COLORS.primary,
+                  color: '#fff',
+                  borderColor: COLORS.primary,
+                }}
               />
               <Button
                 type='button'
                 variant='outline'
                 className='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
-                style={{ backgroundColor: '#fefce8', color: '#92400e', borderColor: '#fde68a' }}
+                style={{
+                  backgroundColor: '#fefce8',
+                  color: '#92400e',
+                  borderColor: '#fde68a',
+                }}
                 onClick={handleOpenReport}
               >
-                <AppIcons.TriangleAlert className='mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4' aria-hidden />
+                <AppIcons.TriangleAlert
+                  className='mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4'
+                  aria-hidden
+                />
                 Reportar
               </Button>
             </div>
@@ -468,9 +538,7 @@ export function PlaceDetailPage() {
                 </span>
               </div>
               {r.description ? (
-                <p className='mt-1 text-xs text-amber-950'>
-                  {r.description}
-                </p>
+                <p className='mt-1 text-xs text-amber-950'>{r.description}</p>
               ) : null}
             </div>
           ))}
@@ -523,7 +591,10 @@ export function PlaceDetailPage() {
                       <span className='font-medium tabular-nums'>
                         {r.rating}/5
                       </span>{' '}
-                      <AppIcons.Star className='inline h-4 w-4 text-amber-500' aria-hidden />
+                      <AppIcons.Star
+                        className='inline h-4 w-4 text-amber-500'
+                        aria-hidden
+                      />
                     </div>
                     {r.comment ? (
                       <p className='mt-2 text-sm leading-relaxed text-neutral-700'>
@@ -533,7 +604,12 @@ export function PlaceDetailPage() {
                     {r.photoUrls && r.photoUrls.length > 0 ? (
                       <div className='mt-3 flex flex-wrap gap-2'>
                         {r.photoUrls.map((url, i) => (
-                          <a key={i} href={url} target='_blank' rel='noreferrer'>
+                          <a
+                            key={i}
+                            href={url}
+                            target='_blank'
+                            rel='noreferrer'
+                          >
                             <img
                               src={url}
                               alt={`Foto ${i + 1}`}
@@ -558,7 +634,7 @@ export function PlaceDetailPage() {
         </div>
       </section>
 
-{/* Derivación a sistema de denuncias según categoría */}
+      {/* Derivación a sistema de denuncias según categoría */}
       <div className='mt-4 text-xs text-neutral-500'>
         {(() => {
           const meta = getCategoryMeta(place.category);
@@ -588,12 +664,26 @@ export function PlaceDetailPage() {
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogContent className='w-[calc(100vw-2rem)] max-w-sm rounded-3xl p-0 overflow-hidden sm:max-w-sm'>
           {/* Header con fondo suave */}
-          <div className='px-5 pt-5 pb-3' style={{ background: 'linear-gradient(135deg, #fef9f0 0%, #fef3e2 100%)' }}>
+          <div
+            className='px-5 pt-5 pb-3'
+            style={{
+              background: 'linear-gradient(135deg, #fef9f0 0%, #fef3e2 100%)',
+            }}
+          >
             <div className='flex items-center gap-2.5 mb-0.5'>
-              <div className='flex h-8 w-8 items-center justify-center rounded-xl' style={{ backgroundColor: '#fde68a' }}>
-                <AppIcons.TriangleAlert className='h-4 w-4' style={{ color: '#92400e' }} aria-hidden />
+              <div
+                className='flex h-8 w-8 items-center justify-center rounded-xl'
+                style={{ backgroundColor: '#fde68a' }}
+              >
+                <AppIcons.TriangleAlert
+                  className='h-4 w-4'
+                  style={{ color: '#92400e' }}
+                  aria-hidden
+                />
               </div>
-              <DialogTitle className='text-base font-bold text-neutral-900'>¿Qué problema encontraste?</DialogTitle>
+              <DialogTitle className='text-base font-bold text-neutral-900'>
+                ¿Qué problema encontraste?
+              </DialogTitle>
             </div>
             <DialogDescription className='text-xs text-neutral-500 ml-[42px]'>
               El reporte expira automáticamente.
@@ -603,51 +693,69 @@ export function PlaceDetailPage() {
           <div className='px-5 pb-5 space-y-3'>
             {/* Opciones de tipo */}
             <div className='grid grid-cols-1 gap-1.5 sm:grid-cols-2'>
-              {(['elevator', 'ramp', 'construction', 'other'] as const).map((type) => {
-                const selected = selectedReportType === type;
-                return (
-                  <button
-                    key={type}
-                    type='button'
-                    onClick={() => setSelectedReportType(type)}
-                    className='flex items-center gap-2.5 rounded-xl border-2 px-3 py-2 text-left text-sm font-medium transition-all'
-                    style={selected ? {
-                      borderColor: COLORS.primary,
-                      backgroundColor: `${COLORS.primary}12`,
-                      color: COLORS.primary,
-                    } : {
-                      borderColor: '#e5e7eb',
-                      backgroundColor: '#fff',
-                      color: '#374151',
-                    }}
-                  >
-                    <span
-                      className='flex h-6 w-6 shrink-0 items-center justify-center rounded-lg'
-                      style={selected ? { backgroundColor: COLORS.primary, color: '#fff' } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
+              {(['elevator', 'ramp', 'construction', 'other'] as const).map(
+                (type) => {
+                  const selected = selectedReportType === type;
+                  return (
+                    <button
+                      key={type}
+                      type='button'
+                      onClick={() => setSelectedReportType(type)}
+                      className='flex items-center gap-2.5 rounded-xl border-2 px-3 py-2 text-left text-sm font-medium transition-all'
+                      style={
+                        selected
+                          ? {
+                              borderColor: COLORS.primary,
+                              backgroundColor: `${COLORS.primary}12`,
+                              color: COLORS.primary,
+                            }
+                          : {
+                              borderColor: '#e5e7eb',
+                              backgroundColor: '#fff',
+                              color: '#374151',
+                            }
+                      }
                     >
-                      <ReportTypeIcon type={type} />
-                    </span>
-                    {REPORT_LABELS[type]}
-                  </button>
-                );
-              })}
+                      <span
+                        className='flex h-6 w-6 shrink-0 items-center justify-center rounded-lg'
+                        style={
+                          selected
+                            ? { backgroundColor: COLORS.primary, color: '#fff' }
+                            : { backgroundColor: '#f3f4f6', color: '#6b7280' }
+                        }
+                      >
+                        <ReportTypeIcon type={type} />
+                      </span>
+                      {REPORT_LABELS[type]}
+                    </button>
+                  );
+                },
+              )}
             </div>
 
             {/* Descripción */}
             <div className='space-y-1'>
-              <p className='text-xs font-semibold text-neutral-700'>Describe el problema <span className='font-normal text-neutral-400'>(opcional)</span></p>
+              <p className='text-xs font-semibold text-neutral-700'>
+                Describe el problema{' '}
+                <span className='font-normal text-neutral-400'>(opcional)</span>
+              </p>
               <Textarea
                 placeholder='Ej: La rampa está bloqueada por una reja.'
                 value={reportDescription}
                 onChange={(e) => setReportDescription(e.target.value)}
                 className='min-h-[64px] rounded-xl border-neutral-200 resize-none text-sm focus-visible:ring-1'
-                style={{ '--tw-ring-color': COLORS.primary } as React.CSSProperties}
+                style={
+                  { '--tw-ring-color': COLORS.primary } as React.CSSProperties
+                }
               />
             </div>
 
             {reportError ? (
               <p className='text-sm text-red-500 flex items-center gap-1.5'>
-                <AppIcons.TriangleAlert className='h-4 w-4 shrink-0' aria-hidden />
+                <AppIcons.TriangleAlert
+                  className='h-4 w-4 shrink-0'
+                  aria-hidden
+                />
                 {reportError}
               </p>
             ) : null}
@@ -668,7 +776,11 @@ export function PlaceDetailPage() {
                 className='flex-1 rounded-2xl font-semibold'
                 onClick={handleSubmitReport}
                 disabled={reportSubmitting}
-                style={{ backgroundColor: COLORS.primary, borderColor: COLORS.primary, color: '#fff' }}
+                style={{
+                  backgroundColor: COLORS.primary,
+                  borderColor: COLORS.primary,
+                  color: '#fff',
+                }}
               >
                 {reportSubmitting ? 'Enviando…' : 'Reportar problema'}
               </Button>

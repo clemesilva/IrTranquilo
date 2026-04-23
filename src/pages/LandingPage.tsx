@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,11 +25,13 @@ import { ChevronDown } from 'lucide-react';
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const {
     allPlaces,
     filteredPlaces,
     setSearch,
+    category: contextCategory,
     setCategory,
     filters,
     toggleFilter,
@@ -53,6 +55,7 @@ export function LandingPage() {
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [sidebarSnap, setSidebarSnap] = useState(0);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
+  const [addPlaceModalKey, setAddPlaceModalKey] = useState(0);
   const [ratingFilterOpen, setRatingFilterOpen] = useState(false);
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
@@ -63,9 +66,19 @@ export function LandingPage() {
     (filters.recommendedOnly ? 1 : 0) +
     (filters.ratingBand !== 'all' ? 1 : 0) +
     (filters.minRating !== null ? 1 : 0) +
-    (['parking_accessible','nearby_parking','signage_clear','ramp_available',
-      'mechanical_stairs','elevator_available','wide_entrance','accessible_bathroom',
-      'circulation_clear','lowered_counter'] as const
+    (
+      [
+        'parking_accessible',
+        'nearby_parking',
+        'signage_clear',
+        'ramp_available',
+        'mechanical_stairs',
+        'elevator_available',
+        'wide_entrance',
+        'accessible_bathroom',
+        'circulation_clear',
+        'lowered_counter',
+      ] as const
     ).filter((k) => filters[k]).length;
 
   const searchSuggestions = useMemo(() => {
@@ -104,40 +117,59 @@ export function LandingPage() {
     }
   }, [filteredPlaces, selectedPlaceId, selectPlace]);
 
-  const panToPlaceForDetail = useCallback((place: PlaceWithStats, snap?: number) => {
-    const map = mapRef.current;
-    if (!map) return;
-    // En mobile snap=1 → panel ocupa ~47vh, dejamos ese espacio libre abajo
-    const resolvedSnap = snap ?? sidebarSnap;
-    const mobileBottomPx = resolvedSnap >= 1
-      ? Math.round(window.innerHeight * 0.47) + 16
-      : 80;
-    fitMapToPlaceWithUiPadding(
-      map,
-      place.latitude,
-      place.longitude,
-      MAP_UI_PADDING_LANDING,
-      { mobileBottomPx },
-    );
-  }, [sidebarSnap]);
+  const panToPlaceForDetail = useCallback(
+    (place: PlaceWithStats, snap?: number) => {
+      const map = mapRef.current;
+      if (!map) return;
+      // El panel siempre ocupa ~50vh en mobile al abrirse; usamos ese padding
+      // para que el pin quede centrado en la zona visible sobre el panel.
+      const resolvedSnap = snap ?? sidebarSnap;
+      const mobileBottomPx =
+        resolvedSnap >= 2
+          ? Math.round(window.innerHeight * 0.75) + 16
+          : Math.round(window.innerHeight * 0.5) + 16;
+      fitMapToPlaceWithUiPadding(
+        map,
+        place.latitude,
+        place.longitude,
+        MAP_UI_PADDING_LANDING,
+        { mobileBottomPx },
+      );
+    },
+    [sidebarSnap],
+  );
 
-  const enterMapFullscreen = useCallback(() => {
+  const enterMapFullscreen = useCallback((onReady?: () => void) => {
     // Solo en mobile (ancho < 640px)
     if (window.innerWidth >= 640) return;
     setMapFullscreen(true);
-    setTimeout(() => mapRef.current?.invalidateSize(), 50);
+    setTimeout(() => {
+      mapRef.current?.invalidateSize();
+      onReady?.();
+    }, 50);
   }, []);
 
-  const exitMapFullscreen = useCallback(() => {
+  const exitMapFullscreen = useCallback((onReady?: () => void) => {
     setMapFullscreen(false);
-    setTimeout(() => mapRef.current?.invalidateSize(), 50);
+    setTimeout(() => {
+      mapRef.current?.invalidateSize();
+      onReady?.();
+    }, 50);
   }, []);
 
   const focusPlaceOnMap = (place: PlaceWithStats) => {
     selectPlace(place.id);
-    panToPlaceForDetail(place);
-    enterMapFullscreen();
+    enterMapFullscreen(() => panToPlaceForDetail(place));
   };
+
+  // Volver desde PlaceDetailPage en mobile → abrir mapa fullscreen
+  useEffect(() => {
+    if ((location.state as { mapFullscreen?: boolean } | null)?.mapFullscreen) {
+      setTimeout(() => enterMapFullscreen(), 100);
+    }
+    // Solo al montar
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -307,15 +339,20 @@ export function LandingPage() {
           .on('click', (e) => {
             L.DomEvent.stopPropagation(e);
             selectPlace(place.id);
-            panToPlaceForDetail(place);
-            enterMapFullscreen();
+            enterMapFullscreen(() => panToPlaceForDetail(place));
           })
           .addTo(mapRef.current!);
 
         markersRef.current.push({ marker, place });
       }
     });
-  }, [filteredPlaces, selectedPlaceId, panToPlaceForDetail, selectPlace, enterMapFullscreen]);
+  }, [
+    filteredPlaces,
+    selectedPlaceId,
+    panToPlaceForDetail,
+    selectPlace,
+    enterMapFullscreen,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -364,7 +401,10 @@ export function LandingPage() {
           <div className='flex items-center gap-2'>
             {/* Añadir lugar */}
             <button
-              onClick={() => setShowAddPlaceModal(true)}
+              onClick={() => {
+                setShowAddPlaceModal(true);
+                setAddPlaceModalKey((k) => k + 1);
+              }}
               className='flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors hover:bg-gray-50'
               style={{ borderColor: COLORS.border, color: COLORS.text }}
               title='Añadir lugar'
@@ -373,23 +413,29 @@ export function LandingPage() {
               <span className='hidden sm:inline'>Añadir Lugar</span>
             </button>
 
-            {/* Usuario + cerrar sesión */}
-            <div className='flex items-center gap-1'>
-              <span
-                className='hidden max-w-[160px] truncate px-2 text-sm sm:inline'
-                style={{ color: COLORS.textMuted }}
-              >
-                {userDisplayName}
-              </span>
-              <button
-                onClick={signOut}
-                className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
-                style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
-                title='Cerrar sesión'
-              >
-                <AppIcons.LogOut size={16} aria-hidden />
-              </button>
-            </div>
+            {/* Separador */}
+            <div
+              className='h-5 w-px'
+              style={{ backgroundColor: COLORS.border }}
+            />
+
+            {/* Nombre usuario */}
+            <span
+              className='max-w-[120px] truncate text-sm font-medium'
+              style={{ color: COLORS.text }}
+            >
+              {userDisplayName}
+            </span>
+
+            {/* Cerrar sesión */}
+            <button
+              onClick={signOut}
+              className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
+              style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
+              title='Cerrar sesión'
+            >
+              <AppIcons.LogOut size={16} aria-hidden />
+            </button>
           </div>
         </div>
       </header>
@@ -422,34 +468,34 @@ export function LandingPage() {
             className='mb-8 text-base leading-relaxed'
             style={{ color: COLORS.textMuted }}
           >
-            Encuentra espacios accesibles, evalúa sus características y ayuda a
-            construir una ciudad más inclusiva para todos.
+            Encuentra espacios accesibles para personas con movilidad reducida y
+            ayuda a construir una ciudad más inclusiva.
           </p>
         </div>
       </section>
 
       {/* Leyenda del mapa */}
       <div
-        className='flex items-center justify-end gap-5 mx-4 px-4 -mt-2 pb-3 text-sm'
+        className='flex items-center justify-center sm:justify-end gap-3 mx-4 px-4 -mt-6 sm:-mt-2 pb-2 sm:pb-3 text-xs sm:text-sm'
         style={{ color: COLORS.textMuted }}
       >
-        <span className='flex items-center gap-1.5'>
+        <span className='flex items-center gap-1'>
           <span
-            className='inline-block h-3 w-3 rounded-full'
+            className='inline-block h-2 w-2 sm:h-3 sm:w-3 rounded-full'
             style={{ backgroundColor: COLORS.success }}
           />
           Recomendado
         </span>
-        <span className='flex items-center gap-1.5'>
+        <span className='flex items-center gap-1'>
           <span
-            className='inline-block h-3 w-3 rounded-full'
+            className='inline-block h-2 w-2 sm:h-3 sm:w-3 rounded-full'
             style={{ backgroundColor: COLORS.warning }}
           />
           Aceptable
         </span>
-        <span className='flex items-center gap-1.5'>
+        <span className='flex items-center gap-1'>
           <span
-            className='inline-block h-3 w-3 rounded-full'
+            className='inline-block h-2 w-2 sm:h-3 sm:w-3 rounded-full'
             style={{ backgroundColor: COLORS.danger }}
           />
           No recomendado
@@ -467,9 +513,27 @@ export function LandingPage() {
         {/* Botón Volver — solo mobile fullscreen */}
         {mapFullscreen && (
           <button
-            onClick={() => { exitMapFullscreen(); selectPlace(null); setLocalSearch(''); setSearch(''); }}
+            onClick={() => {
+              const place = selectedPlaceData;
+              selectPlace(null);
+              setLocalSearch('');
+              setSearch('');
+              exitMapFullscreen(() => {
+                if (place && mapRef.current) {
+                  mapRef.current.flyTo(
+                    [place.latitude, place.longitude],
+                    mapRef.current.getZoom(),
+                    { animate: true, duration: 0.5 },
+                  );
+                }
+              });
+            }}
             className='absolute top-4 left-4 z-[9100] sm:hidden flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-sm font-semibold shadow-lg'
-            style={{ backgroundColor: COLORS.card, borderColor: COLORS.border, color: COLORS.text }}
+            style={{
+              backgroundColor: COLORS.card,
+              borderColor: COLORS.border,
+              color: COLORS.text,
+            }}
           >
             <AppIcons.ArrowLeft size={15} aria-hidden />
             Volver
@@ -485,7 +549,11 @@ export function LandingPage() {
         {selectedPlaceData ? (
           <PlaceMapSidebar
             place={selectedPlaceData}
-            onClose={() => { selectPlace(null); setLocalSearch(''); setSearch(''); }}
+            onClose={() => {
+              selectPlace(null);
+              setLocalSearch('');
+              setSearch('');
+            }}
             onSnapChange={setSidebarSnap}
           />
         ) : null}
@@ -493,7 +561,10 @@ export function LandingPage() {
         {/* Botón + flotante en esquina superior derecha del mapa */}
         {!selectedPlaceData && (
           <button
-            onClick={() => setShowAddPlaceModal(true)}
+            onClick={() => {
+              setShowAddPlaceModal(true);
+              setAddPlaceModalKey((k) => k + 1);
+            }}
             className='absolute top-60 right-4 sm:top-12 sm:right-10 z-[2000] flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg pointer-events-auto transition-opacity hover:opacity-90 active:opacity-80'
             style={{ backgroundColor: COLORS.primary, color: '#fff' }}
             title='Añadir lugar'
@@ -504,7 +575,9 @@ export function LandingPage() {
         )}
 
         {/* Search Bar flotante sobre el mapa */}
-        <div className={`absolute ${mapFullscreen ? 'top-16 sm:top-4' : 'top-4'} left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto ${mapFullscreen && selectedPlaceData && sidebarSnap === 2 ? 'hidden sm:block' : ''}`}>
+        <div
+          className={`absolute ${mapFullscreen ? 'top-16 sm:top-4' : 'top-4'} left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto ${mapFullscreen && selectedPlaceData && sidebarSnap === 2 ? 'hidden sm:block' : ''}`}
+        >
           <div
             className='flex items-center gap-2 rounded-2xl border p-2 shadow-lg'
             style={{ backgroundColor: COLORS.card, borderColor: COLORS.border }}
@@ -607,7 +680,9 @@ export function LandingPage() {
         </button>
 
         {/* Filtros + categorías carrusel — solo mobile */}
-        <div className={`absolute ${mapFullscreen ? 'top-32 sm:top-20' : 'top-20'} left-0 z-1500 w-full pointer-events-auto sm:hidden`}>
+        <div
+          className={`absolute ${mapFullscreen ? 'top-32 sm:top-20' : 'top-20'} left-0 z-1500 w-full pointer-events-auto sm:hidden`}
+        >
           <div
             className='flex items-center gap-2 overflow-x-auto px-4 pb-1'
             style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
@@ -951,13 +1026,6 @@ export function LandingPage() {
             Tu aporte ayuda a miles de personas a moverse con libertad. Descubre
             cómo estamos transformando la ciudad.
           </p>
-          <button
-            onClick={() => navigate('/about')}
-            className='rounded-full px-8 py-4 font-semibold text-white'
-            style={{ backgroundColor: COLORS.primary }}
-          >
-            Saber más del proyecto
-          </button>
         </div>
       </section>
 
@@ -1134,7 +1202,9 @@ export function LandingPage() {
           className='fixed left-0 top-0 z-9001 flex h-full max-h-dvh w-96 max-w-[min(100vw,100%)] translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border border-b-0 border-l-0 border-t-0 p-0 shadow-xl sm:rounded-r-xl sm:border-r'
           style={{ backgroundColor: COLORS.card }}
         >
-          <VisuallyHidden><DialogTitle>Filtros</DialogTitle></VisuallyHidden>
+          <VisuallyHidden>
+            <DialogTitle>Filtros</DialogTitle>
+          </VisuallyHidden>
           {/* Header */}
           <div
             className='border-b px-6 py-4 flex items-center justify-between'
@@ -1155,55 +1225,128 @@ export function LandingPage() {
           <div className='flex-1 overflow-y-auto p-6 space-y-5'>
             {/* 1. Calificación */}
             {(() => {
-              const activeRating = ([
-                { value: 'all', label: 'Todas', sub: null },
-                { value: 'recommended', label: 'Recomendado', sub: '4.5+' },
-                { value: 'acceptable', label: 'Aceptable', sub: '3.5–4.4' },
-                { value: 'not_recommended', label: 'No recomendado', sub: '<3.5' },
-              ] as const).find(o => o.value === filters.ratingBand);
+              const activeRating = (
+                [
+                  { value: 'all', label: 'Todas', sub: null },
+                  { value: 'recommended', label: 'Recomendado', sub: '4.5+' },
+                  { value: 'acceptable', label: 'Aceptable', sub: '3.5–4.4' },
+                  {
+                    value: 'not_recommended',
+                    label: 'No recomendado',
+                    sub: '<3.5',
+                  },
+                ] as const
+              ).find((o) => o.value === filters.ratingBand);
               return (
-                <div className='rounded-xl border overflow-hidden' style={{ borderColor: COLORS.border }}>
+                <div
+                  className='rounded-xl border overflow-hidden'
+                  style={{ borderColor: COLORS.border }}
+                >
                   <button
                     type='button'
-                    onClick={() => setRatingFilterOpen(v => !v)}
+                    onClick={() => setRatingFilterOpen((v) => !v)}
                     className='flex w-full items-center justify-between px-3 py-2.5 text-left'
                     style={{ backgroundColor: '#fafafa' }}
                   >
                     <div className='flex items-center gap-2'>
-                      <AppIcons.Star className='h-3.5 w-3.5' style={{ color: COLORS.primary }} aria-hidden />
-                      <span className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>Calificación</span>
+                      <AppIcons.Star
+                        className='h-3.5 w-3.5'
+                        style={{ color: COLORS.primary }}
+                        aria-hidden
+                      />
+                      <span
+                        className='text-xs font-semibold uppercase'
+                        style={{ color: COLORS.textMuted }}
+                      >
+                        Calificación
+                      </span>
                     </div>
                     <div className='flex items-center gap-2'>
-                      {filters.ratingBand !== 'all' && (
-                        <span className='text-xs font-medium' style={{ color: COLORS.primary }}>{activeRating?.label}</span>
-                      )}
-                      <ChevronDown className='h-3.5 w-3.5 transition-transform' style={{ color: COLORS.textMuted, transform: ratingFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} aria-hidden />
+                      <span
+                        className='text-xs font-medium'
+                        style={{ color: COLORS.primary }}
+                      >
+                        {activeRating?.label}
+                      </span>
+                      <ChevronDown
+                        className='h-3.5 w-3.5 transition-transform'
+                        style={{
+                          color: COLORS.textMuted,
+                          transform: ratingFilterOpen
+                            ? 'rotate(180deg)'
+                            : 'rotate(0deg)',
+                        }}
+                        aria-hidden
+                      />
                     </div>
                   </button>
                   {ratingFilterOpen && (
-                    <div className='flex flex-col divide-y' style={{ borderTopWidth: 1, borderTopColor: COLORS.border }}>
-                      {([
-                        { value: 'all', label: 'Todas', sub: null },
-                        { value: 'recommended', label: 'Recomendado', sub: '4.5+' },
-                        { value: 'acceptable', label: 'Aceptable', sub: '3.5–4.4' },
-                        { value: 'not_recommended', label: 'No recomendado', sub: '<3.5' },
-                      ] as const).map((opt) => {
+                    <div
+                      className='flex flex-col divide-y'
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: COLORS.border,
+                      }}
+                    >
+                      {(
+                        [
+                          { value: 'all', label: 'Todas', sub: null },
+                          {
+                            value: 'recommended',
+                            label: 'Recomendado',
+                            sub: '4.5+',
+                          },
+                          {
+                            value: 'acceptable',
+                            label: 'Aceptable',
+                            sub: '3.5–4.4',
+                          },
+                          {
+                            value: 'not_recommended',
+                            label: 'No recomendado',
+                            sub: '<3.5',
+                          },
+                        ] as const
+                      ).map((opt) => {
                         const active = filters.ratingBand === opt.value;
                         return (
                           <button
                             key={opt.value}
                             type='button'
-                            onClick={() => { setFilterValue('ratingBand', opt.value); setRatingFilterOpen(false); }}
-                            className='flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors'
-                            style={active ? { backgroundColor: `${COLORS.primary}0d`, color: COLORS.primary, fontWeight: 600 } : { backgroundColor: '#fff', color: COLORS.text }}
+                            onClick={() => {
+                              setFilterValue('ratingBand', opt.value);
+                              setRatingFilterOpen(false);
+                            }}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${active ? 'hover:brightness-95' : 'bg-white hover:bg-gray-50'}`}
+                            style={
+                              active
+                                ? {
+                                    backgroundColor: `${COLORS.primary}0d`,
+                                    color: COLORS.primary,
+                                    fontWeight: 600,
+                                  }
+                                : { color: COLORS.text }
+                            }
                           >
                             <span className='flex-1'>{opt.label}</span>
                             {opt.sub && (
-                              <span className='flex items-center gap-1 text-xs' style={{ color: active ? COLORS.primary : COLORS.textMuted }}>
+                              <span
+                                className='flex items-center gap-1 text-xs'
+                                style={{
+                                  color: active
+                                    ? COLORS.primary
+                                    : COLORS.textMuted,
+                                }}
+                              >
                                 {opt.sub}
                                 <AppIcons.Star
                                   className='h-3 w-3 shrink-0'
-                                  style={{ color: active ? COLORS.primary : COLORS.textLight, fill: active ? COLORS.primary : 'none' }}
+                                  style={{
+                                    color: active
+                                      ? COLORS.primary
+                                      : COLORS.textLight,
+                                    fill: active ? COLORS.primary : 'none',
+                                  }}
                                   aria-hidden
                                 />
                               </span>
@@ -1218,30 +1361,61 @@ export function LandingPage() {
             })()}
 
             {/* 2. Categoría */}
-            <div className='rounded-xl border overflow-hidden border-t' style={{ borderColor: COLORS.border }}>
+            <div
+              className='rounded-xl border overflow-hidden border-t'
+              style={{ borderColor: COLORS.border }}
+            >
               <button
                 type='button'
-                onClick={() => setCategoryFilterOpen(v => !v)}
+                onClick={() => setCategoryFilterOpen((v) => !v)}
                 className='flex w-full items-center justify-between px-3 py-2.5 text-left'
                 style={{ backgroundColor: '#fafafa' }}
               >
                 <div className='flex items-center gap-2'>
-                  <AppIcons.Tag className='h-3.5 w-3.5' style={{ color: COLORS.primary }} aria-hidden />
-                  <span className='text-xs font-semibold uppercase' style={{ color: COLORS.textMuted }}>Categoría</span>
+                  <AppIcons.Tag
+                    className='h-3.5 w-3.5'
+                    style={{ color: COLORS.primary }}
+                    aria-hidden
+                  />
+                  <span
+                    className='text-xs font-semibold uppercase'
+                    style={{ color: COLORS.textMuted }}
+                  >
+                    Categoría
+                  </span>
                 </div>
                 <div className='flex items-center gap-2'>
-                  {category !== 'all' && (
-                    <span className='text-xs font-medium' style={{ color: COLORS.primary }}>
-                      {CATEGORIES.find(c => c.value === category)?.label}
-                    </span>
-                  )}
-                  <ChevronDown className='h-3.5 w-3.5 transition-transform' style={{ color: COLORS.textMuted, transform: categoryFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} aria-hidden />
+                  <span
+                    className='text-xs font-medium'
+                    style={{ color: COLORS.primary }}
+                  >
+                    {contextCategory === 'all'
+                      ? 'Todas'
+                      : CATEGORIES.find((c) => c.value === contextCategory)
+                          ?.label}
+                  </span>
+                  <ChevronDown
+                    className='h-3.5 w-3.5 transition-transform'
+                    style={{
+                      color: COLORS.textMuted,
+                      transform: categoryFilterOpen
+                        ? 'rotate(180deg)'
+                        : 'rotate(0deg)',
+                    }}
+                    aria-hidden
+                  />
                 </div>
               </button>
               {categoryFilterOpen && (
-                <div className='flex flex-col divide-y' style={{ borderTopWidth: 1, borderTopColor: COLORS.border }}>
-                  {([{ value: 'all' as const, label: 'Todas' }, ...CATEGORIES]).map((c) => {
-                    const active = category === c.value;
+                <div
+                  className='flex flex-col divide-y'
+                  style={{ borderTopWidth: 1, borderTopColor: COLORS.border }}
+                >
+                  {[
+                    { value: 'all' as const, label: 'Todas' },
+                    ...CATEGORIES,
+                  ].map((c) => {
+                    const active = contextCategory === c.value;
                     return (
                       <button
                         key={c.value}
@@ -1251,11 +1425,25 @@ export function LandingPage() {
                           setCategory(c.value);
                           setCategoryFilterOpen(false);
                         }}
-                        className='flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors'
-                        style={active ? { backgroundColor: `${COLORS.primary}0d`, color: COLORS.primary, fontWeight: 600 } : { backgroundColor: '#fff', color: COLORS.text }}
+                        className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${active ? 'hover:brightness-95' : 'bg-white hover:bg-gray-50'}`}
+                        style={
+                          active
+                            ? {
+                                backgroundColor: `${COLORS.primary}0d`,
+                                color: COLORS.primary,
+                                fontWeight: 600,
+                              }
+                            : { color: COLORS.text }
+                        }
                       >
                         {c.value !== 'all' && (
-                          <CategoryIcon category={c.value} size={14} style={{ color: active ? COLORS.primary : COLORS.textMuted }} />
+                          <CategoryIcon
+                            category={c.value}
+                            size={14}
+                            style={{
+                              color: active ? COLORS.primary : COLORS.textMuted,
+                            }}
+                          />
                         )}
                         <span className='flex-1'>{c.label}</span>
                       </button>
@@ -1335,7 +1523,13 @@ export function LandingPage() {
             style={{ borderColor: COLORS.border }}
           >
             <button
-              onClick={resetFilters}
+              onClick={() => {
+                resetFilters();
+                setLocalCategory('all');
+                setCategory('all');
+                setRatingFilterOpen(false);
+                setCategoryFilterOpen(false);
+              }}
               className='w-full rounded-lg border px-4 py-2 text-sm font-semibold'
               style={{
                 borderColor: COLORS.border,
@@ -1366,8 +1560,11 @@ export function LandingPage() {
         }}
       >
         <DialogContent className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg'>
-          <VisuallyHidden><DialogTitle>Añadir lugar</DialogTitle></VisuallyHidden>
+          <VisuallyHidden>
+            <DialogTitle>Añadir lugar</DialogTitle>
+          </VisuallyHidden>
           <AddPlacePanel
+            key={addPlaceModalKey}
             draftLatLng={addPlaceDraft}
             onDraftLatLngChange={setAddPlaceDraft}
             onClose={() => {

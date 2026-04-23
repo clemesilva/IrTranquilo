@@ -241,6 +241,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
   const resetFilters = useCallback(() => {
     setFilters(defaultFilters);
+    setCategory('all');
+    setSearch('');
   }, []);
 
   const filteredPlaces = useMemo(() => {
