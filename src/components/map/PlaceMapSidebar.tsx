@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePlaces } from '@/context/usePlaces';
 import { AccessibilityConsensusGrid } from '@/components/reviews/AccessibilityConsensusGrid';
 import { PlaceReviewFormDialog } from '@/components/reviews/PlaceReviewFormDialog';
+import { ReviewMedia } from '@/components/reviews/ReviewMedia';
 import type { PlaceWithStats } from '@/context/placesContext';
 import { formatRelativeTimeEs } from '@/lib/relativeTime';
 import type { AccessibilityConsensusMap } from '@/lib/reviewAccessibilityConsensus';
@@ -160,6 +161,74 @@ function ReviewLikeButton({
       <Heart className='h-3.5 w-3.5' fill={liked ? '#EF4444' : 'none'} />
       {count > 0 && <span>{count}</span>}
     </button>
+  );
+}
+
+function ReviewsCollapsible({
+  reviews,
+  userId,
+}: {
+  reviews: PlaceReview[];
+  userId: string | undefined;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className='space-y-3'>
+      <div className={`relative ${!expanded ? 'max-h-[420px] overflow-hidden' : ''}`}>
+        <div className='space-y-3'>
+          {reviews.map((r) => (
+            <div
+              key={r.id}
+              className='rounded-xl border p-3'
+              style={{ borderColor: COLORS.border }}
+            >
+              <div className='mb-0.5 flex items-center justify-between gap-2'>
+                <p className='text-sm font-semibold text-neutral-900'>
+                  {r.authorName ?? 'Usuario'}
+                </p>
+                {formatRelativeTimeEs(r.createdAt ?? null) && (
+                  <p className='shrink-0 text-xs text-neutral-400'>
+                    {formatRelativeTimeEs(r.createdAt ?? null)}
+                  </p>
+                )}
+              </div>
+              <div className='mb-1.5 flex items-center gap-2'>
+                <StarRow rating={r.rating} className='scale-90' />
+                <span className='text-xs tabular-nums text-neutral-500'>
+                  {r.rating}/5
+                </span>
+                <div className='ml-auto'>
+                  <ReviewLikeButton
+                    reviewId={r.id}
+                    initialCount={r.helpfulCount ?? 0}
+                    userId={userId}
+                  />
+                </div>
+              </div>
+              {r.comment ? (
+                <p className='text-sm leading-relaxed text-neutral-700'>{r.comment}</p>
+              ) : (
+                <p className='text-xs italic text-neutral-400'>Sin comentario</p>
+              )}
+              <ReviewMedia photoUrls={r.photoUrls ?? []} videoUrl={r.videoUrl} />
+            </div>
+          ))}
+        </div>
+        {!expanded && (
+          <div className='pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-b from-transparent to-white/95' />
+        )}
+      </div>
+      {reviews.length > 1 && (
+        <button
+          type='button'
+          className='w-full rounded-xl border border-neutral-200/80 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 shadow-sm'
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? 'Ver menos reseñas' : 'Ver más reseñas'}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -524,95 +593,15 @@ export function PlaceMapSidebar({
           </button>
         </div>
 
-        {/* Carrusel de medios de reseñas */}
-        {(() => {
-          // Recopila todos los medios: primero videos, luego fotos
-          type MediaItem =
-            | { type: 'video'; url: string }
-            | { type: 'photo'; url: string };
-          const items: MediaItem[] = [];
-          for (const r of reviews) {
-            if (r.videoUrl) items.push({ type: 'video', url: r.videoUrl });
-          }
-          for (const r of reviews) {
-            for (const u of r.photoUrls ?? [])
-              items.push({ type: 'photo', url: u });
-          }
-          if (items.length === 0) return null;
-
-          // Agrupa: 1 grande + 2 chicas + 1 grande + ...
-          const groups: MediaItem[][] = [];
-          let i = 0;
-          while (i < items.length) {
-            const big = items[i];
-            const smalls = items.slice(i + 1, i + 3);
-            groups.push([big, ...smalls]);
-            i += 1 + smalls.length;
-          }
-
-          return (
-            <div className='mb-4 -mx-4'>
-              <div className='flex gap-2 overflow-x-auto px-4 pb-1 scroll-smooth'>
-                {groups.map((group, gi) => (
-                  <div key={gi} className='flex shrink-0 gap-1'>
-                    {/* Grande */}
-                    {group[0].type === 'video' ? (
-                      <video
-                        src={group[0].url}
-                        className='h-28 w-40 rounded-xl object-cover bg-black'
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        preload='metadata'
-                      />
-                    ) : (
-                      <a href={group[0].url} target='_blank' rel='noreferrer'>
-                        <img
-                          src={group[0].url}
-                          alt='Media'
-                          className='h-28 w-40 rounded-xl object-cover'
-                        />
-                      </a>
-                    )}
-                    {/* 2 chicas apiladas */}
-                    {group.slice(1).length > 0 && (
-                      <div className='flex flex-col gap-1'>
-                        {group.slice(1).map((item, si) =>
-                          item.type === 'video' ? (
-                            <video
-                              key={si}
-                              src={item.url}
-                              className='h-[52px] w-[72px] rounded-lg object-cover bg-black'
-                              autoPlay
-                              loop
-                              muted
-                              playsInline
-                              preload='metadata'
-                            />
-                          ) : (
-                            <a
-                              key={si}
-                              href={item.url}
-                              target='_blank'
-                              rel='noreferrer'
-                            >
-                              <img
-                                src={item.url}
-                                alt='Media'
-                                className='h-[52px] w-[72px] rounded-lg object-cover'
-                              />
-                            </a>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
+        {/* Galería de medios de reseñas */}
+        {!reviewsLoading && (reviews.some(r => r.videoUrl) || reviews.some(r => r.photoUrls?.length)) && (
+          <div className='mb-4'>
+            <ReviewMedia
+              videoUrl={reviews.find(r => r.videoUrl)?.videoUrl}
+              photoUrls={reviews.flatMap(r => r.photoUrls ?? [])}
+            />
+          </div>
+        )}
 
         {/* Tabs */}
         <div
@@ -672,91 +661,7 @@ export function PlaceMapSidebar({
                 No hay reseñas todavía. Sé la primera en dejar una.
               </p>
             ) : (
-              reviews.map((r) => (
-                <div
-                  key={r.id}
-                  className='rounded-xl border p-3'
-                  style={{ borderColor: COLORS.border }}
-                >
-                  <div className='mb-0.5 flex items-center justify-between gap-2'>
-                    <p className='text-sm font-semibold text-neutral-900'>
-                      {r.authorName ?? 'Usuario'}
-                    </p>
-                    {formatRelativeTimeEs(r.createdAt ?? null) && (
-                      <p className='shrink-0 text-xs text-neutral-400'>
-                        {formatRelativeTimeEs(r.createdAt ?? null)}
-                      </p>
-                    )}
-                  </div>
-                  <div className='mb-1.5 flex items-center gap-2'>
-                    <StarRow rating={r.rating} className='scale-90' />
-                    <span className='text-xs tabular-nums text-neutral-500'>
-                      {r.rating}/5
-                    </span>
-                    <div className='ml-auto'>
-                      <ReviewLikeButton
-                        reviewId={r.id}
-                        initialCount={r.helpfulCount ?? 0}
-                        userId={user?.id}
-                      />
-                    </div>
-                  </div>
-                  {r.comment ? (
-                    <p className='text-sm leading-relaxed text-neutral-700'>
-                      {r.comment}
-                    </p>
-                  ) : (
-                    <p className='text-xs italic text-neutral-400'>
-                      Sin comentario
-                    </p>
-                  )}
-                  {(r.videoUrl || (r.photoUrls && r.photoUrls.length > 0)) &&
-                    (() => {
-                      const MAX_PHOTOS = 2;
-                      const photos = r.photoUrls ?? [];
-                      const visible = photos.slice(0, MAX_PHOTOS);
-                      const extra = photos.length - MAX_PHOTOS;
-                      return (
-                        <div className='mt-2 flex gap-1.5'>
-                          {r.videoUrl && (
-                            <video
-                              src={r.videoUrl}
-                              controls
-                              className='h-20 w-32 shrink-0 rounded-lg border object-cover'
-                              style={{ borderColor: COLORS.border }}
-                            />
-                          )}
-                          {visible.map((url, i) => {
-                            const isLast = i === MAX_PHOTOS - 1 && extra > 0;
-                            return (
-                              <a
-                                key={i}
-                                href={url}
-                                target='_blank'
-                                rel='noreferrer'
-                                className='relative shrink-0'
-                              >
-                                <img
-                                  src={url}
-                                  alt={`Foto ${i + 1}`}
-                                  className='h-20 w-20 rounded-lg object-cover border'
-                                  style={{ borderColor: COLORS.border }}
-                                />
-                                {isLast && (
-                                  <div className='absolute inset-0 flex items-center justify-center rounded-lg bg-black/50'>
-                                    <span className='text-sm font-bold text-white'>
-                                      +{extra}
-                                    </span>
-                                  </div>
-                                )}
-                              </a>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                </div>
-              ))
+              <ReviewsCollapsible reviews={reviews} userId={user?.id} />
             )}
           </div>
         )}
