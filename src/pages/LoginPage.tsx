@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/useAuth';
 import { COLORS } from '../styles/colors';
 import { AppIcons } from '@/components/icons/appIcons';
-import { AccessibilityIcon } from '@/components/icons/AccessibilityIcon';
+import { LogoPin } from '@/components/icons/LogoPin';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -66,13 +66,13 @@ export function LoginPage() {
       <div
         className='hidden lg:flex lg:w-1/2 flex-col items-center justify-center gap-8 p-16'
         style={{
-          background: `linear-gradient(135deg, ${COLORS.primary} 0%, #1a3a6b 100%)`,
+          background: 'linear-gradient(160deg, #5b9bd5 0%, #2a6db5 40%, #1A56A0 70%, #1a3a6b 100%)',
         }}
       >
         {/* Logo */}
         <div className='flex flex-col items-center gap-5 text-center'>
-          <div className='flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15 backdrop-blur'>
-            <AccessibilityIcon size={40} className='text-white' />
+          <div className='flex h-24 w-24 items-center justify-center rounded-3xl bg-white/20 backdrop-blur-sm'>
+            <LogoPin size={60} />
           </div>
           <div>
             <h1 className='text-4xl font-extrabold text-white'>IrTranquilo</h1>
@@ -118,11 +118,8 @@ export function LoginPage() {
       <div className='flex flex-1 flex-col items-center justify-center px-6 py-12'>
         {/* Logo mobile */}
         <div className='mb-8 flex flex-col items-center gap-3 lg:hidden'>
-          <div
-            className='flex h-14 w-14 items-center justify-center rounded-2xl'
-            style={{ backgroundColor: `${COLORS.primary}15` }}
-          >
-            <AccessibilityIcon size={28} style={{ color: COLORS.primary }} />
+          <div className='flex h-14 w-14 items-center justify-center'>
+            <LogoPin size={40} />
           </div>
           <span
             className='text-xl font-extrabold'

@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
 import { ChevronDown } from 'lucide-react';
+import { LogoPin } from '@/components/icons/LogoPin';
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -387,14 +388,8 @@ export function LandingPage() {
       >
         <div className='flex items-center justify-between gap-6'>
           {/* Brand icon */}
-          <div
-            className='flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl'
-            style={{ backgroundColor: `${COLORS.primary}12` }}
-          >
-            <AppIcons.Accessibility
-              size={20}
-              style={{ color: COLORS.primary }}
-            />
+          <div className='flex h-9 w-9 flex-shrink-0 items-center justify-center'>
+            <LogoPin size={32} />
           </div>
 
           {/* Actions */}
