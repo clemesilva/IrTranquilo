@@ -9,7 +9,7 @@ import { ACCESSIBILITY_FIELD_GROUPS } from '../types/reviewAccessibility';
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
-import { buildPinElement, buildPinSvgString, categoryGlyph } from '../lib/pins';
+import { buildPinElement, buildPinSvgString, categoryGlyph, formatPinLabel } from '../lib/pins';
 import { ensureGoogleMapsLoaded } from '../lib/googleMaps';
 import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
 import {
@@ -272,9 +272,10 @@ export function LandingPage() {
           const loc = place.geometry?.location;
           if (!loc) return;
           const name = place.name ?? '';
+          const address = place.vicinity ?? '';
           const el = document.createElement('div');
           el.className = 'parking-pin';
-          el.innerHTML = `<div class="parking-pin__icon">P</div><div class="parking-pin__label">${name}</div>`;
+          el.innerHTML = `<div class="parking-pin__tooltip"><div class="parking-pin__tooltip-name">${name}</div>${address ? `<div class="parking-pin__tooltip-address">${address}</div>` : ''}</div><div class="parking-pin__icon">P</div><div class="parking-pin__label">${name}</div>`;
           const marker = new google.maps.marker.AdvancedMarkerElement({
             map: null,
             position: { lat: loc.lat(), lng: loc.lng() },
@@ -333,18 +334,33 @@ export function LandingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Ocultar pins normales a zoom bajo
+  // Ocultar pins normales a zoom bajo; mostrar etiqueta de nombre a zoom cercano
   useEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current;
     if (!map) return;
     const MIN_ZOOM = 12;
+    const MIN_ZOOM_LABEL = 15;
     const update = () => {
       const z = map.getZoom() ?? 0;
-      markersRef.current.forEach(({ marker, place }) => {
+      markersRef.current.forEach(({ marker, place, el }) => {
         const isSelected = selectedPlaceId === place.id;
         const shouldShow = z >= MIN_ZOOM || isSelected;
         marker.map = shouldShow ? map : null;
+        const label = el.querySelector<HTMLElement>('.map-pin__name-label');
+        if (label) {
+          if (isSelected) {
+            label.style.display = '';
+            label.style.color = '#1a56db';
+            label.style.fontWeight = '700';
+            label.style.fontSize = '11px';
+          } else {
+            label.style.display = z >= MIN_ZOOM_LABEL ? '' : 'none';
+            label.style.color = '';
+            label.style.fontWeight = '';
+            label.style.fontSize = '';
+          }
+        }
       });
     };
     const listener = map.addListener('zoom_changed', update);
@@ -374,6 +390,8 @@ export function LandingPage() {
         selected: isSelected,
         size: isSelected ? 30 : 24,
         hasAlert: (place.activeReportsCount ?? 0) > 0,
+        name: place.name,
+        index: markersRef.current.length,
       });
       const marker = new google.maps.marker.AdvancedMarkerElement({
         map,
@@ -409,12 +427,35 @@ export function LandingPage() {
         hasAlert: (place.activeReportsCount ?? 0) > 0,
       };
 
+      const attachLabel = (selected: boolean) => {
+        const existing = el.querySelector('.map-pin__name-label');
+        if (existing) existing.remove();
+        const label = document.createElement('div');
+        const side = el.dataset.labelSide ?? 'right';
+        label.className = `map-pin__name-label map-pin__name-label--${side}`;
+        label.style.whiteSpace = 'pre';
+        label.textContent = formatPinLabel(place.name);
+        if (selected) {
+          label.style.color = '#1A56A0';
+          label.style.fontWeight = '800';
+          label.style.fontSize = '14px';
+          label.style.textShadow = 'none';
+          label.style.display = '';
+        } else {
+          label.style.color = getPinColor(place.avgRating);
+          const z = mapRef.current?.getZoom() ?? 0;
+          label.style.display = z >= 15 ? '' : 'none';
+        }
+        el.appendChild(label);
+      };
+
       if (isSelected) {
         el.innerHTML = buildPinSvgString({
           ...pinParams,
           selected: true,
           size: 30,
         });
+        attachLabel(true);
         el.className = 'map-pin map-pin--entering';
         el.addEventListener(
           'animationend',
@@ -434,6 +475,7 @@ export function LandingPage() {
               selected: false,
               size: 24,
             });
+            attachLabel(false);
             el.className = 'map-pin map-pin--appearing';
             el.addEventListener(
               'animationend',
@@ -1016,7 +1058,7 @@ export function LandingPage() {
 
         {/* Resultado Info - Bottom Right */}
         <div
-          className='absolute bottom-7 right-14 z-10 rounded-lg px-3 py-1.5 shadow-sm border'
+          className='absolute bottom-7 left-4 sm:left-auto sm:right-14 z-10 rounded-lg px-3 py-1.5 shadow-sm border'
           style={{
             backgroundColor: COLORS.card,
             borderColor: COLORS.border,

@@ -200,16 +200,35 @@ export function buildPinSvgString(params: {
  * Builds an HTMLDivElement containing the pin SVG.
  * Used as `content` for google.maps.marker.AdvancedMarkerElement.
  */
+export function formatPinLabel(name: string): string {
+  const words = name.split(' ')
+  if (words.length <= 3) return name
+  return words.slice(0, 3).join(' ') + '\n' + words.slice(3).join(' ')
+}
+
 export function buildPinElement(params: {
   color: string
   glyph: string
   selected: boolean
   size: number
   hasAlert?: boolean
+  name?: string
+  index?: number
 }): HTMLDivElement {
   const el = document.createElement('div')
   el.className = params.selected ? 'map-pin map-pin--entering' : 'map-pin'
   el.innerHTML = buildPinSvgString(params)
+  if (params.name) {
+    const side = (params.index ?? 0) % 2 === 0 ? 'right' : 'left'
+    el.dataset.labelSide = side
+    const label = document.createElement('div')
+    label.className = `map-pin__name-label map-pin__name-label--${side}`
+    label.style.color = params.color
+    label.style.display = 'none'
+    label.style.whiteSpace = 'pre'
+    label.textContent = formatPinLabel(params.name)
+    el.appendChild(label)
+  }
   return el
 }
 
