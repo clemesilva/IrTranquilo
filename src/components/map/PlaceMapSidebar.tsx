@@ -243,8 +243,8 @@ export function PlaceMapSidebar({
   const [isFav, setIsFav] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
 
-  // Bottom sheet snap: 0=12vh, 1=47vh, 2=88vh
-  const SNAPS: ['12vh', '47vh', '88vh'] = ['12vh', '47vh', '88vh'];
+  // Bottom sheet snap: 0=12vh, 1=38vh, 2=88vh
+  const SNAPS: ['12vh', '38vh', '88vh'] = ['12vh', '38vh', '88vh'];
   const [snap, setSnap] = useState(0);
   const dragStartY = useRef<number | null>(null);
 

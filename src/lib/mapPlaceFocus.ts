@@ -1,58 +1,61 @@
-import L from 'leaflet'
+const DETAIL_ZOOM = 15
 
-const DETAIL_ZOOM = 14
-
-/** Panel derecho (~22rem PlaceMapSidebar + borde) */
-const RIGHT_PANEL_PX = 368
-
-/** Layout landing: solo panel derecho sobre el mapa */
-export const MAP_UI_PADDING_LANDING: Pick<
-  L.FitBoundsOptions,
-  'paddingTopLeft' | 'paddingBottomRight'
-> = {
-  paddingTopLeft: L.point(16, 16),
-  paddingBottomRight: L.point(RIGHT_PANEL_PX, 88),
+export const MAP_UI_PADDING_LANDING = {
+  top: 16,
+  right: 368, // right sidebar ~22rem
+  bottom: 88,
+  left: 16,
 }
 
-/** Explorar: lista izquierda fija (w-96) + panel derecho al seleccionar */
-export const MAP_UI_PADDING_EXPLORE: Pick<
-  L.FitBoundsOptions,
-  'paddingTopLeft' | 'paddingBottomRight'
-> = {
-  paddingTopLeft: L.point(400, 24),
-  paddingBottomRight: L.point(RIGHT_PANEL_PX, 88),
+export const MAP_UI_PADDING_EXPLORE = {
+  top: 24,
+  right: 368,
+  bottom: 88,
+  left: 400, // left list panel w-96
 }
 
 /**
- * Centra un punto en la zona “útil” del mapa, dejando hueco para UI (sidebars).
- * Equivalente práctico al centrado de Google Maps con panel lateral abierto.
+ * Centra un punto en la zona "útil" del mapa con animación suave de zoom + pan.
  */
 export function fitMapToPlaceWithUiPadding(
-  map: L.Map,
+  map: google.maps.Map,
   lat: number,
   lng: number,
-  padding: Pick<
-    L.FitBoundsOptions,
-    'paddingTopLeft' | 'paddingBottomRight'
-  >,
-  options?: { maxZoom?: number; animate?: boolean; mobileBottomPx?: number },
+  padding: { top: number; right: number; bottom: number; left: number },
+  options?: { maxZoom?: number; mobileBottomPx?: number },
 ): void {
-  const delta = 0.00005
-  const bounds = L.latLngBounds(
-    [lat - delta, lng - delta],
-    [lat + delta, lng + delta],
-  )
-
   const isMobile = window.innerWidth < 640
+  const targetZoom = options?.maxZoom ?? DETAIL_ZOOM
   const bottomPx = options?.mobileBottomPx ?? 160
-  const resolvedPadding = isMobile
-    ? { paddingTopLeft: L.point(16, 80), paddingBottomRight: L.point(16, bottomPx) }
-    : { paddingTopLeft: padding.paddingTopLeft, paddingBottomRight: padding.paddingBottomRight }
+  const rightPx = padding.right
 
-  map.flyToBounds(bounds, {
-    maxZoom: options?.maxZoom ?? DETAIL_ZOOM,
-    duration: 0.8,
-    easeLinearity: 0.25,
-    ...resolvedPadding,
-  })
+  // Grados por pixel a zoom objetivo (Mercator)
+  const lngDegPerPx = 360 / (256 * Math.pow(2, targetZoom))
+  const latDegPerPx = lngDegPerPx * Math.cos(lat * (Math.PI / 180))
+
+  const centerLat = isMobile ? lat - (bottomPx / 2) * latDegPerPx : lat
+  const centerLng = isMobile ? lng : lng + (rightPx / 2) * lngDegPerPx
+  const fromZoom = map.getZoom() ?? 12
+  const fromCenter = map.getCenter()
+  const fromLat = fromCenter?.lat() ?? lat
+  const fromLng = fromCenter?.lng() ?? lng
+  const duration = 420
+  const start = performance.now()
+
+  function easeOut(t: number) {
+    return 1 - Math.pow(1 - t, 3)
+  }
+
+  // Anima centro + zoom juntos en cada frame para evitar conflictos
+  function animateCamera(now: number) {
+    const t = Math.min((now - start) / duration, 1)
+    const e = easeOut(t)
+    map.setCenter({
+      lat: fromLat + (centerLat - fromLat) * e,
+      lng: fromLng + (centerLng - fromLng) * e,
+    })
+    map.setZoom(fromZoom + (targetZoom - fromZoom) * e)
+    if (t < 1) requestAnimationFrame(animateCamera)
+  }
+  requestAnimationFrame(animateCamera)
 }

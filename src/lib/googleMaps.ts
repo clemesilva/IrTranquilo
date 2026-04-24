@@ -14,6 +14,8 @@ export async function ensureGoogleMapsLoaded(): Promise<void> {
   loaderPromise = Promise.all([
     importLibrary('core'),
     importLibrary('places'),
+    importLibrary('maps'),
+    importLibrary('marker'),
   ]).then(() => undefined);
 
   return loaderPromise;

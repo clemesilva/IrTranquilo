@@ -153,6 +153,17 @@ export function AddPlacePanel({
         throw new Error('Busca y selecciona un lugar.');
       }
 
+      const { data: existing } = await supabase
+        .from('places')
+        .select('id')
+        .ilike('name', placeName)
+        .ilike('address', address.trim())
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error('Este lugar ya existe en la app con el mismo nombre y dirección.');
+      }
+
       const placeInsert = {
         name: placeName,
         category,

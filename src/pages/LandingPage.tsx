@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import L from 'leaflet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '../context/useAuth';
@@ -10,8 +9,8 @@ import { ACCESSIBILITY_FIELD_GROUPS } from '../types/reviewAccessibility';
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
-import { fixLeafletDefaultIcons } from '../lib/leafletIcon';
-import { buildPinHtml, categoryGlyph } from '../lib/pins';
+import { buildPinElement, buildPinSvgString, categoryGlyph } from '../lib/pins';
+import { ensureGoogleMapsLoaded } from '../lib/googleMaps';
 import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
 import {
   fitMapToPlaceWithUiPadding,
@@ -39,10 +38,28 @@ export function LandingPage() {
     setFilterValue,
     resetFilters,
   } = usePlaces();
-  const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<{ marker: L.Marker; place: PlaceWithStats }[]>([]);
-  const userMarkerRef = useRef<L.CircleMarker | null>(null);
-  const userAccuracyRef = useRef<L.Circle | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<
+    {
+      marker: google.maps.marker.AdvancedMarkerElement;
+      place: PlaceWithStats;
+      el: HTMLDivElement;
+    }[]
+  >([]);
+  const parkingMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>(
+    [],
+  );
+  const prevSelectedIdRef = useRef<number | null>(null);
+  const selectedPlaceIdRef = useRef<number | null>(null);
+  const selectPlaceRef = useRef<(id: number) => void>(() => {});
+  const enterMapFullscreenRef = useRef<(onReady?: () => void) => void>(
+    () => {},
+  );
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const panToPlaceForDetailRef = useRef<
+    (place: PlaceWithStats, snap?: number) => void
+  >(() => {});
+  const [mapReady, setMapReady] = useState(false);
   const [search, setLocalSearch] = useState('');
   const [category, setLocalCategory] = useState<PlaceCategory | 'all'>('all');
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -52,13 +69,18 @@ export function LandingPage() {
     const v = searchParams.get('place');
     return v ? Number(v) : null;
   });
+  useEffect(() => {
+    selectedPlaceIdRef.current = selectedPlaceId;
+  });
 
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [sidebarSnap, setSidebarSnap] = useState(0);
+  const sidebarSnapRef = useRef(sidebarSnap);
+  useEffect(() => {
+    sidebarSnapRef.current = sidebarSnap;
+  }, [sidebarSnap]);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceModalKey, setAddPlaceModalKey] = useState(0);
-  const [ratingFilterOpen, setRatingFilterOpen] = useState(false);
-  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
   );
@@ -125,13 +147,16 @@ export function LandingPage() {
     (place: PlaceWithStats, snap?: number) => {
       const map = mapRef.current;
       if (!map) return;
-      // El panel siempre ocupa ~50vh en mobile al abrirse; usamos ese padding
-      // para que el pin quede centrado en la zona visible sobre el panel.
-      const resolvedSnap = snap ?? sidebarSnap;
-      const mobileBottomPx =
+      const resolvedSnap = snap ?? sidebarSnapRef.current;
+      const topUiPx = 110; // search bar + categories en mobile
+      const panelPx =
         resolvedSnap >= 2
-          ? Math.round(window.innerHeight * 0.75) + 16
-          : Math.round(window.innerHeight * 0.5) + 16;
+          ? Math.round(window.innerHeight * 0.88)
+          : resolvedSnap === 1
+            ? Math.round(window.innerHeight * 0.38)
+            : Math.round(window.innerHeight * 0.12);
+      // mobileBottomPx = panelPx - topUiPx centra el pin en el área visible real
+      const mobileBottomPx = Math.max(0, panelPx - topUiPx);
       fitMapToPlaceWithUiPadding(
         map,
         place.latitude,
@@ -140,15 +165,19 @@ export function LandingPage() {
         { mobileBottomPx },
       );
     },
-    [sidebarSnap],
+    [],
   );
 
   const enterMapFullscreen = useCallback((onReady?: () => void) => {
-    // Solo en mobile (ancho < 640px)
-    if (window.innerWidth >= 640) return;
+    if (window.innerWidth >= 640) {
+      onReady?.();
+      return;
+    }
     setMapFullscreen(true);
     setTimeout(() => {
-      mapRef.current?.invalidateSize();
+      if (mapRef.current) {
+        google.maps.event.trigger(mapRef.current, 'resize');
+      }
       onReady?.();
     }, 50);
   }, []);
@@ -156,10 +185,22 @@ export function LandingPage() {
   const exitMapFullscreen = useCallback((onReady?: () => void) => {
     setMapFullscreen(false);
     setTimeout(() => {
-      mapRef.current?.invalidateSize();
+      if (mapRef.current) {
+        google.maps.event.trigger(mapRef.current, 'resize');
+      }
       onReady?.();
     }, 50);
   }, []);
+
+  useEffect(() => {
+    selectPlaceRef.current = selectPlace;
+  }, [selectPlace]);
+  useEffect(() => {
+    enterMapFullscreenRef.current = enterMapFullscreen;
+  }, [enterMapFullscreen]);
+  useEffect(() => {
+    panToPlaceForDetailRef.current = panToPlaceForDetail;
+  }, [panToPlaceForDetail]);
 
   const focusPlaceOnMap = (place: PlaceWithStats) => {
     selectPlace(place.id);
@@ -177,100 +218,104 @@ export function LandingPage() {
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current) {
-      try {
-        const map = L.map('landing-map', {
-          scrollWheelZoom: false,
-          zoomControl: false,
-        }).setView(SANTIAGO_CENTER, SANTIAGO_ZOOM);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap',
-          maxZoom: 19,
-        }).addTo(map);
-
-        // Habilitar scroll zoom solo cuando el usuario hace click en el mapa
-        map.on('click', () => {
-          map.scrollWheelZoom.enable();
-        });
-
-        // Desabilitar scroll zoom cuando sale del mapa
-        map.on('mouseleave', () => {
-          map.scrollWheelZoom.disable();
-        });
-
-        mapRef.current = map;
-        setTimeout(() => map.invalidateSize(), 100);
-      } catch (error) {
-        console.error('Error initializing map:', error);
-      }
-    }
-
+    ensureGoogleMapsLoaded().then(() => {
+      const el = document.getElementById('landing-map');
+      if (!el || mapRef.current) return;
+      const map = new google.maps.Map(el, {
+        center: { lat: SANTIAGO_CENTER[0], lng: SANTIAGO_CENTER[1] },
+        zoom: SANTIAGO_ZOOM,
+        mapId: '170d20fc23bb3c89384de3a1',
+        zoomControl: false,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        gestureHandling: 'cooperative',
+        clickableIcons: false,
+      });
+      mapRef.current = map;
+      setMapReady(true);
+    });
     return () => {
-      // Cleanup only on final unmount
+      mapRef.current = null;
     };
   }, []);
 
-  // Ubicación en tiempo real
+  // Estacionamientos de Google Places
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const map = mapRef.current;
-        if (!map) return;
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-        if (!userMarkerRef.current) {
-          userAccuracyRef.current = L.circle([lat, lng], {
-            radius: accuracy,
-            color: COLORS.primary,
-            fillColor: COLORS.primary,
-            fillOpacity: 0.08,
-            weight: 1,
-          }).addTo(map);
-          userMarkerRef.current = L.circleMarker([lat, lng], {
-            radius: 8,
-            color: '#fff',
-            weight: 2.5,
-            fillColor: COLORS.primary,
-            fillOpacity: 1,
-          }).addTo(map);
-        } else {
-          userMarkerRef.current.setLatLng([lat, lng]);
-          userAccuracyRef.current?.setLatLng([lat, lng]);
-          userAccuracyRef.current?.setRadius(accuracy);
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const MIN_ZOOM_PARKING = 15;
+    const MIN_ZOOM_LABEL = 17;
+
+    const service = new google.maps.places.PlacesService(map);
+
+    // Control de visibilidad por zoom — declarado antes de fetchPage para poder usarlo en el callback
+    const updateParkingVisibility = () => {
+      const z = map.getZoom() ?? 0;
+      parkingMarkersRef.current.forEach((m) => {
+        m.map = z >= MIN_ZOOM_PARKING ? map : null;
+        const label = (m.content as HTMLElement)?.querySelector<HTMLElement>(
+          '.parking-pin__label',
+        );
+        if (label) label.style.display = z >= MIN_ZOOM_LABEL ? '' : 'none';
+      });
+    };
+
+    const fetchPage = (request: object, nextPageToken?: string) => {
+      const req = nextPageToken
+        ? { ...request, pageToken: nextPageToken }
+        : request;
+      service.nearbySearch(req, (results, status, pagination) => {
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !results)
+          return;
+        results.forEach((place) => {
+          const loc = place.geometry?.location;
+          if (!loc) return;
+          const name = place.name ?? '';
+          const el = document.createElement('div');
+          el.className = 'parking-pin';
+          el.innerHTML = `<div class="parking-pin__icon">P</div><div class="parking-pin__label">${name}</div>`;
+          const marker = new google.maps.marker.AdvancedMarkerElement({
+            map: null,
+            position: { lat: loc.lat(), lng: loc.lng() },
+            content: el,
+            zIndex: 1,
+          });
+          parkingMarkersRef.current.push(marker);
+        });
+        // Aplicar visibilidad según zoom actual tras agregar cada página
+        updateParkingVisibility();
+        if (pagination?.hasNextPage) {
+          setTimeout(() => pagination.nextPage(), 300);
         }
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 5000 },
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
+      });
+    };
+
+    fetchPage({
+      location: { lat: SANTIAGO_CENTER[0], lng: SANTIAGO_CENTER[1] },
+      radius: 8000,
+      type: 'parking',
+    });
+
+    const listener = map.addListener('zoom_changed', updateParkingVisibility);
+
+    return () => {
+      google.maps.event.removeListener(listener);
+      parkingMarkersRef.current.forEach((m) => {
+        m.map = null;
+      });
+      parkingMarkersRef.current = [];
+    };
+  }, [mapReady]);
 
   // Bloquear interacción del mapa mientras se editan filtros
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    const toggle = (enabled: boolean) => {
-      if (enabled) {
-        map.dragging.enable();
-        map.scrollWheelZoom.enable();
-        map.doubleClickZoom.enable();
-        map.boxZoom.enable();
-        map.keyboard.enable();
-        map.touchZoom.enable();
-      } else {
-        map.dragging.disable();
-        map.scrollWheelZoom.disable();
-        map.doubleClickZoom.disable();
-        map.boxZoom.disable();
-        map.keyboard.disable();
-        map.touchZoom.disable();
-      }
-    };
-
-    toggle(!showFiltersModal);
-    return () => toggle(true);
+    map.setOptions({
+      gestureHandling: showFiltersModal ? 'none' : 'cooperative',
+    });
+    return () => map.setOptions({ gestureHandling: 'cooperative' });
   }, [showFiltersModal]);
 
   // Al restaurar un lugar seleccionado desde URL, centrar el mapa en él
@@ -290,88 +335,127 @@ export function LandingPage() {
 
   // Ocultar pins normales a zoom bajo
   useEffect(() => {
+    if (!mapReady) return;
     const map = mapRef.current;
     if (!map) return;
     const MIN_ZOOM = 12;
     const update = () => {
-      const z = map.getZoom();
+      const z = map.getZoom() ?? 0;
       markersRef.current.forEach(({ marker, place }) => {
         const isSelected = selectedPlaceId === place.id;
-        if (z >= MIN_ZOOM || isSelected) {
-          if (!map.hasLayer(marker)) marker.addTo(map);
-        } else {
-          if (map.hasLayer(marker)) marker.remove();
-        }
+        const shouldShow = z >= MIN_ZOOM || isSelected;
+        marker.map = shouldShow ? map : null;
       });
     };
-    map.on('zoomend', update);
+    const listener = map.addListener('zoom_changed', update);
     update();
-    return () => {
-      map.off('zoomend', update);
-    };
-  }, [selectedPlaceId]);
+    return () => google.maps.event.removeListener(listener);
+  }, [mapReady, selectedPlaceId]);
 
-  // Update markers
+  // Create markers; re-runs only when places change
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
 
-    markersRef.current.forEach(({ marker }) => marker.remove());
+    markersRef.current.forEach(({ marker }) => {
+      marker.map = null;
+    });
     markersRef.current = [];
+    prevSelectedIdRef.current = null;
+
+    const currentSelectedId = selectedPlaceIdRef.current;
 
     filteredPlaces.forEach((place) => {
-      if (place.latitude && place.longitude) {
-        const baseColor = getPinColor(place.avgRating);
-        fixLeafletDefaultIcons();
-        const isSelected = selectedPlaceId === place.id;
-        const size = isSelected ? 28 : 24;
-        const triangleH = 10;
-        const icon = L.divIcon({
-          className: '',
-          html: buildPinHtml({
-            color: baseColor,
-            glyph: categoryGlyph(place.category),
-            selected: isSelected,
-            size,
-            hasAlert: (place.activeReportsCount ?? 0) > 0,
-          }),
-          iconSize: [size, size + triangleH],
-          iconAnchor: [Math.round(size / 2), size + triangleH],
-          popupAnchor: [0, -(size + triangleH)],
+      if (!place.latitude || !place.longitude) return;
+      const isSelected = place.id === currentSelectedId;
+      const el = buildPinElement({
+        color: getPinColor(place.avgRating),
+        glyph: categoryGlyph(place.category),
+        selected: isSelected,
+        size: isSelected ? 30 : 24,
+        hasAlert: (place.activeReportsCount ?? 0) > 0,
+      });
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: { lat: place.latitude, lng: place.longitude },
+        content: el,
+        zIndex: isSelected ? 100 : 0,
+      });
+      marker.addListener('click', () => {
+        selectPlaceRef.current(place.id);
+        enterMapFullscreenRef.current(() =>
+          panToPlaceForDetailRef.current(place),
+        );
+      });
+      markersRef.current.push({ marker, place, el });
+    });
+
+    prevSelectedIdRef.current = currentSelectedId;
+  }, [mapReady, filteredPlaces]);
+
+  // Update only the two affected markers when selection changes (animated)
+  useEffect(() => {
+    const prevId = prevSelectedIdRef.current;
+    prevSelectedIdRef.current = selectedPlaceId ?? null;
+
+    markersRef.current.forEach(({ marker, place, el }) => {
+      const wasSelected = place.id === prevId;
+      const isSelected = place.id === selectedPlaceId;
+      if (!wasSelected && !isSelected) return;
+
+      const pinParams = {
+        color: getPinColor(place.avgRating),
+        glyph: categoryGlyph(place.category),
+        hasAlert: (place.activeReportsCount ?? 0) > 0,
+      };
+
+      if (isSelected) {
+        el.innerHTML = buildPinSvgString({
+          ...pinParams,
+          selected: true,
+          size: 30,
         });
-
-        const marker = L.marker([place.latitude, place.longitude], { icon })
-          .on('click', (e) => {
-            L.DomEvent.stopPropagation(e);
-            selectPlace(place.id);
-            enterMapFullscreen(() => panToPlaceForDetail(place));
-          })
-          .addTo(mapRef.current!);
-
-        markersRef.current.push({ marker, place });
+        el.className = 'map-pin map-pin--entering';
+        el.addEventListener(
+          'animationend',
+          () => {
+            el.className = 'map-pin';
+          },
+          { once: true },
+        );
+        marker.zIndex = 100;
+      } else {
+        el.className = 'map-pin map-pin--leaving';
+        el.addEventListener(
+          'animationend',
+          () => {
+            el.innerHTML = buildPinSvgString({
+              ...pinParams,
+              selected: false,
+              size: 24,
+            });
+            el.className = 'map-pin map-pin--appearing';
+            el.addEventListener(
+              'animationend',
+              () => {
+                el.className = 'map-pin';
+              },
+              { once: true },
+            );
+          },
+          { once: true },
+        );
+        marker.zIndex = 0;
       }
     });
-  }, [
-    filteredPlaces,
-    selectedPlaceId,
-    panToPlaceForDetail,
-    selectPlace,
-    enterMapFullscreen,
-  ]);
+  }, [selectedPlaceId]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !showAddPlaceModal || !addPlaceDraft) return;
-    map.flyTo(addPlaceDraft, Math.max(map.getZoom(), 15), { animate: true });
+    map.setZoom(Math.max(map.getZoom() ?? 0, 15));
+    map.panTo({ lat: addPlaceDraft[0], lng: addPlaceDraft[1] });
   }, [showAddPlaceModal, addPlaceDraft]);
-
-  useEffect(() => {
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, []);
 
   const userDisplayName =
     user?.user_metadata?.display_name ||
@@ -409,7 +493,10 @@ export function LandingPage() {
             </button>
 
             {/* Separador */}
-            <div className='h-5 w-px' style={{ backgroundColor: COLORS.border }} />
+            <div
+              className='h-5 w-px'
+              style={{ backgroundColor: COLORS.border }}
+            />
 
             {/* Añadir lugar */}
             <button
@@ -542,11 +629,10 @@ export function LandingPage() {
               setSearch('');
               exitMapFullscreen(() => {
                 if (place && mapRef.current) {
-                  mapRef.current.flyTo(
-                    [place.latitude, place.longitude],
-                    mapRef.current.getZoom(),
-                    { animate: true, duration: 0.5 },
-                  );
+                  mapRef.current.panTo({
+                    lat: place.latitude,
+                    lng: place.longitude,
+                  });
                 }
               });
             }}
@@ -582,23 +668,211 @@ export function LandingPage() {
 
         {/* Botón + flotante en esquina superior derecha del mapa */}
         {!selectedPlaceData && (
-          <button
-            onClick={() => {
-              setShowAddPlaceModal(true);
-              setAddPlaceModalKey((k) => k + 1);
-            }}
-            className='absolute top-60 right-4 sm:top-12 sm:right-10 z-[2000] flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg pointer-events-auto transition-opacity hover:opacity-90 active:opacity-80'
-            style={{ backgroundColor: COLORS.primary, color: '#fff' }}
-            title='Añadir lugar'
-            aria-label='Añadir lugar'
-          >
-            <AppIcons.Plus size={20} aria-hidden />
-          </button>
+          <>
+            <button
+              onClick={() => {
+                setShowAddPlaceModal(true);
+                setAddPlaceModalKey((k) => k + 1);
+              }}
+              className='absolute top-60 right-4 sm:top-20 sm:right-10 z-[2000] flex h-10 w-10 items-center justify-center rounded-2xl shadow-lg pointer-events-auto transition-opacity hover:opacity-90 active:opacity-80'
+              style={{ backgroundColor: COLORS.primary, color: '#fff' }}
+              title='Añadir lugar'
+              aria-label='Añadir lugar'
+            >
+              <AppIcons.Plus size={20} aria-hidden />
+            </button>
+          </>
         )}
 
-        {/* Search Bar flotante sobre el mapa */}
+        {/* ── DESKTOP: filtros | buscador | carrusel categorías ── */}
+        <div className='absolute top-4 left-4 right-4 z-[1600] pointer-events-auto hidden sm:flex items-center gap-3'>
+          {/* Filtros */}
+          <button
+            onClick={() => setShowFiltersModal(true)}
+            className='flex shrink-0 items-center gap-2 rounded-full border px-5 py-2.5 text-base font-semibold shadow-md transition-colors'
+            style={{
+              backgroundColor:
+                activeFilterCount > 0 ? COLORS.primary : COLORS.card,
+              color: activeFilterCount > 0 ? '#fff' : COLORS.text,
+              borderColor: COLORS.text,
+            }}
+          >
+            <AppIcons.Settings
+              className='h-3.5 w-3.5'
+              style={{ color: activeFilterCount > 0 ? '#fff' : COLORS.primary }}
+              aria-hidden
+            />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className='ml-0.5 rounded-full bg-white/30 px-1.5 py-0.5 text-xs'>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {/* Search + carrusel centrados */}
+          <div className='flex flex-1 items-center justify-center gap-6'>
+            {/* Search box */}
+            <div
+              className='relative flex shrink-0 items-center gap-2 rounded-2xl border p-2 shadow-lg'
+              style={{
+                backgroundColor: COLORS.card,
+                borderColor: COLORS.border,
+                width: 440,
+              }}
+            >
+              <div className='relative flex-1'>
+                <AppIcons.Search
+                  size={15}
+                  className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2'
+                  style={{ color: COLORS.textLight }}
+                  aria-hidden
+                />
+                <Input
+                  type='search'
+                  placeholder='Adonde quieres ir...'
+                  value={search}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setLocalSearch(v);
+                    if (!v) setSearch('');
+                    setShowSearchDropdown(true);
+                  }}
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onBlur={() =>
+                    window.setTimeout(() => setShowSearchDropdown(false), 120)
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const first = searchSuggestions[0];
+                      if (first) {
+                        focusPlaceOnMap(first);
+                        return;
+                      }
+                      navigate(`/?search=${encodeURIComponent(search)}`);
+                    }
+                  }}
+                  className='h-9 border-0 bg-transparent pl-9 text-sm shadow-none focus-visible:ring-0'
+                />
+                {showSearchDropdown && searchSuggestions.length > 0 && (
+                  <div className='absolute z-[2600] mt-2 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl'>
+                    {searchSuggestions.map((p) => (
+                      <button
+                        key={p.id}
+                        type='button'
+                        className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => {
+                          setLocalSearch(p.name);
+                          setShowSearchDropdown(false);
+                          focusPlaceOnMap(p);
+                        }}
+                      >
+                        <div
+                          className='font-medium'
+                          style={{ color: COLORS.text }}
+                        >
+                          {p.name}
+                        </div>
+                        <div
+                          className='text-xs'
+                          style={{ color: COLORS.textMuted }}
+                        >
+                          {p.address}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button
+                className='h-9 rounded-xl px-4 text-sm'
+                style={{ backgroundColor: COLORS.primary }}
+                onClick={() =>
+                  navigate(`/?search=${encodeURIComponent(search)}`)
+                }
+              >
+                Buscar
+              </Button>
+            </div>
+
+            {/* Carrusel de categorías — flechas absolute que cortan la última pill */}
+            <div className='relative' style={{ width: 520 }}>
+              {/* Flecha izquierda */}
+              <button
+                onClick={() =>
+                  categoryScrollRef.current?.scrollBy({
+                    left: -220,
+                    behavior: 'smooth',
+                  })
+                }
+                className='absolute -left-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center rounded-full bg-white shadow-md border transition-colors hover:bg-gray-50'
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderColor: COLORS.border,
+                  color: COLORS.text,
+                }}
+              >
+                <ChevronDown size={14} className='rotate-90' />
+              </button>
+              {/* Flecha derecha */}
+              <button
+                onClick={() =>
+                  categoryScrollRef.current?.scrollBy({
+                    left: 220,
+                    behavior: 'smooth',
+                  })
+                }
+                className='absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center rounded-full bg-white shadow-md border transition-colors hover:bg-gray-50'
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderColor: COLORS.border,
+                  color: COLORS.text,
+                }}
+              >
+                <ChevronDown size={14} className='-rotate-90' />
+              </button>
+              <div
+                ref={categoryScrollRef}
+                className='flex items-center gap-2 overflow-x-auto py-0.5 px-1'
+                style={{ scrollbarWidth: 'none' }}
+              >
+                {CATEGORIES.map((cat) => {
+                  const active = category === cat.value;
+                  return (
+                    <button
+                      key={cat.value}
+                      onClick={() => {
+                        const next = active ? 'all' : cat.value;
+                        setLocalCategory(next);
+                        setCategory(next);
+                      }}
+                      className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md transition-colors'
+                      style={{
+                        backgroundColor: active ? COLORS.primary : COLORS.card,
+                        color: active ? '#fff' : COLORS.text,
+                        borderColor: active ? COLORS.primary : COLORS.text,
+                      }}
+                    >
+                      <CategoryIcon
+                        category={cat.value}
+                        size={14}
+                        style={{ color: active ? '#fff' : COLORS.primary }}
+                      />
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>{' '}
+          {/* end search + carrusel centrados */}
+        </div>
+
+        {/* ── MOBILE: buscador centrado ── */}
         <div
-          className={`absolute ${mapFullscreen ? 'top-16 sm:top-4' : 'top-4'} left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto ${mapFullscreen && selectedPlaceData && sidebarSnap === 2 ? 'hidden sm:block' : ''}`}
+          className={`absolute ${mapFullscreen ? 'top-16' : 'top-4'} left-1/2 -translate-x-1/2 z-[1600] w-full max-w-lg px-4 pointer-events-auto sm:hidden ${mapFullscreen && selectedPlaceData && sidebarSnap === 2 ? 'hidden' : ''}`}
         >
           <div
             className='flex items-center gap-2 rounded-2xl border p-2 shadow-lg'
@@ -618,8 +892,7 @@ export function LandingPage() {
                 onChange={(e) => {
                   const v = e.target.value;
                   setLocalSearch(v);
-                  if (window.innerWidth >= 640) setSearch(v);
-                  else if (!v) setSearch('');
+                  if (!v) setSearch('');
                   setShowSearchDropdown(true);
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
@@ -630,10 +903,7 @@ export function LandingPage() {
                   if (e.key === 'Enter') {
                     const first = searchSuggestions[0];
                     if (first) {
-                      setLocalSearch(first.name);
-                      setSearch(first.name);
                       focusPlaceOnMap(first);
-                      setShowSearchDropdown(false);
                       return;
                     }
                     navigate(`/?search=${encodeURIComponent(search)}`);
@@ -651,9 +921,8 @@ export function LandingPage() {
                       onMouseDown={(ev) => ev.preventDefault()}
                       onClick={() => {
                         setLocalSearch(p.name);
-                        setSearch(p.name);
-                        focusPlaceOnMap(p);
                         setShowSearchDropdown(false);
+                        focusPlaceOnMap(p);
                       }}
                     >
                       <div
@@ -682,24 +951,6 @@ export function LandingPage() {
             </Button>
           </div>
         </div>
-
-        {/* Filtros Button - solo desktop */}
-        <button
-          onClick={() => setShowFiltersModal(true)}
-          className='absolute top-8 left-8 z-1500 hidden sm:flex items-center gap-2 rounded-full px-6 py-3 font-semibold shadow-lg border'
-          style={{
-            backgroundColor: COLORS.card,
-            color: COLORS.text,
-            borderColor: COLORS.border,
-            pointerEvents: 'auto',
-          }}
-        >
-          <AppIcons.Settings className='h-4 w-4' aria-hidden />
-          <span>Filtros</span>
-          <span className='text-sm' style={{ color: COLORS.textMuted }}>
-            ({activeFilterCount})
-          </span>
-        </button>
 
         {/* Filtros + categorías carrusel — solo mobile */}
         <div
@@ -765,13 +1016,16 @@ export function LandingPage() {
 
         {/* Resultado Info - Bottom Right */}
         <div
-          className='absolute bottom-8 right-8 z-10 rounded-lg px-4 py-3 shadow-lg border'
+          className='absolute bottom-7 right-14 z-10 rounded-lg px-3 py-1.5 shadow-sm border'
           style={{
             backgroundColor: COLORS.card,
             borderColor: COLORS.border,
           }}
         >
-          <p className='text-sm font-semibold' style={{ color: COLORS.text }}>
+          <p
+            className='text-xs font-medium'
+            style={{ color: COLORS.textMuted }}
+          >
             {filteredPlaces.length} lugares encontrados
           </p>
         </div>
@@ -1233,7 +1487,7 @@ export function LandingPage() {
             style={{ borderColor: COLORS.border }}
           >
             <h2 className='text-lg font-bold' style={{ color: COLORS.text }}>
-              Filtros y Leyenda
+              Filtros
             </h2>
             <button
               onClick={() => setShowFiltersModal(false)}
@@ -1247,196 +1501,77 @@ export function LandingPage() {
           <div className='flex-1 overflow-y-auto p-6 space-y-5'>
             {/* 1. Calificación */}
             {(() => {
-              const activeRating = (
-                [
-                  { value: 'all', label: 'Todas', sub: null },
-                  { value: 'recommended', label: 'Recomendado', sub: '4.5+' },
-                  { value: 'acceptable', label: 'Aceptable', sub: '3.5–4.4' },
-                  {
-                    value: 'not_recommended',
-                    label: 'No recomendado',
-                    sub: '<3.5',
-                  },
-                ] as const
-              ).find((o) => o.value === filters.ratingBand);
               return (
-                <div
-                  className='rounded-xl border overflow-hidden'
-                  style={{ borderColor: COLORS.border }}
-                >
-                  <button
-                    type='button'
-                    onClick={() => setRatingFilterOpen((v) => !v)}
-                    className='flex w-full items-center justify-between px-3 py-2.5 text-left'
-                    style={{ backgroundColor: '#fafafa' }}
+                <div className='space-y-2'>
+                  <p
+                    className='text-xs font-semibold uppercase tracking-wide'
+                    style={{ color: COLORS.textMuted }}
                   >
-                    <div className='flex items-center gap-2'>
-                      <AppIcons.Star
-                        className='h-3.5 w-3.5'
-                        style={{ color: COLORS.primary }}
-                        aria-hidden
-                      />
-                      <span
-                        className='text-xs font-semibold uppercase'
-                        style={{ color: COLORS.textMuted }}
-                      >
-                        Calificación
-                      </span>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                      <span
-                        className='text-xs font-medium'
-                        style={{ color: COLORS.primary }}
-                      >
-                        {activeRating?.label}
-                      </span>
-                      <ChevronDown
-                        className='h-3.5 w-3.5 transition-transform'
-                        style={{
-                          color: COLORS.textMuted,
-                          transform: ratingFilterOpen
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                        }}
-                        aria-hidden
-                      />
-                    </div>
-                  </button>
-                  {ratingFilterOpen && (
-                    <div
-                      className='flex flex-col divide-y'
-                      style={{
-                        borderTopWidth: 1,
-                        borderTopColor: COLORS.border,
-                      }}
-                    >
-                      {(
-                        [
-                          { value: 'all', label: 'Todas', sub: null },
-                          {
-                            value: 'recommended',
-                            label: 'Recomendado',
-                            sub: '4.5+',
-                          },
-                          {
-                            value: 'acceptable',
-                            label: 'Aceptable',
-                            sub: '3.5–4.4',
-                          },
-                          {
-                            value: 'not_recommended',
-                            label: 'No recomendado',
-                            sub: '<3.5',
-                          },
-                        ] as const
-                      ).map((opt) => {
-                        const active = filters.ratingBand === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type='button'
-                            onClick={() => {
-                              setFilterValue('ratingBand', opt.value);
-                              setRatingFilterOpen(false);
-                            }}
-                            className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${active ? 'hover:brightness-95' : 'bg-white hover:bg-gray-50'}`}
-                            style={
-                              active
-                                ? {
-                                    backgroundColor: `${COLORS.primary}0d`,
-                                    color: COLORS.primary,
-                                    fontWeight: 600,
-                                  }
-                                : { color: COLORS.text }
-                            }
-                          >
-                            <span className='flex-1'>{opt.label}</span>
-                            {opt.sub && (
-                              <span
-                                className='flex items-center gap-1 text-xs'
-                                style={{
-                                  color: active
-                                    ? COLORS.primary
-                                    : COLORS.textMuted,
-                                }}
-                              >
-                                {opt.sub}
-                                <AppIcons.Star
-                                  className='h-3 w-3 shrink-0'
-                                  style={{
-                                    color: active
-                                      ? COLORS.primary
-                                      : COLORS.textLight,
-                                    fill: active ? COLORS.primary : 'none',
-                                  }}
-                                  aria-hidden
-                                />
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                    Calificación
+                  </p>
+                  <div className='flex flex-wrap gap-2'>
+                    {(
+                      [
+                        { value: 'all', label: 'Todas', stars: null },
+                        {
+                          value: 'recommended',
+                          label: 'Recomendado',
+                          stars: '4.5+ ★★★★★',
+                        },
+                        {
+                          value: 'acceptable',
+                          label: 'Aceptable',
+                          stars: '3.5–4.4 ★★★★',
+                        },
+                        {
+                          value: 'not_recommended',
+                          label: 'No recomendado',
+                          stars: '<3.5 ★★★',
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = filters.ratingBand === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type='button'
+                          onClick={() =>
+                            setFilterValue('ratingBand', opt.value)
+                          }
+                          className='flex flex-col items-start rounded-2xl border px-3 py-1.5 text-sm font-medium transition-colors'
+                          style={{
+                            backgroundColor: active
+                              ? COLORS.primary
+                              : COLORS.card,
+                            color: active ? '#fff' : COLORS.text,
+                            borderColor: active ? COLORS.primary : COLORS.text,
+                          }}
+                        >
+                          <span>{opt.label}</span>
+                          {opt.stars && (
+                            <span className='text-xs font-normal opacity-70'>
+                              {opt.stars}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
 
             {/* 2. Categoría */}
-            <div
-              className='rounded-xl border overflow-hidden border-t'
-              style={{ borderColor: COLORS.border }}
-            >
-              <button
-                type='button'
-                onClick={() => setCategoryFilterOpen((v) => !v)}
-                className='flex w-full items-center justify-between px-3 py-2.5 text-left'
-                style={{ backgroundColor: '#fafafa' }}
+            <div className='space-y-2'>
+              <p
+                className='text-xs font-semibold uppercase tracking-wide'
+                style={{ color: COLORS.textMuted }}
               >
-                <div className='flex items-center gap-2'>
-                  <AppIcons.Tag
-                    className='h-3.5 w-3.5'
-                    style={{ color: COLORS.primary }}
-                    aria-hidden
-                  />
-                  <span
-                    className='text-xs font-semibold uppercase'
-                    style={{ color: COLORS.textMuted }}
-                  >
-                    Categoría
-                  </span>
-                </div>
-                <div className='flex items-center gap-2'>
-                  <span
-                    className='text-xs font-medium'
-                    style={{ color: COLORS.primary }}
-                  >
-                    {contextCategory === 'all'
-                      ? 'Todas'
-                      : CATEGORIES.find((c) => c.value === contextCategory)
-                          ?.label}
-                  </span>
-                  <ChevronDown
-                    className='h-3.5 w-3.5 transition-transform'
-                    style={{
-                      color: COLORS.textMuted,
-                      transform: categoryFilterOpen
-                        ? 'rotate(180deg)'
-                        : 'rotate(0deg)',
-                    }}
-                    aria-hidden
-                  />
-                </div>
-              </button>
-              {categoryFilterOpen && (
-                <div
-                  className='flex flex-col divide-y'
-                  style={{ borderTopWidth: 1, borderTopColor: COLORS.border }}
-                >
-                  {[
-                    { value: 'all' as const, label: 'Todas' },
-                    ...CATEGORIES,
-                  ].map((c) => {
+                Categoría
+              </p>
+              <div className='flex flex-wrap gap-2'>
+                {[{ value: 'all' as const, label: 'Todas' }, ...CATEGORIES].map(
+                  (c) => {
                     const active = contextCategory === c.value;
                     return (
                       <button
@@ -1445,42 +1580,57 @@ export function LandingPage() {
                         onClick={() => {
                           setLocalCategory(c.value);
                           setCategory(c.value);
-                          setCategoryFilterOpen(false);
                         }}
-                        className={`flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${active ? 'hover:brightness-95' : 'bg-white hover:bg-gray-50'}`}
-                        style={
-                          active
-                            ? {
-                                backgroundColor: `${COLORS.primary}0d`,
-                                color: COLORS.primary,
-                                fontWeight: 600,
-                              }
-                            : { color: COLORS.text }
-                        }
+                        className='flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
+                        style={{
+                          backgroundColor: active
+                            ? COLORS.primary
+                            : COLORS.card,
+                          color: active ? '#fff' : COLORS.text,
+                          borderColor: active ? COLORS.primary : COLORS.text,
+                        }}
                       >
                         {c.value !== 'all' && (
                           <CategoryIcon
                             category={c.value}
-                            size={14}
-                            style={{
-                              color: active ? COLORS.primary : COLORS.textMuted,
-                            }}
+                            size={13}
+                            style={{ color: active ? '#fff' : COLORS.primary }}
                           />
                         )}
-                        <span className='flex-1'>{c.label}</span>
+                        {c.label}
                       </button>
                     );
-                  })}
-                </div>
-              )}
+                  },
+                )}
+              </div>
             </div>
 
             {ACCESSIBILITY_FIELD_GROUPS.map((group) => {
               const groupIconMap: Record<string, React.ReactNode> = {
-                'LLEGADA': <AppIcons.Car className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
-                'ACCESO': <AppIcons.Accessibility className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
-                'DESPLAZAMIENTO VERTICAL': <AppIcons.MoveVertical className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
-                'INTERIOR': <AppIcons.Building2 className='mr-1 inline h-3.5 w-3.5' aria-hidden />,
+                LLEGADA: (
+                  <AppIcons.Car
+                    className='mr-1 inline h-3.5 w-3.5'
+                    aria-hidden
+                  />
+                ),
+                ACCESO: (
+                  <AppIcons.Accessibility
+                    className='mr-1 inline h-3.5 w-3.5'
+                    aria-hidden
+                  />
+                ),
+                'DESPLAZAMIENTO VERTICAL': (
+                  <AppIcons.MoveVertical
+                    className='mr-1 inline h-3.5 w-3.5'
+                    aria-hidden
+                  />
+                ),
+                INTERIOR: (
+                  <AppIcons.Building2
+                    className='mr-1 inline h-3.5 w-3.5'
+                    aria-hidden
+                  />
+                ),
               };
               return (
                 <div
@@ -1492,7 +1642,12 @@ export function LandingPage() {
                     className='text-xs font-semibold uppercase'
                     style={{ color: COLORS.textMuted }}
                   >
-                    {groupIconMap[group.title] ?? <AppIcons.Building2 className='mr-1 inline h-3.5 w-3.5' aria-hidden />}
+                    {groupIconMap[group.title] ?? (
+                      <AppIcons.Building2
+                        className='mr-1 inline h-3.5 w-3.5'
+                        aria-hidden
+                      />
+                    )}
                     {group.title.charAt(0) + group.title.slice(1).toLowerCase()}
                   </p>
                   {group.fields.map((f) => (
@@ -1526,7 +1681,7 @@ export function LandingPage() {
 
           {/* Footer */}
           <div
-            className='border-t px-6 py-4 space-y-3'
+            className='border-t px-6 py-4 flex gap-3'
             style={{ borderColor: COLORS.border }}
           >
             <button
@@ -1534,13 +1689,12 @@ export function LandingPage() {
                 resetFilters();
                 setLocalCategory('all');
                 setCategory('all');
-                setRatingFilterOpen(false);
-                setCategoryFilterOpen(false);
               }}
-              className='w-full rounded-lg border px-4 py-2 text-sm font-semibold'
+              className='flex-1 rounded-lg border px-4 py-2 text-sm font-semibold'
               style={{
-                borderColor: COLORS.border,
-                color: COLORS.text,
+                borderColor: COLORS.primary,
+                color: COLORS.primary,
+                backgroundColor: COLORS.card,
               }}
             >
               Limpiar filtros
@@ -1550,7 +1704,7 @@ export function LandingPage() {
                 setShowFiltersModal(false);
                 enterMapFullscreen();
               }}
-              className='w-full rounded-lg px-4 py-2 text-sm font-semibold text-white'
+              className='flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white'
               style={{ backgroundColor: COLORS.primary }}
             >
               Aplicar filtros
