@@ -214,6 +214,7 @@ export function buildPinElement(params: {
   hasAlert?: boolean
   name?: string
   index?: number
+  avgRating?: number | null
 }): HTMLDivElement {
   const el = document.createElement('div')
   el.className = params.selected ? 'map-pin map-pin--entering' : 'map-pin'
@@ -228,6 +229,14 @@ export function buildPinElement(params: {
     label.style.whiteSpace = 'pre'
     label.textContent = formatPinLabel(params.name)
     el.appendChild(label)
+  }
+  if (params.avgRating != null && params.avgRating > 0) {
+    const badge = document.createElement('div')
+    badge.className = 'map-pin__rating'
+    badge.textContent = params.avgRating.toFixed(1)
+    badge.style.color = params.color
+    badge.style.display = 'none'
+    el.appendChild(badge)
   }
   return el
 }

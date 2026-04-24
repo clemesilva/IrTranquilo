@@ -54,6 +54,8 @@ export function LandingPage() {
   const parkingMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>(
     [],
   );
+  const fitBoundsOnNextFilterRef = useRef(false);
+  const showRatingBadgeRef = useRef(false);
   const prevSelectedIdRef = useRef<number | null>(null);
   const selectedPlaceIdRef = useRef<number | null>(null);
   const selectPlaceRef = useRef<(id: number) => void>(() => {});
@@ -339,19 +341,43 @@ export function LandingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fit map bounds cuando se selecciona categoría
+  useEffect(() => {
+    if (!fitBoundsOnNextFilterRef.current) return;
+    if (!mapReady || filteredPlaces.length === 0) return;
+    const map = mapRef.current;
+    if (!map) return;
+    fitBoundsOnNextFilterRef.current = false;
+
+    const lats = filteredPlaces.filter(p => p.latitude && p.longitude).map(p => p.latitude);
+    const lngs = filteredPlaces.filter(p => p.latitude && p.longitude).map(p => p.longitude);
+    if (!lats.length) return;
+
+    const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+
+    map.panTo({ lat: centerLat, lng: centerLng });
+    map.setZoom(12);
+  }, [filteredPlaces, mapReady]);
+
   // Ocultar pins normales a zoom bajo; mostrar etiqueta de nombre a zoom cercano
   useEffect(() => {
     if (!mapReady) return;
     const map = mapRef.current;
     if (!map) return;
-    const MIN_ZOOM = 12;
-    const MIN_ZOOM_LABEL = 15;
+    const MIN_ZOOM = 10;
+    const MIN_ZOOM_LABEL = contextCategory !== 'all' ? 14 : 15;
     const update = () => {
       const z = map.getZoom() ?? 0;
+      const pinSize = z < 11 ? 8 : z < 12 ? 12 : z < 13 ? 18 : 24;
       markersRef.current.forEach(({ marker, place, el }) => {
         const isSelected = selectedPlaceId === place.id;
         const shouldShow = z >= MIN_ZOOM || isSelected;
         marker.map = shouldShow ? map : null;
+        if (!isSelected) {
+          el.style.transform = `scale(${pinSize / 24})`;
+          el.style.transformOrigin = 'center center';
+        }
         const label = el.querySelector<HTMLElement>('.map-pin__name-label');
         if (label) {
           if (isSelected) {
@@ -360,10 +386,7 @@ export function LandingPage() {
             label.style.fontWeight = '700';
             label.style.fontSize = '11px';
           } else {
-            label.style.display = z >= MIN_ZOOM_LABEL ? '' : 'none';
-            label.style.color = '';
-            label.style.fontWeight = '';
-            label.style.fontSize = '';
+            label.style.display = z >= MIN_ZOOM_LABEL ? 'block' : 'none';
           }
         }
       });
@@ -371,7 +394,19 @@ export function LandingPage() {
     const listener = map.addListener('zoom_changed', update);
     update();
     return () => google.maps.event.removeListener(listener);
-  }, [mapReady, selectedPlaceId]);
+  }, [mapReady, selectedPlaceId, contextCategory]);
+
+  // Mantener ref actualizado y aplicar badge a markers existentes
+  useEffect(() => {
+    showRatingBadgeRef.current = contextCategory !== 'all' && activeFilterCount === 0;
+    markersRef.current.forEach(({ el, place }) => {
+      const badge = el.querySelector<HTMLElement>('.map-pin__rating');
+      if (!badge) return;
+      const show = showRatingBadgeRef.current && place.id !== selectedPlaceId;
+      badge.style.display = show ? 'block' : 'none';
+      el.classList.toggle('map-pin--callout', show);
+    });
+  }, [contextCategory, activeFilterCount, selectedPlaceId]);
 
   // Create markers; re-runs only when places change
   useEffect(() => {
@@ -397,7 +432,12 @@ export function LandingPage() {
         hasAlert: (place.activeReportsCount ?? 0) > 0,
         name: place.name,
         index: markersRef.current.length,
+        avgRating: place.avgRating,
       });
+      const badge = el.querySelector<HTMLElement>('.map-pin__rating');
+      const showBadge = showRatingBadgeRef.current && !isSelected;
+      if (badge) badge.style.display = showBadge ? 'block' : 'none';
+      if (showBadge) el.classList.add('map-pin--callout');
       const marker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: { lat: place.latitude, lng: place.longitude },
@@ -894,6 +934,7 @@ export function LandingPage() {
                         const next = active ? 'all' : cat.value;
                         setLocalCategory(next);
                         setCategory(next);
+                        if (next !== 'all') fitBoundsOnNextFilterRef.current = true;
                       }}
                       className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md transition-colors'
                       style={{
@@ -1040,6 +1081,7 @@ export function LandingPage() {
                     const next = active ? 'all' : cat.value;
                     setLocalCategory(next);
                     setCategory(next);
+                    if (next !== 'all') fitBoundsOnNextFilterRef.current = true;
                     enterMapFullscreen();
                   }}
                   className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md'
@@ -1627,6 +1669,7 @@ export function LandingPage() {
                         onClick={() => {
                           setLocalCategory(c.value);
                           setCategory(c.value);
+                          if (c.value !== 'all') fitBoundsOnNextFilterRef.current = true;
                         }}
                         className='flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
                         style={{
@@ -1749,6 +1792,7 @@ export function LandingPage() {
             <button
               onClick={() => {
                 setShowFiltersModal(false);
+                if (contextCategory !== 'all') fitBoundsOnNextFilterRef.current = true;
                 enterMapFullscreen();
               }}
               className='flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white'
