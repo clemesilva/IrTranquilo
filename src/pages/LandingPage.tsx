@@ -9,7 +9,12 @@ import { ACCESSIBILITY_FIELD_GROUPS } from '../types/reviewAccessibility';
 import { COLORS, getPinColor } from '../styles/colors';
 import type { PlaceWithStats } from '../context/placesContext';
 import { SANTIAGO_CENTER, SANTIAGO_ZOOM } from '../lib/mapDefaults';
-import { buildPinElement, buildPinSvgString, categoryGlyph, formatPinLabel } from '../lib/pins';
+import {
+  buildPinElement,
+  buildPinSvgString,
+  categoryGlyph,
+  formatPinLabel,
+} from '../lib/pins';
 import { ensureGoogleMapsLoaded } from '../lib/googleMaps';
 import { PlaceMapSidebar } from '../components/map/PlaceMapSidebar';
 import {
@@ -229,7 +234,7 @@ export function LandingPage() {
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
-        gestureHandling: 'cooperative',
+        gestureHandling: 'greedy',
         clickableIcons: false,
       });
       mapRef.current = map;
@@ -314,9 +319,9 @@ export function LandingPage() {
     const map = mapRef.current;
     if (!map) return;
     map.setOptions({
-      gestureHandling: showFiltersModal ? 'none' : 'cooperative',
+      gestureHandling: showFiltersModal ? 'none' : 'greedy',
     });
-    return () => map.setOptions({ gestureHandling: 'cooperative' });
+    return () => map.setOptions({ gestureHandling: 'greedy' });
   }, [showFiltersModal]);
 
   // Al restaurar un lugar seleccionado desde URL, centrar el mapa en él
@@ -771,7 +776,7 @@ export function LandingPage() {
                 />
                 <Input
                   type='search'
-                  placeholder='Adonde quieres ir...'
+                  placeholder='Adónde quieres ir...'
                   value={search}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -929,7 +934,7 @@ export function LandingPage() {
               />
               <Input
                 type='search'
-                placeholder='Busca un lugar...'
+                placeholder='Adónde quieres ir...'
                 value={search}
                 onChange={(e) => {
                   const v = e.target.value;
