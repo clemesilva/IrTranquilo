@@ -26,13 +26,9 @@ function AppRoutes() {
       <Route
         path="/"
         element={
-          user ? (
-            <PlacesProvider>
-              <LandingPage />
-            </PlacesProvider>
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          <PlacesProvider>
+            <LandingPage />
+          </PlacesProvider>
         }
       />
       <Route
@@ -50,13 +46,9 @@ function AppRoutes() {
       <Route
         path="/lugares/:id"
         element={
-          user ? (
-            <PlacesProvider>
-              <PlaceDetailPage />
-            </PlacesProvider>
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          <PlacesProvider>
+            <PlaceDetailPage />
+          </PlacesProvider>
         }
       />
       <Route path="/marco-legal" element={<MarcoLegalPage />} />

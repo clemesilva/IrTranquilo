@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { LoginDialog } from '@/components/auth/LoginDialog';
 import { Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import { mapGoogleTypeToCategory } from '../../lib/googleCategory';
 import { reviewMediaBasePathForPlace } from '@/lib/reviewMediaPaths';
 import { COLORS } from '@/styles/colors';
 import { AppIcons } from '@/components/icons/appIcons';
+import { saveDraftMedia, loadDraftMedia, clearDraftMedia } from '@/lib/draftMediaStore';
 
 function createEmptyAccessibilityNullable(): Record<
   AccessibilityReviewKey,
@@ -45,6 +47,7 @@ export type AddPlacePanelProps = {
   onDraftLatLngChange: (next: [number, number] | null) => void;
   onClose: () => void;
   onSaved: (placeId: number) => void;
+  onLoginDialogChange?: (open: boolean) => void;
   /** Clases extra en el contenedor raíz (ej. altura máxima en modal) */
   className?: string;
 };
@@ -54,44 +57,79 @@ export function AddPlacePanel({
   onDraftLatLngChange,
   onClose,
   onSaved,
+  onLoginDialogChange,
   className = '',
 }: AddPlacePanelProps) {
   const { refreshPlaces } = usePlaces();
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  const DRAFT_KEY = 'addPlaceDraft';
+
+  // Solo lee, sin borrar — StrictMode ejecuta el cuerpo dos veces y borrar aquí
+  // haría que la segunda ejecución vea null. El borrado lo hace el useEffect de abajo.
+  const savedDraft = (() => {
+    try {
+      const s = sessionStorage.getItem(DRAFT_KEY);
+      return s ? JSON.parse(s) : null;
+    } catch { return null; }
+  })();
+
+  // Si ya hay un lugar seleccionado en el draft, no enfocar el input (evita que se abra el dropdown)
+  const draftHasPlace = !!(savedDraft?.address && savedDraft?.draftLatLng);
+
   useEffect(() => {
-    const t = window.setTimeout(() => searchInputRef.current?.focus(), 80);
-    return () => window.clearTimeout(t);
+    sessionStorage.removeItem(DRAFT_KEY);
   }, []);
 
-  const [category, setCategory] = useState<PlaceCategory | null>(null);
-  const [address, setAddress] = useState('');
-  const [openingHours, setOpeningHours] = useState<string[] | null>(null);
-  const [phone, setPhone] = useState<string | null>(null);
-  const [website, setWebsite] = useState<string | null>(null);
-  const [googleRating, setGoogleRating] = useState<number | null>(null);
-  const [googleRatingsTotal, setGoogleRatingsTotal] = useState<number | null>(
-    null,
-  );
-  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null);
-  const [wheelchairAccessible, setWheelchairAccessible] = useState<
-    boolean | null
-  >(null);
-  const [priceLevel, setPriceLevel] = useState<number | null>(null);
+  useEffect(() => {
+    if (draftHasPlace) return;
+    const t = window.setTimeout(() => searchInputRef.current?.focus(), 80);
+    return () => window.clearTimeout(t);
+  }, [draftHasPlace]);
 
-  const [rating, setRating] = useState<number>(0);
-  const [review, setReview] = useState('');
+  const [category, setCategory] = useState<PlaceCategory | null>(savedDraft?.category ?? null);
+  const [address, setAddress] = useState(savedDraft?.address ?? '');
+  const [openingHours, setOpeningHours] = useState<string[] | null>(savedDraft?.openingHours ?? null);
+  const [phone, setPhone] = useState<string | null>(savedDraft?.phone ?? null);
+  const [website, setWebsite] = useState<string | null>(savedDraft?.website ?? null);
+  const [googleRating, setGoogleRating] = useState<number | null>(savedDraft?.googleRating ?? null);
+  const [googleRatingsTotal, setGoogleRatingsTotal] = useState<number | null>(savedDraft?.googleRatingsTotal ?? null);
+  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(savedDraft?.googlePhotoUrl ?? null);
+  const [wheelchairAccessible, setWheelchairAccessible] = useState<boolean | null>(savedDraft?.wheelchairAccessible ?? null);
+  const [priceLevel, setPriceLevel] = useState<number | null>(savedDraft?.priceLevel ?? null);
+
+  const [rating, setRating] = useState<number>(savedDraft?.rating ?? 0);
+  const [review, setReview] = useState(savedDraft?.review ?? '');
 
   const [accessibility, setAccessibility] = useState(() =>
-    createEmptyAccessibilityNullable(),
+    savedDraft?.accessibility ?? createEmptyAccessibilityNullable(),
   );
 
   const [media, setMedia] = useState<MediaUploadState>(createEmptyMediaState());
+
+  // Restaurar fotos/video guardados en IndexedDB (flujo Google OAuth post-redirect)
+  useEffect(() => {
+    loadDraftMedia().then((saved) => {
+      if (!saved) return;
+      setMedia({
+        photos: saved.photos,
+        photoPreviews: saved.photos.map((f) => URL.createObjectURL(f)),
+        video: saved.video,
+        existingPhotoUrls: [],
+        existingVideoUrl: null,
+      });
+      clearDraftMedia();
+    });
+  }, []);
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeQuery, setPlaceQuery] = useState(savedDraft?.placeQuery ?? '');
   const [showDropdown, setShowDropdown] = useState(false);
+  // true cuando el usuario ya seleccionó un lugar del dropdown (o se restauró del draft)
+  const [placeConfirmed, setPlaceConfirmed] = useState(draftHasPlace);
 
   const {
     ready: googleReady,
@@ -131,6 +169,7 @@ export function AddPlacePanel({
       setCategory(mapGoogleTypeToCategory(d.rawTypes));
       setSuggestions([]);
       setShowDropdown(false);
+      setPlaceConfirmed(true);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Error seleccionando el lugar.',
@@ -145,7 +184,19 @@ export function AddPlacePanel({
     try {
       const { data: auth } = await supabase.auth.getUser();
       const user = auth.user;
-      if (!user) throw new Error('Debes iniciar sesión para guardar.');
+      if (!user) {
+        sessionStorage.setItem('pendingAddPlace', 'true');
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+          placeQuery, category, address, openingHours, phone, website,
+          googleRating, googleRatingsTotal, googlePhotoUrl, wheelchairAccessible,
+          priceLevel, rating, review, accessibility,
+          draftLatLng,
+        }));
+        await saveDraftMedia({ photos: media.photos, video: media.video });
+        setShowLoginDialog(true);
+        onLoginDialogChange?.(true);
+        return;
+      }
       if (!category) throw new Error('Elige una categoría.');
 
       const placeName = placeQuery.trim();
@@ -309,6 +360,7 @@ export function AddPlacePanel({
       setCategory(null);
       setOpeningHours(null);
       setMedia(createEmptyMediaState());
+      sessionStorage.removeItem(DRAFT_KEY);
       onSaved(place.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar el lugar.');
@@ -357,10 +409,12 @@ export function AddPlacePanel({
                 onChange={(e) => {
                   const v = e.target.value;
                   setPlaceQuery(v);
+                  setPlaceConfirmed(false);
                   setShowDropdown(true);
                   fetchSuggestions(v);
                 }}
                 onFocus={() => {
+                  if (placeConfirmed) return;
                   setShowDropdown(true);
                   if (placeQuery.trim()) fetchSuggestions(placeQuery);
                 }}
@@ -473,7 +527,7 @@ export function AddPlacePanel({
                         description={f.description}
                         value={accessibility[f.key]}
                         onChange={(next) =>
-                          setAccessibility((prev) => ({
+                          setAccessibility((prev: Record<AccessibilityReviewKey, boolean | null>) => ({
                             ...prev,
                             [f.key]: next,
                           }))
@@ -512,7 +566,7 @@ export function AddPlacePanel({
               type='button'
               variant='outline'
               className='flex-1'
-              onClick={onClose}
+              onClick={() => { sessionStorage.removeItem(DRAFT_KEY); onClose(); }}
             >
               Cancelar
             </Button>
@@ -528,6 +582,12 @@ export function AddPlacePanel({
           </div>
         </CardContent>
       </Card>
+      <LoginDialog
+        open={showLoginDialog}
+        onOpenChange={(v) => { setShowLoginDialog(v); onLoginDialogChange?.(v); }}
+        title='Necesitas iniciar sesión para añadir un lugar'
+        onSuccess={() => { handleSave(); }}
+      />
     </div>
   );
 }

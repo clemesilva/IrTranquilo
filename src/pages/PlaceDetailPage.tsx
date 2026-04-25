@@ -492,16 +492,26 @@ export function PlaceDetailPage() {
 
             {/* Columna derecha: botones siempre en paralelo */}
             <div className='flex shrink-0 gap-2'>
-              <PlaceReviewFormDialog
-                placeId={place.id}
-                onSaved={() => void reloadLists()}
-                triggerClassName='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
-                triggerStyle={{
-                  backgroundColor: COLORS.primary,
-                  color: '#fff',
-                  borderColor: COLORS.primary,
-                }}
-              />
+              {user ? (
+                <PlaceReviewFormDialog
+                  placeId={place.id}
+                  onSaved={() => void reloadLists()}
+                  triggerClassName='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
+                  triggerStyle={{
+                    backgroundColor: COLORS.primary,
+                    color: '#fff',
+                    borderColor: COLORS.primary,
+                  }}
+                />
+              ) : (
+                <Button
+                  className='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
+                  style={{ backgroundColor: COLORS.primary, color: '#fff', borderColor: COLORS.primary }}
+                  onClick={() => navigate('/login')}
+                >
+                  Escribir reseña
+                </Button>
+              )}
               <Button
                 type='button'
                 variant='outline'

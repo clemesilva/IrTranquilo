@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '../services/supabase';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,6 +89,7 @@ export function LandingPage() {
   }, [sidebarSnap]);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceModalKey, setAddPlaceModalKey] = useState(0);
+  const [addPlaceLoginOpen, setAddPlaceLoginOpen] = useState(false);
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
   );
@@ -222,6 +224,43 @@ export function LandingPage() {
     // Solo al montar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restaurar modal de añadir lugar tras login (email/password o Google OAuth).
+  // Usa sessionStorage como única fuente de verdad: al detectarlo lo borra de inmediato
+  // para que StrictMode (double-invoke) y múltiples listeners no abran dos modales.
+  const openPendingAddPlace = useCallback(() => {
+    if (sessionStorage.getItem('pendingAddPlace') !== 'true') return;
+    sessionStorage.removeItem('pendingAddPlace');
+    let restoredLatLng: [number, number] | null = null;
+    try {
+      const s = sessionStorage.getItem('addPlaceDraft');
+      if (s) {
+        const draft = JSON.parse(s);
+        if (Array.isArray(draft.draftLatLng) && draft.draftLatLng.length === 2) {
+          restoredLatLng = draft.draftLatLng as [number, number];
+        }
+      }
+    } catch { /* noop */ }
+    const latlng = restoredLatLng;
+    setTimeout(() => {
+      if (latlng) setAddPlaceDraft(latlng);
+      setShowAddPlaceModal(true);
+      setAddPlaceModalKey((k) => k + 1);
+    }, 400);
+  }, []);
+
+  // Cubre email/password (user pasa de null → autenticado en la misma página)
+  useEffect(() => {
+    if (user) openPendingAddPlace();
+  }, [user, openPendingAddPlace]);
+
+  // Cubre Google OAuth: Supabase dispara SIGNED_IN cuando procesa el token del redirect
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') openPendingAddPlace();
+    });
+    return () => subscription.unsubscribe();
+  }, [openPendingAddPlace]);
 
   // Initialize map
   useEffect(() => {
@@ -585,43 +624,35 @@ export function LandingPage() {
               style={{ backgroundColor: COLORS.border }}
             />
 
-            {/* Añadir lugar */}
-            <button
-              onClick={() => {
-                setShowAddPlaceModal(true);
-                setAddPlaceModalKey((k) => k + 1);
-              }}
-              className='flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors hover:bg-gray-50'
-              style={{ borderColor: COLORS.border, color: COLORS.text }}
-              title='Añadir lugar'
-            >
-              <AppIcons.Plus size={15} aria-hidden />
-              <span className='hidden sm:inline'>Añadir Lugar</span>
-            </button>
+            {user ? (
+              <>
+                {/* Nombre usuario */}
+                <span
+                  className='max-w-[120px] truncate text-sm font-medium'
+                  style={{ color: COLORS.text }}
+                >
+                  {userDisplayName}
+                </span>
 
-            {/* Separador */}
-            <div
-              className='h-5 w-px'
-              style={{ backgroundColor: COLORS.border }}
-            />
-
-            {/* Nombre usuario */}
-            <span
-              className='max-w-[120px] truncate text-sm font-medium'
-              style={{ color: COLORS.text }}
-            >
-              {userDisplayName}
-            </span>
-
-            {/* Cerrar sesión */}
-            <button
-              onClick={signOut}
-              className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
-              style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
-              title='Cerrar sesión'
-            >
-              <AppIcons.LogOut size={16} aria-hidden />
-            </button>
+                {/* Cerrar sesión */}
+                <button
+                  onClick={signOut}
+                  className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
+                  style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
+                  title='Cerrar sesión'
+                >
+                  <AppIcons.LogOut size={16} aria-hidden />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => navigate('/login')}
+                className='flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors hover:bg-gray-50'
+                style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
+              >
+                <span>Iniciar sesión</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -631,20 +662,21 @@ export function LandingPage() {
         <div className='mx-auto max-w-3xl text-center'>
           {/* Badge */}
 
+          {/* Badge pill */}
+          <p
+            className='mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold tracking-widest uppercase'
+            style={{ color: COLORS.primary, borderColor: `${COLORS.primary}30`, backgroundColor: `${COLORS.primary}08` }}
+          >
+            Descubre · Evalúa · Comparte
+          </p>
+
           {/* Title */}
           <h2
             className='mb-4 text-3xl font-extrabold leading-tight sm:text-4xl'
             style={{ color: COLORS.text }}
           >
             Anda tranquilo,{' '}
-            <span
-              style={{
-                background: `linear-gradient(to right, ${COLORS.primary}, ${COLORS.success})`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
+            <span style={{ color: COLORS.primary }}>
               nosotros ya fuimos.
             </span>
           </h2>
@@ -659,14 +691,20 @@ export function LandingPage() {
             estuvo ahí.
           </p>
 
-          {/* CTA secundario */}
-          <p
-            className='mb-8 text-sm leading-relaxed'
-            style={{ color: COLORS.textLight }}
-          >
-            ¿Ya fuiste a algún lugar? Agrégalo, califica su accesibilidad y
-            ayuda a otros a ir tranquilos también.
-          </p>
+          {/* CTA principal */}
+          <div className='mb-8'>
+            <button
+              onClick={() => {
+                setShowAddPlaceModal(true);
+                setAddPlaceModalKey((k) => k + 1);
+              }}
+              className='inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-base font-bold text-white shadow-md transition-opacity hover:opacity-90'
+              style={{ backgroundColor: COLORS.primary }}
+            >
+              <AppIcons.Plus size={18} aria-hidden />
+              Añadir un lugar
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1808,10 +1846,17 @@ export function LandingPage() {
         open={showAddPlaceModal}
         onOpenChange={(open) => {
           setShowAddPlaceModal(open);
-          if (!open) setAddPlaceDraft(null);
+          if (!open) {
+            setAddPlaceDraft(null);
+            sessionStorage.removeItem('addPlaceDraft');
+            sessionStorage.removeItem('pendingAddPlace');
+          }
         }}
       >
-        <DialogContent className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg'>
+        <DialogContent
+          className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg transition-[filter] duration-200'
+          style={addPlaceLoginOpen ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none' } : undefined}
+        >
           <VisuallyHidden>
             <DialogTitle>Añadir lugar</DialogTitle>
           </VisuallyHidden>
@@ -1819,6 +1864,7 @@ export function LandingPage() {
             key={addPlaceModalKey}
             draftLatLng={addPlaceDraft}
             onDraftLatLngChange={setAddPlaceDraft}
+            onLoginDialogChange={setAddPlaceLoginOpen}
             onClose={() => {
               setShowAddPlaceModal(false);
               setAddPlaceDraft(null);

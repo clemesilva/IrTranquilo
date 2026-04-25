@@ -9,7 +9,7 @@ export async function ensureGoogleMapsLoaded(): Promise<void> {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   if (!apiKey) throw new Error('Falta VITE_GOOGLE_MAPS_API_KEY en .env.local');
 
-  setOptions({ key: apiKey, v: 'weekly' });
+  setOptions({ key: apiKey, v: 'weekly', language: 'es', region: 'CL' });
 
   loaderPromise = Promise.all([
     importLibrary('core'),
