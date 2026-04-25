@@ -1035,7 +1035,7 @@ export function LandingPage() {
                     navigate(`/?search=${encodeURIComponent(search)}`);
                   }
                 }}
-                className='h-9 border-0 bg-transparent pl-9 text-sm shadow-none focus-visible:ring-0'
+                className='h-9 border-0 bg-transparent pl-9 text-[16px] sm:text-sm shadow-none focus-visible:ring-0'
               />
               {showSearchDropdown && searchSuggestions.length > 0 && (
                 <div className='absolute z-[2600] mt-2 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl'>
@@ -1049,6 +1049,7 @@ export function LandingPage() {
                         setLocalSearch(p.name);
                         setShowSearchDropdown(false);
                         focusPlaceOnMap(p);
+                        (document.activeElement as HTMLElement)?.blur();
                       }}
                     >
                       <div
