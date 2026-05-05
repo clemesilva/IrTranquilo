@@ -402,7 +402,7 @@ export function PlaceDetailPage() {
           {/* Nombre + íconos llegar/compartir alineados */}
           <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0 flex-1'>
-              <h1 className='text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl'>
+              <h1 className='text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl'>
                 {place.name}
               </h1>
               {creatorName && (

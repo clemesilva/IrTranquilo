@@ -164,7 +164,7 @@ export const ACCESSIBILITY_FIELD_GROUPS: AccessibilityFieldGroup[] = [
       },
       {
         key: 'staff_patient',
-        label: 'Tiempo atención adecuado',
+        label: 'Tiempo de atención',
         description: 'No te apuran ni te hacen sentir una carga',
         isLaw: false,
       },

@@ -460,7 +460,7 @@ export function PlaceMapSidebar({
           >
             {place.name}
           </h2>
-          <div className='flex shrink-0 items-start gap-0.5 mt-2'>
+          <div className='flex shrink-0 items-center gap-0.5'>
             <Button
               type='button'
               variant='ghost'

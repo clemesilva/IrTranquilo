@@ -103,7 +103,9 @@ export function PlaceReviewForm({
   const handleSubmit = async (confirmedRating: number) => {
     setShowRatingDialog(false);
     setRating(confirmedRating);
-    if (!isAuthenticated || confirmedRating < 1 || confirmedRating > 5) return;
+    if (!isAuthenticated) return;
+    if (!hasExisting && confirmedRating < 1) return;
+    if (confirmedRating > 5) return;
     setIsSubmitting(true);
     setError(null);
     try {

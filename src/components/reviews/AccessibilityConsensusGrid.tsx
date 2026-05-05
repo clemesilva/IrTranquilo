@@ -79,29 +79,29 @@ function ConsensusCard({
     <div
       title={description}
       className={cn(
-        'max-w-full min-w-0 rounded-2xl border px-3 py-2',
+        'max-w-full min-w-0 rounded-xl border px-2.5 py-1.5 sm:rounded-2xl sm:px-3 sm:py-2',
         description ? 'cursor-help' : null,
         bg,
       )}
     >
-      <div className='flex min-w-0 items-start justify-between gap-2'>
-        <span className='flex min-w-0 items-center gap-2 text-sm font-semibold leading-snug text-neutral-900'>
-          <AccessibilityFieldIcon
-            fieldKey={fieldKey}
-            className='shrink-0 text-neutral-800'
-            size={18}
-          />
-          <span className='min-w-0 truncate'>{label}</span>
+      <div className='flex min-w-0 items-center gap-1.5'>
+        <AccessibilityFieldIcon
+          fieldKey={fieldKey}
+          className='shrink-0 text-neutral-800'
+          size={14}
+        />
+        <span className='min-w-0 truncate text-xs font-semibold leading-snug text-neutral-900 sm:text-sm'>
+          {label}
         </span>
       </div>
-      <span
+      <p
         className={cn(
-          'mt-0.5 text-[11px] font-medium tabular-nums leading-snug sm:text-xs',
+          'mt-0.5 text-[9px] font-medium leading-snug sm:text-[11px]',
           value ? 'text-emerald-800' : 'text-rose-800',
         )}
       >
         {subtitle}
-      </span>
+      </p>
     </div>
   );
 }
@@ -182,7 +182,7 @@ export function AccessibilityConsensusGrid({
                     className={cn(
                       isCompact
                         ? 'flex flex-wrap gap-1.5'
-                        : 'grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4',
+                        : 'grid grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-4',
                     )}
                   >
                     {visibleFields.map((f) => {
