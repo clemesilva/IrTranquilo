@@ -42,6 +42,11 @@ export interface AccessibilityFilters {
   lowered_counter: boolean;
   accessible_bathroom: boolean;
   dining_table_accessible: boolean;
+
+  // 7. Personal
+  staff_kind: boolean;
+  staff_helpful: boolean;
+  staff_patient: boolean;
 }
 
 /** Toggles de accesibilidad en filtros (consenso ≥ 60 % sobre filas `reviews` con checklist). */
@@ -59,6 +64,9 @@ export const ACCESSIBILITY_FILTER_TOGGLE_KEYS = [
   'lowered_counter',
   'accessible_bathroom',
   'dining_table_accessible',
+  'staff_kind',
+  'staff_helpful',
+  'staff_patient',
 ] as const;
 
 export type AccessibilityFilterToggleKey =

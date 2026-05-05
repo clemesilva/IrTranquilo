@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,7 @@ export function SidebarHome() {
     setIsLoggingOut(true);
     try {
       await signOut();
+      toast.success('Sesión cerrada');
       navigate('/login');
     } catch (error) {
       console.error('Error logging out:', error);

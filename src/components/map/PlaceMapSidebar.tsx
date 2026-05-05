@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Navigation, X } from 'lucide-react';
 import { useAuth } from '@/context/useAuth';
@@ -26,18 +26,29 @@ function StarRow({
   rating: number;
   className?: string;
 }) {
-  const full = Math.round(rating);
+  const uid = useId();
   return (
     <div className={cn('flex items-center gap-0.5', className)} aria-hidden>
-      {Array.from({ length: 5 }, (_, i) => (
-        <span
-          key={i}
-          className='text-sm leading-none sm:text-base'
-          style={{ color: i < full ? COLORS.primary : '#E2E8F0' }}
-        >
-          {'\u2605'}
-        </span>
-      ))}
+      {Array.from({ length: 5 }, (_, i) => {
+        const fill = Math.min(1, Math.max(0, rating - i));
+        const pct = Math.round(fill * 100);
+        const id = `${uid}-${i}`;
+        return (
+          <svg key={i} width='14' height='14' viewBox='0 0 24 24'>
+            <defs>
+              <linearGradient id={id}>
+                <stop offset={`${pct}%`} stopColor={COLORS.primary} />
+                <stop offset={`${pct}%`} stopColor='#E2E8F0' />
+              </linearGradient>
+            </defs>
+            <polygon
+              points='12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26'
+              fill={`url(#${id})`}
+              stroke='none'
+            />
+          </svg>
+        );
+      })}
     </div>
   );
 }
@@ -48,6 +59,7 @@ interface PlaceMapSidebarProps {
   place: PlaceWithStats;
   onClose: () => void;
   onSnapChange?: (snap: number) => void;
+  onLoginOpenChange?: (open: boolean) => void;
 }
 
 type PlaceReportType = 'elevator' | 'ramp' | 'construction' | 'other';
@@ -177,7 +189,7 @@ function ReviewsCollapsible({
     <div className='space-y-3'>
       <div className={`relative ${!expanded ? 'max-h-[420px] overflow-hidden' : ''}`}>
         <div className='space-y-3'>
-          {reviews.map((r) => (
+          {reviews.filter((r) => r.comment?.trim()).map((r) => (
             <div
               key={r.id}
               className='rounded-xl border p-3'
@@ -193,23 +205,23 @@ function ReviewsCollapsible({
                   </p>
                 )}
               </div>
-              <div className='mb-1.5 flex items-center gap-2'>
-                <StarRow rating={r.rating} className='scale-90' />
-                <span className='text-xs tabular-nums text-neutral-500'>
-                  {r.rating}/5
-                </span>
-                <div className='ml-auto'>
-                  <ReviewLikeButton
-                    reviewId={r.id}
-                    initialCount={r.helpfulCount ?? 0}
-                    userId={userId}
-                  />
+              {r.rating != null && r.rating > 0 && (
+                <div className='mb-1.5 flex items-center gap-2'>
+                  <StarRow rating={r.rating} className='scale-90' />
+                  <span className='text-xs tabular-nums text-neutral-500'>
+                    {r.rating}/5
+                  </span>
+                  <div className='ml-auto'>
+                    <ReviewLikeButton
+                      reviewId={r.id}
+                      initialCount={r.helpfulCount ?? 0}
+                      userId={userId}
+                    />
+                  </div>
                 </div>
-              </div>
-              {r.comment ? (
+              )}
+              {r.comment && (
                 <p className='text-sm leading-relaxed text-neutral-700'>{r.comment}</p>
-              ) : (
-                <p className='text-xs italic text-neutral-400'>Sin comentario</p>
               )}
               <ReviewMedia photoUrls={r.photoUrls ?? []} videoUrl={r.videoUrl} />
             </div>
@@ -236,6 +248,7 @@ export function PlaceMapSidebar({
   place,
   onClose,
   onSnapChange,
+  onLoginOpenChange,
 }: PlaceMapSidebarProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -398,8 +411,9 @@ export function PlaceMapSidebar({
     if (reviewsLoading || reviews.length === 0) {
       return { avg: place.avgRating, count: place.reviewCount };
     }
-    const count = reviews.length;
-    const avg = reviews.reduce((s, r) => s + r.rating, 0) / count;
+    const rated = reviews.filter((r) => r.rating != null && r.rating > 0);
+    const count = rated.length;
+    const avg = count === 0 ? 0 : rated.reduce((s, r) => s + r.rating, 0) / count;
     return { avg, count };
   }, [place.avgRating, place.reviewCount, reviews, reviewsLoading]);
 
@@ -408,17 +422,17 @@ export function PlaceMapSidebar({
   const bandMeta =
     {
       recommended: {
-        label: 'Recomendado',
+        label: 'Muy accesible',
         bg: `${COLORS.success}18`,
         color: COLORS.success,
       },
       acceptable: {
-        label: 'Aceptable',
+        label: 'Accesible',
         bg: `${COLORS.warning}20`,
         color: '#a16207',
       },
       not_recommended: {
-        label: 'No recomendado',
+        label: 'Poco accesible',
         bg: `${COLORS.danger}15`,
         color: COLORS.danger,
       },
@@ -464,22 +478,26 @@ export function PlaceMapSidebar({
 
         {/* Rating row */}
         <div className='mb-3 flex flex-wrap items-center gap-2'>
-          <span
-            className='text-sm font-semibold tabular-nums'
-            style={{ color: COLORS.text }}
-          >
-            {headerReviewStats.avg.toFixed(1).replace('.', ',')}
-          </span>
-          <StarRow rating={headerReviewStats.avg} />
-          <span className='text-xs text-neutral-500'>
-            ({headerReviewStats.count})
-          </span>
+          {headerReviewStats.count > 0 && (
+            <>
+              <span
+                className='text-sm font-semibold tabular-nums'
+                style={{ color: COLORS.text }}
+              >
+                {headerReviewStats.avg.toFixed(1).replace('.', ',')}
+              </span>
+              <StarRow rating={headerReviewStats.avg} />
+              <span className='text-xs text-neutral-500'>
+                ({headerReviewStats.count})
+              </span>
+            </>
+          )}
           <AppIcons.Accessibility
             size={15}
             style={{ color: COLORS.primary }}
             aria-hidden
           />
-          {bandMeta && (
+          {bandMeta && headerReviewStats.count > 0 && (
             <span
               className='rounded-full px-2.5 py-0.5 text-xs font-semibold'
               style={{ backgroundColor: bandMeta.bg, color: bandMeta.color }}
@@ -652,6 +670,7 @@ export function PlaceMapSidebar({
                 triggerLabel='Escribir una reseña'
                 triggerVariant='outline'
                 triggerClassName='h-9 w-fit rounded-full border border-[#1A56A0]/30 bg-white px-4 text-[#1A56A0] shadow-sm hover:bg-[#1A56A0]/5'
+                onLoginOpenChange={onLoginOpenChange}
               />
             </div>
             {reviewsLoading ? (

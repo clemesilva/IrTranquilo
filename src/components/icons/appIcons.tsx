@@ -61,6 +61,9 @@ import {
   SquareArrowUp,
   Bath,
   MoveRight,
+  Smile,
+  HandHelping,
+  Clock,
 } from 'lucide-react';
 import type { PlaceCategory } from '@/types/place';
 import type { AccessibilityReviewKey } from '@/types/reviewAccessibility';
@@ -149,6 +152,12 @@ export function AccessibilityFieldIcon({
       return render(Toilet, props);
     case 'dining_table_accessible':
       return render(Utensils, props);
+    case 'staff_kind':
+      return render(Smile, props);
+    case 'staff_helpful':
+      return render(HandHelping, props);
+    case 'staff_patient':
+      return render(Clock, props);
   }
 }
 

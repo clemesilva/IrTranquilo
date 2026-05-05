@@ -37,6 +37,7 @@ export function LoginDialog({ open, onOpenChange, title, onSuccess }: LoginDialo
         setPassword('');
       } else {
         await signIn(email, password);
+        toast.success('¡Sesión iniciada!');
         onOpenChange(false);
         onSuccess?.();
       }
@@ -50,6 +51,8 @@ export function LoginDialog({ open, onOpenChange, title, onSuccess }: LoginDialo
   const handleGoogle = async () => {
     setError(null);
     setIsGoogleLoading(true);
+    sessionStorage.setItem('postLoginPath', window.location.pathname + window.location.search);
+    sessionStorage.setItem('showLoginToast', 'true');
     try {
       await signInWithGoogle();
     } catch (err) {
@@ -60,7 +63,7 @@ export function LoginDialog({ open, onOpenChange, title, onSuccess }: LoginDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='w-[calc(100vw-2rem)] max-w-md rounded-2xl p-8' overlayClassName='bg-transparent'>
+      <DialogContent className='w-[calc(100vw-2rem)] max-w-md rounded-2xl p-8' overlayClassName='backdrop-blur-sm bg-black/30'>
         <VisuallyHidden>
           <DialogTitle>Iniciar sesión</DialogTitle>
         </VisuallyHidden>

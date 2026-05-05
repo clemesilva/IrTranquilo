@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LoginDialog } from '@/components/auth/LoginDialog';
+import { RatingExplainerDialog } from '@/components/reviews/RatingExplainerDialog';
 import { COLORS } from '@/styles/colors';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,7 +31,7 @@ export function PlaceReviewForm({
   className = '',
   onSaved,
 }: PlaceReviewFormProps) {
-  const { isAuthenticated, signInWithGoogle, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { myReviewWithAccessibility, submitPlaceReview } = usePlaces();
 
   const [loadingMine, setLoadingMine] = useState(true);
@@ -40,6 +42,7 @@ export function PlaceReviewForm({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
   const [media, setMedia] = useState<MediaUploadState>(createEmptyMediaState());
 
@@ -88,21 +91,25 @@ export function PlaceReviewForm({
     void loadMine(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [loadMine]);
 
-  const canSubmit =
-    isAuthenticated &&
-    rating >= 1 &&
-    rating <= 5 &&
-    !isSubmitting &&
-    !loadingMine;
+  const handleClickPublish = () => {
+    if (!isAuthenticated || isSubmitting || loadingMine) return;
+    if (hasExisting) {
+      void handleSubmit(rating);
+    } else {
+      setShowRatingDialog(true);
+    }
+  };
 
-  const handleSubmit = async () => {
-    if (!canSubmit) return;
+  const handleSubmit = async (confirmedRating: number) => {
+    setShowRatingDialog(false);
+    setRating(confirmedRating);
+    if (!isAuthenticated || confirmedRating < 1 || confirmedRating > 5) return;
     setIsSubmitting(true);
     setError(null);
     try {
       await submitPlaceReview(
         placeId,
-        rating,
+        confirmedRating,
         comment.trim() || null,
         accessibility,
         {
@@ -127,23 +134,14 @@ export function PlaceReviewForm({
 
   if (!isAuthenticated) {
     return (
-      <div
-        className={cn(
-          'flex flex-1 flex-col justify-center rounded-xl border border-neutral-200/80 bg-white px-5 py-8',
-          className,
-        )}
-      >
-        <p className='text-sm text-neutral-600'>
-          Inicia sesión para dejar una reseña.
-        </p>
-        <Button
-          type='button'
-          className='mt-3 h-10 w-full'
-          onClick={() => signInWithGoogle()}
-        >
-          Iniciar sesión con Google
-        </Button>
-      </div>
+      <>
+        <div className={cn('flex flex-1 flex-col items-center justify-center px-5 py-8', className)} />
+        <LoginDialog
+          open
+          onOpenChange={() => {}}
+          title='Inicia sesión para dejar una reseña'
+        />
+      </>
     );
   }
 
@@ -169,43 +167,6 @@ export function PlaceReviewForm({
     >
       <div className='min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3'>
         <div className='space-y-3'>
-          {/* Rating */}
-          <section className='space-y-2'>
-            <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>
-              Calificación de accesibilidad
-            </p>
-            <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
-              <div className='flex items-center gap-0.5'>
-                {Array.from({ length: 5 }, (_, i) => {
-                  const v = i + 1;
-                  const active = rating >= v;
-                  return (
-                    <button
-                      key={v}
-                      type='button'
-                      className='rounded p-0.5 leading-none hover:opacity-90'
-                      onClick={() => setRating(v)}
-                      aria-label={`${v} de 5 estrellas`}
-                    >
-                      <Star
-                        size={25}
-                        strokeWidth={active ? 0 : 1.5}
-                        aria-hidden
-                        style={{
-                          fill: active ? COLORS.primary : 'transparent',
-                          color: active ? COLORS.primary : '#D1D5DB',
-                        }}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-              <p className='text-sm font-medium text-neutral-800'>
-                {ratingHint}
-              </p>
-            </div>
-          </section>
-
           {/* Checklist */}
           <section className='space-y-3'>
             <div>
@@ -249,6 +210,38 @@ export function PlaceReviewForm({
             />
           </section>
 
+          {/* Rating */}
+          <section className='space-y-2'>
+            <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>
+              Calificación de accesibilidad
+            </p>
+            <div
+              className='flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors'
+              style={{ borderColor: rating ? COLORS.primary : '#E5E7EB' }}
+              onClick={() => setShowRatingDialog(true)}
+              role='button'
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setShowRatingDialog(true)}
+            >
+              <div className='flex gap-0.5'>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star
+                    key={i}
+                    size={18}
+                    strokeWidth={i < rating ? 0 : 1.5}
+                    style={{
+                      fill: i < rating ? COLORS.primary : 'transparent',
+                      color: i < rating ? COLORS.primary : '#D1D5DB',
+                    }}
+                  />
+                ))}
+              </div>
+              <span style={{ color: rating ? COLORS.primary : '#9CA3AF' }}>
+                {rating ? ratingHint : 'Seleccionar calificación…'}
+              </span>
+            </div>
+          </section>
+
           {/* Fotos y video */}
           <section className='space-y-2'>
             <p className='text-xs font-semibold uppercase tracking-wider text-neutral-500'>
@@ -270,8 +263,8 @@ export function PlaceReviewForm({
         <Button
           type='button'
           className='h-11 w-full text-sm font-semibold'
-          onClick={handleSubmit}
-          disabled={!canSubmit}
+          onClick={handleClickPublish}
+          disabled={isSubmitting || loadingMine || !isAuthenticated}
           style={{ backgroundColor: COLORS.primary, borderColor: COLORS.primary, color: '#fff' }}
         >
           {isSubmitting
@@ -281,6 +274,12 @@ export function PlaceReviewForm({
               : 'Publicar reseña'}
         </Button>
       </div>
+      <RatingExplainerDialog
+        open={showRatingDialog}
+        initialRating={rating}
+        onConfirm={handleSubmit}
+        onCancel={() => setShowRatingDialog(false)}
+      />
     </div>
   );
 }

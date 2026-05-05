@@ -31,10 +31,10 @@ import {
 
 /** Columnas de checklist en `reviews` (literal fijo para tipos de supabase-js). */
 const REVIEW_CHECKLIST_SELECT =
-  'id, place_id, source, parking_accessible, nearby_parking, service_dogs_allowed, ramp_available, non_slip_surface, accessible_route, elevator_available, mechanical_stairs, wide_entrance, circulation_clear, lowered_counter, accessible_bathroom, dining_table_accessible';
+  'id, place_id, source, parking_accessible, nearby_parking, service_dogs_allowed, ramp_available, non_slip_surface, accessible_route, elevator_available, mechanical_stairs, wide_entrance, circulation_clear, lowered_counter, accessible_bathroom, dining_table_accessible, staff_kind, staff_helpful, staff_patient';
 
 const MY_REVIEW_WITH_ACCESSIBILITY_SELECT =
-  'id, rating, comment, photo_urls, video_url, source, parking_accessible, nearby_parking, service_dogs_allowed, ramp_available, non_slip_surface, accessible_route, elevator_available, mechanical_stairs, wide_entrance, circulation_clear, lowered_counter, accessible_bathroom, dining_table_accessible';
+  'id, rating, comment, photo_urls, video_url, source, parking_accessible, nearby_parking, service_dogs_allowed, ramp_available, non_slip_surface, accessible_route, elevator_available, mechanical_stairs, wide_entrance, circulation_clear, lowered_counter, accessible_bathroom, dining_table_accessible, staff_kind, staff_helpful, staff_patient';
 
 function accessibilityForDbRow(
   a: AccessibilityReviewValues,
@@ -63,6 +63,9 @@ const defaultFilters: AccessibilityFilters = {
   lowered_counter: false,
   accessible_bathroom: false,
   dining_table_accessible: false,
+  staff_kind: false,
+  staff_helpful: false,
+  staff_patient: false,
 };
 
 type DbPlaceRow = {

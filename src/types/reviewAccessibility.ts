@@ -13,6 +13,9 @@ export const ACCESSIBILITY_REVIEW_KEYS = [
   'lowered_counter',
   'accessible_bathroom',
   'dining_table_accessible',
+  'staff_kind',
+  'staff_helpful',
+  'staff_patient',
 ] as const;
 
 export type AccessibilityReviewKey = (typeof ACCESSIBILITY_REVIEW_KEYS)[number];
@@ -43,14 +46,14 @@ export const ACCESSIBILITY_FIELD_GROUPS: AccessibilityFieldGroup[] = [
     fields: [
       {
         key: 'parking_accessible',
-        label: 'Estacionamiento preferencial',
+        label: 'Parking preferencial',
         description:
           'Estacionamiento reservado para personas con discapacidad (Ley 19.900)',
         isLaw: true,
       },
       {
         key: 'nearby_parking',
-        label: 'Estacionamiento cercano',
+        label: 'Parking cercano',
         description: 'Hay estacionamiento a menos de 50 m del local',
         isLaw: false,
       },
@@ -144,6 +147,29 @@ export const ACCESSIBILITY_FIELD_GROUPS: AccessibilityFieldGroup[] = [
       },
     ],
   },
+  {
+    title: 'PERSONAL',
+    fields: [
+      {
+        key: 'staff_kind',
+        label: 'Trato amable',
+        description: 'El personal trata con respeto y sin impaciencia',
+        isLaw: false,
+      },
+      {
+        key: 'staff_helpful',
+        label: 'Disposición a ayudar',
+        description: 'Ofrecen asistencia sin que tengas que pedirla',
+        isLaw: false,
+      },
+      {
+        key: 'staff_patient',
+        label: 'Tiempo atención adecuado',
+        description: 'No te apuran ni te hacen sentir una carga',
+        isLaw: false,
+      },
+    ],
+  },
 ];
 
 export function createEmptyAccessibilityValues(): AccessibilityReviewValues {
@@ -155,11 +181,11 @@ export function createEmptyAccessibilityValues(): AccessibilityReviewValues {
 export function ratingLabelEs(rating: number): string {
   switch (rating) {
     case 1:
-      return 'Muy inaccesible';
-    case 2:
       return 'Inaccesible';
+    case 2:
+      return 'Poco accesible';
     case 3:
-      return 'Regular';
+      return 'Parcialmente accesible';
     case 4:
       return 'Accesible';
     case 5:

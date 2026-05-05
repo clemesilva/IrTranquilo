@@ -16,11 +16,8 @@ import { PlaceReviewForm } from './PlaceReviewForm';
 type PlaceReviewFormDialogProps = {
   placeId: number;
   onSaved?: () => void;
-  /** Clases extra para el botón que abre el diálogo (p. ej. ancho responsive). */
   triggerClassName?: string;
-  /** Texto personalizado para el botón trigger (si se omite, usa el default). */
   triggerLabel?: string;
-  /** Permite forzar el variant del botón trigger. */
   triggerVariant?:
     | 'default'
     | 'outline'
@@ -28,6 +25,7 @@ type PlaceReviewFormDialogProps = {
     | 'ghost'
     | 'destructive';
   triggerStyle?: React.CSSProperties;
+  onLoginOpenChange?: (open: boolean) => void;
 };
 
 export function PlaceReviewFormDialog({
@@ -37,9 +35,15 @@ export function PlaceReviewFormDialog({
   triggerLabel,
   triggerVariant,
   triggerStyle,
+  onLoginOpenChange,
 }: PlaceReviewFormDialogProps) {
   const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!isAuthenticated) onLoginOpenChange?.(next);
+  }
 
   const handleSaved = () => {
     onSaved?.();
@@ -47,7 +51,7 @@ export function PlaceReviewFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           type='button'

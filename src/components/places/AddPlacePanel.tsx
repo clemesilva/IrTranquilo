@@ -29,7 +29,11 @@ import { mapGoogleTypeToCategory } from '../../lib/googleCategory';
 import { reviewMediaBasePathForPlace } from '@/lib/reviewMediaPaths';
 import { COLORS } from '@/styles/colors';
 import { AppIcons } from '@/components/icons/appIcons';
-import { saveDraftMedia, loadDraftMedia, clearDraftMedia } from '@/lib/draftMediaStore';
+import {
+  saveDraftMedia,
+  loadDraftMedia,
+  clearDraftMedia,
+} from '@/lib/draftMediaStore';
 
 function createEmptyAccessibilityNullable(): Record<
   AccessibilityReviewKey,
@@ -48,6 +52,11 @@ export type AddPlacePanelProps = {
   onClose: () => void;
   onSaved: (placeId: number) => void;
   onLoginDialogChange?: (open: boolean) => void;
+  /** Llamado cuando el usuario pulsa Guardar — LandingPage abre el dialog de rating y llama onConfirm(rating) */
+  onRatingNeeded?: (
+    currentRating: number,
+    onConfirm: (r: number) => void,
+  ) => void;
   /** Clases extra en el contenedor raíz (ej. altura máxima en modal) */
   className?: string;
 };
@@ -58,6 +67,7 @@ export function AddPlacePanel({
   onClose,
   onSaved,
   onLoginDialogChange,
+  onRatingNeeded,
   className = '',
 }: AddPlacePanelProps) {
   const { refreshPlaces } = usePlaces();
@@ -73,7 +83,9 @@ export function AddPlacePanel({
     try {
       const s = sessionStorage.getItem(DRAFT_KEY);
       return s ? JSON.parse(s) : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   })();
 
   // Si ya hay un lugar seleccionado en el draft, no enfocar el input (evita que se abra el dropdown)
@@ -89,22 +101,38 @@ export function AddPlacePanel({
     return () => window.clearTimeout(t);
   }, [draftHasPlace]);
 
-  const [category, setCategory] = useState<PlaceCategory | null>(savedDraft?.category ?? null);
+  const [category, setCategory] = useState<PlaceCategory | null>(
+    savedDraft?.category ?? null,
+  );
   const [address, setAddress] = useState(savedDraft?.address ?? '');
-  const [openingHours, setOpeningHours] = useState<string[] | null>(savedDraft?.openingHours ?? null);
+  const [openingHours, setOpeningHours] = useState<string[] | null>(
+    savedDraft?.openingHours ?? null,
+  );
   const [phone, setPhone] = useState<string | null>(savedDraft?.phone ?? null);
-  const [website, setWebsite] = useState<string | null>(savedDraft?.website ?? null);
-  const [googleRating, setGoogleRating] = useState<number | null>(savedDraft?.googleRating ?? null);
-  const [googleRatingsTotal, setGoogleRatingsTotal] = useState<number | null>(savedDraft?.googleRatingsTotal ?? null);
-  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(savedDraft?.googlePhotoUrl ?? null);
-  const [wheelchairAccessible, setWheelchairAccessible] = useState<boolean | null>(savedDraft?.wheelchairAccessible ?? null);
-  const [priceLevel, setPriceLevel] = useState<number | null>(savedDraft?.priceLevel ?? null);
+  const [website, setWebsite] = useState<string | null>(
+    savedDraft?.website ?? null,
+  );
+  const [googleRating, setGoogleRating] = useState<number | null>(
+    savedDraft?.googleRating ?? null,
+  );
+  const [googleRatingsTotal, setGoogleRatingsTotal] = useState<number | null>(
+    savedDraft?.googleRatingsTotal ?? null,
+  );
+  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(
+    savedDraft?.googlePhotoUrl ?? null,
+  );
+  const [wheelchairAccessible, setWheelchairAccessible] = useState<
+    boolean | null
+  >(savedDraft?.wheelchairAccessible ?? null);
+  const [priceLevel, setPriceLevel] = useState<number | null>(
+    savedDraft?.priceLevel ?? null,
+  );
 
   const [rating, setRating] = useState<number>(savedDraft?.rating ?? 0);
   const [review, setReview] = useState(savedDraft?.review ?? '');
 
-  const [accessibility, setAccessibility] = useState(() =>
-    savedDraft?.accessibility ?? createEmptyAccessibilityNullable(),
+  const [accessibility, setAccessibility] = useState(
+    () => savedDraft?.accessibility ?? createEmptyAccessibilityNullable(),
   );
 
   const [media, setMedia] = useState<MediaUploadState>(createEmptyMediaState());
@@ -179,6 +207,11 @@ export function AddPlacePanel({
 
   async function handleSave() {
     if (!canSave || !draftLatLng) return;
+    onRatingNeeded?.(rating, (confirmedRating) => doSave(confirmedRating));
+  }
+
+  async function doSave(confirmedRating: number) {
+    if (!canSave || !draftLatLng) return;
     setIsSaving(true);
     setError(null);
     try {
@@ -186,12 +219,26 @@ export function AddPlacePanel({
       const user = auth.user;
       if (!user) {
         sessionStorage.setItem('pendingAddPlace', 'true');
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
-          placeQuery, category, address, openingHours, phone, website,
-          googleRating, googleRatingsTotal, googlePhotoUrl, wheelchairAccessible,
-          priceLevel, rating, review, accessibility,
-          draftLatLng,
-        }));
+        sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            placeQuery,
+            category,
+            address,
+            openingHours,
+            phone,
+            website,
+            googleRating,
+            googleRatingsTotal,
+            googlePhotoUrl,
+            wheelchairAccessible,
+            priceLevel,
+            rating,
+            review,
+            accessibility,
+            draftLatLng,
+          }),
+        );
         await saveDraftMedia({ photos: media.photos, video: media.video });
         setShowLoginDialog(true);
         onLoginDialogChange?.(true);
@@ -212,7 +259,9 @@ export function AddPlacePanel({
         .maybeSingle();
 
       if (existing) {
-        throw new Error('Este lugar ya existe en la app con el mismo nombre y dirección.');
+        throw new Error(
+          'Este lugar ya existe en la app con el mismo nombre y dirección.',
+        );
       }
 
       const placeInsert = {
@@ -228,8 +277,6 @@ export function AddPlacePanel({
         google_rating: googleRating,
         google_ratings_total: googleRatingsTotal,
         google_photo_url: googlePhotoUrl,
-        wheelchair_accessible: wheelchairAccessible,
-        price_level: priceLevel,
       } as const;
 
       const { data: place, error: placeError } = await supabase
@@ -247,7 +294,10 @@ export function AddPlacePanel({
       );
       const hasMedia = media.photos.length > 0 || media.video !== null;
       const wantsReview =
-        rating > 0 || review.trim().length > 0 || anyAccessibility || hasMedia;
+        confirmedRating > 0 ||
+        review.trim().length > 0 ||
+        anyAccessibility ||
+        hasMedia;
 
       if (!wantsReview) {
         const { error: googleRevErr } = await supabase.from('reviews').insert({
@@ -266,7 +316,7 @@ export function AddPlacePanel({
           );
         }
       } else {
-        const effectiveRating = rating > 0 ? rating : 3;
+        const effectiveRating = confirmedRating > 0 ? confirmedRating : null;
         const merged = { ...accessibility };
         if (merged.ramp_available == null && googleWheelchair != null) {
           merged.ramp_available = googleWheelchair;
@@ -377,7 +427,10 @@ export function AddPlacePanel({
       {/* Header con franja azul suave */}
       <div
         className='flex items-center gap-2.5 rounded-xl px-4 py-3'
-        style={{ background: `linear-gradient(135deg, ${COLORS.primary}18 0%, ${COLORS.primary}08 100%)`, borderBottom: `1px solid ${COLORS.primary}22` }}
+        style={{
+          background: `linear-gradient(135deg, ${COLORS.primary}18 0%, ${COLORS.primary}08 100%)`,
+          borderBottom: `1px solid ${COLORS.primary}22`,
+        }}
       >
         <div
           className='flex h-8 w-8 shrink-0 items-center justify-center rounded-lg'
@@ -386,18 +439,36 @@ export function AddPlacePanel({
           <AppIcons.Plus size={16} style={{ color: '#fff' }} aria-hidden />
         </div>
         <div>
-          <h2 className='text-base font-bold leading-tight' style={{ color: COLORS.text }}>Añadir lugar</h2>
-          <p className='text-xs' style={{ color: COLORS.textMuted }}>Ayuda a la comunidad con información de accesibilidad</p>
+          <h2
+            className='text-base font-bold leading-tight'
+            style={{ color: COLORS.text }}
+          >
+            Añadir lugar
+          </h2>
+          <p className='text-xs' style={{ color: COLORS.textMuted }}>
+            Ayuda a la comunidad con información de accesibilidad
+          </p>
         </div>
       </div>
 
       {draftLatLng ? (
-        <Badge variant='secondary' className='w-fit' style={{ backgroundColor: `${COLORS.primary}15`, color: COLORS.primary }}>
+        <Badge
+          variant='secondary'
+          className='w-fit'
+          style={{
+            backgroundColor: `${COLORS.primary}15`,
+            color: COLORS.primary,
+          }}
+        >
           Ubicación fijada en el mapa
         </Badge>
       ) : null}
 
-      <Card size='sm' className='overflow-hidden' style={{ borderColor: `${COLORS.primary}20` }}>
+      <Card
+        size='sm'
+        className='overflow-hidden'
+        style={{ borderColor: `${COLORS.primary}20` }}
+      >
         {/* El scroll lo maneja el modal (DialogContent) para evitar doble barra. */}
         <CardContent className='space-y-4 px-4 pb-6'>
           <div className='space-y-2'>
@@ -479,39 +550,6 @@ export function AddPlacePanel({
           </div>
 
           <div className='space-y-2'>
-            <Label>Calificación de accesibilidad</Label>
-            <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
-              <div className='flex items-center gap-0.5'>
-                {Array.from({ length: 5 }).map((_, i) => {
-                  const v = i + 1;
-                  const active = rating >= v;
-                  return (
-                    <button
-                      key={v}
-                      type='button'
-                      className='rounded p-0.5'
-                      onClick={() => setRating(v)}
-                      aria-label={`Calificar ${v} de 5`}
-                    >
-                      <Star
-                        size={25}
-                        strokeWidth={active ? 0 : 1.5}
-                        style={{
-                          fill: active ? COLORS.primary : 'transparent',
-                          color: active ? COLORS.primary : '#E2E8F0',
-                        }}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-              <span className='text-sm font-medium text-neutral-800'>
-                {rating ? ratingLabelEs(rating) : 'Haz clic en las estrellas'}
-              </span>
-            </div>
-          </div>
-
-          <div className='space-y-2'>
             <Label>Características de accesibilidad</Label>
             <div className='space-y-3'>
               {ACCESSIBILITY_FIELD_GROUPS.map((group) => (
@@ -527,10 +565,17 @@ export function AddPlacePanel({
                         description={f.description}
                         value={accessibility[f.key]}
                         onChange={(next) =>
-                          setAccessibility((prev: Record<AccessibilityReviewKey, boolean | null>) => ({
-                            ...prev,
-                            [f.key]: next,
-                          }))
+                          setAccessibility(
+                            (
+                              prev: Record<
+                                AccessibilityReviewKey,
+                                boolean | null
+                              >,
+                            ) => ({
+                              ...prev,
+                              [f.key]: next,
+                            }),
+                          )
                         }
                       />
                     ))}
@@ -566,7 +611,10 @@ export function AddPlacePanel({
               type='button'
               variant='outline'
               className='flex-1'
-              onClick={() => { sessionStorage.removeItem(DRAFT_KEY); onClose(); }}
+              onClick={() => {
+                sessionStorage.removeItem(DRAFT_KEY);
+                onClose();
+              }}
             >
               Cancelar
             </Button>
@@ -584,9 +632,12 @@ export function AddPlacePanel({
       </Card>
       <LoginDialog
         open={showLoginDialog}
-        onOpenChange={(v) => { setShowLoginDialog(v); onLoginDialogChange?.(v); }}
+        onOpenChange={(v) => {
+          setShowLoginDialog(v);
+          onLoginDialogChange?.(v);
+        }}
         title='Necesitas iniciar sesión para añadir un lugar'
-        onSuccess={() => { handleSave(); }}
+        onSuccess={() => handleSave()}
       />
     </div>
   );

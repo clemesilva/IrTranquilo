@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '../services/supabase';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import {
   MAP_UI_PADDING_LANDING,
 } from '../lib/mapPlaceFocus';
 import { AddPlacePanel } from '../components/places/AddPlacePanel';
+import { RatingExplainerDialog } from '../components/reviews/RatingExplainerDialog';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
@@ -90,6 +92,34 @@ export function LandingPage() {
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceModalKey, setAddPlaceModalKey] = useState(0);
   const [addPlaceLoginOpen, setAddPlaceLoginOpen] = useState(false);
+  const [addPlaceRatingOpen, setAddPlaceRatingOpen] = useState(false);
+  const [ratingDialogInitial, setRatingDialogInitial] = useState(0);
+  const ratingConfirmCallbackRef = useRef<((r: number) => void) | null>(null);
+
+  function handleRatingNeeded(currentRating: number, onConfirm: (r: number) => void) {
+    setRatingDialogInitial(currentRating);
+    ratingConfirmCallbackRef.current = onConfirm;
+    setAddPlaceRatingOpen(true);
+  }
+
+  function handleRatingConfirm(r: number) {
+    setAddPlaceRatingOpen(false);
+    ratingConfirmCallbackRef.current?.(r);
+    ratingConfirmCallbackRef.current = null;
+  }
+
+  function handleRatingCancel() {
+    setAddPlaceRatingOpen(false);
+    ratingConfirmCallbackRef.current = null;
+  }
+  const [sidebarLoginOpen, setSidebarLoginOpen] = useState(false);
+
+  function handleSidebarLoginOpenChange(open: boolean) {
+    setSidebarLoginOpen(open);
+    if (open && selectedPlaceData) {
+      sessionStorage.setItem('postLoginSelectedPlaceId', String(selectedPlaceData.id));
+    }
+  }
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
     null,
   );
@@ -113,6 +143,9 @@ export function LandingPage() {
         'lowered_counter',
         'accessible_bathroom',
         'dining_table_accessible',
+        'staff_kind',
+        'staff_helpful',
+        'staff_patient',
       ] as const
     ).filter((k) => filters[k]).length;
 
@@ -244,6 +277,7 @@ export function LandingPage() {
     const latlng = restoredLatLng;
     setTimeout(() => {
       if (latlng) setAddPlaceDraft(latlng);
+      setSelectedPlaceId(null);
       setShowAddPlaceModal(true);
       setAddPlaceModalKey((k) => k + 1);
     }, 400);
@@ -254,13 +288,24 @@ export function LandingPage() {
     if (user) openPendingAddPlace();
   }, [user, openPendingAddPlace]);
 
-  // Cubre Google OAuth: Supabase dispara SIGNED_IN cuando procesa el token del redirect
+  // Cubre Google OAuth: Supabase dispara SIGNED_IN cuando procesa el token del redirect.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') openPendingAddPlace();
+      if (event !== 'SIGNED_IN') return;
+      openPendingAddPlace();
     });
     return () => subscription.unsubscribe();
   }, [openPendingAddPlace]);
+
+  // Restaurar lugar seleccionado en sidebar tras login con Google OAuth
+  useEffect(() => {
+    if (!user) return;
+    const placeIdStr = sessionStorage.getItem('postLoginSelectedPlaceId');
+    if (!placeIdStr) return;
+    sessionStorage.removeItem('postLoginSelectedPlaceId');
+    const id = Number(placeIdStr);
+    if (!isNaN(id)) setTimeout(() => selectPlace(id), 500);
+  }, [user, selectPlace]);
 
   // Initialize map
   useEffect(() => {
@@ -636,7 +681,7 @@ export function LandingPage() {
 
                 {/* Cerrar sesión */}
                 <button
-                  onClick={signOut}
+                  onClick={() => { signOut(); toast.success('Sesión cerrada'); }}
                   className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
                   style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
                   title='Cerrar sesión'
@@ -695,6 +740,7 @@ export function LandingPage() {
           <div className='mb-8'>
             <button
               onClick={() => {
+                setSelectedPlaceId(null);
                 setShowAddPlaceModal(true);
                 setAddPlaceModalKey((k) => k + 1);
               }}
@@ -718,21 +764,21 @@ export function LandingPage() {
             className='inline-block h-2 w-2 sm:h-3 sm:w-3 rounded-full'
             style={{ backgroundColor: COLORS.success }}
           />
-          Recomendado
+          Muy accesible
         </span>
         <span className='flex items-center gap-1'>
           <span
             className='inline-block h-2 w-2 sm:h-3 sm:w-3 rounded-full'
             style={{ backgroundColor: COLORS.warning }}
           />
-          Aceptable
+          Accesible
         </span>
         <span className='flex items-center gap-1'>
           <span
             className='inline-block h-2 w-2 sm:h-3 sm:w-3 rounded-full'
             style={{ backgroundColor: COLORS.danger }}
           />
-          No recomendado
+          Poco accesible
         </span>
       </div>
 
@@ -780,15 +826,20 @@ export function LandingPage() {
         />
 
         {selectedPlaceData ? (
-          <PlaceMapSidebar
-            place={selectedPlaceData}
-            onClose={() => {
-              selectPlace(null);
-              setLocalSearch('');
-              setSearch('');
-            }}
-            onSnapChange={setSidebarSnap}
-          />
+          <div
+            style={sidebarLoginOpen ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none', transition: 'filter 0.2s' } : undefined}
+          >
+            <PlaceMapSidebar
+              place={selectedPlaceData}
+              onClose={() => {
+                selectPlace(null);
+                setLocalSearch('');
+                setSearch('');
+              }}
+              onSnapChange={setSidebarSnap}
+              onLoginOpenChange={handleSidebarLoginOpenChange}
+            />
+          </div>
         ) : null}
 
         {/* Botón + flotante en esquina superior derecha del mapa */}
@@ -1643,17 +1694,17 @@ export function LandingPage() {
                         { value: 'all', label: 'Todas', stars: null },
                         {
                           value: 'recommended',
-                          label: 'Recomendado',
+                          label: 'Muy accesible',
                           stars: '4.5+ ★★★★★',
                         },
                         {
                           value: 'acceptable',
-                          label: 'Aceptable',
+                          label: 'Accesible',
                           stars: '3.5–4.4 ★★★★',
                         },
                         {
                           value: 'not_recommended',
-                          label: 'No recomendado',
+                          label: 'Poco accesible',
                           stars: '<3.5 ★★★',
                         },
                       ] as const
@@ -1856,7 +1907,7 @@ export function LandingPage() {
       >
         <DialogContent
           className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg transition-[filter] duration-200'
-          style={addPlaceLoginOpen ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none' } : undefined}
+          style={(addPlaceLoginOpen || addPlaceRatingOpen) ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none' } : undefined}
         >
           <VisuallyHidden>
             <DialogTitle>Añadir lugar</DialogTitle>
@@ -1866,6 +1917,7 @@ export function LandingPage() {
             draftLatLng={addPlaceDraft}
             onDraftLatLngChange={setAddPlaceDraft}
             onLoginDialogChange={setAddPlaceLoginOpen}
+            onRatingNeeded={handleRatingNeeded}
             onClose={() => {
               setShowAddPlaceModal(false);
               setAddPlaceDraft(null);
@@ -1877,6 +1929,13 @@ export function LandingPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <RatingExplainerDialog
+        open={addPlaceRatingOpen}
+        initialRating={ratingDialogInitial}
+        onConfirm={handleRatingConfirm}
+        onCancel={handleRatingCancel}
+      />
     </div>
   );
 }

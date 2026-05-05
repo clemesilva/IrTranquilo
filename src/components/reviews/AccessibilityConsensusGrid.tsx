@@ -30,22 +30,27 @@ function ConsensusCard({
   const value = isUser ? consensus.value : consensus.value;
 
   if (variant === 'compact') {
+    const compactBg = value
+      ? 'border-emerald-300/90 bg-emerald-50'
+      : 'border-rose-300/90 bg-rose-50';
+    const compactIcon = value ? 'text-emerald-700' : 'text-rose-700';
+    const compactText = value ? 'text-emerald-900' : 'text-rose-900';
     return (
       <div
         title={description}
         className={cn(
-          'inline-flex w-fit max-w-full min-w-0 items-center gap-1.5 rounded-2xl border-2 bg-white px-2 py-1.5 text-neutral-900 shadow-sm',
-          'border-neutral-200/80',
+          'inline-flex w-fit max-w-full min-w-0 items-center gap-1.5 rounded-2xl border-2 px-2 py-1.5 shadow-sm',
+          compactBg,
           description ? 'cursor-help' : null,
           className,
         )}
       >
         <AccessibilityFieldIcon
           fieldKey={fieldKey}
-          className='shrink-0 text-neutral-700'
+          className={cn('shrink-0', compactIcon)}
           size={16}
         />
-        <span className='min-w-0 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-neutral-900 sm:text-sm'>
+        <span className={cn('min-w-0 truncate whitespace-nowrap text-[12px] font-semibold leading-tight sm:text-sm', compactText)}>
           {label}
         </span>
       </div>
@@ -176,24 +181,14 @@ export function AccessibilityConsensusGrid({
                   <div
                     className={cn(
                       isCompact
-                        ? 'grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:gap-1.5'
+                        ? 'flex flex-wrap gap-1.5'
                         : 'grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4',
                     )}
                   >
                     {visibleFields.map((f) => {
                       const c = consensus[f.key]!;
                       return (
-                        <div
-                          key={f.key}
-                          className={cn(
-                            isCompact ? 'justify-self-start' : '',
-                            isCompact &&
-                              (f.key === 'wide_entrance' ||
-                                f.key === 'lowered_counter')
-                              ? 'col-span-2'
-                              : '',
-                          )}
-                        >
+                        <div key={f.key}>
                           <ConsensusCard
                             fieldKey={f.key}
                             label={f.label}
@@ -201,9 +196,7 @@ export function AccessibilityConsensusGrid({
                             consensus={c}
                             variant={variant}
                             className={
-                              isCompact &&
-                              (f.key === 'wide_entrance' ||
-                                f.key === 'lowered_counter')
+                              isCompact
                                 ? 'w-fit'
                                 : undefined
                             }

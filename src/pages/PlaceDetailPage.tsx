@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import { syncPlaceReviewStats } from '@/lib/syncPlaceReviewStats';
 import { getCategoryMeta, type PlaceReview } from '@/types/place';
 import { supabase } from '@/services/supabase';
 import { AppIcons, CategoryIcon } from '@/components/icons/appIcons';
+import { LoginDialog } from '@/components/auth/LoginDialog';
 import { COLORS } from '@/styles/colors';
 import { ReviewMedia } from '@/components/reviews/ReviewMedia';
 
@@ -88,6 +89,7 @@ export function PlaceDetailPage() {
 
   const place = Number.isFinite(placeId) ? getPlaceById(placeId) : undefined;
 
+  const starUid = useId();
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [consensusLoading, setConsensusLoading] = useState(false);
@@ -102,6 +104,7 @@ export function PlaceDetailPage() {
   const [reportDescription, setReportDescription] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
   /** Evita re-disparar sync al cambiar la referencia de `place` tras refreshPlaces. */
   const statsHealDoneRef = useRef(false);
@@ -153,8 +156,9 @@ export function PlaceDetailPage() {
     if (statsHealDoneRef.current) return;
     if (reviews.length === 0) return;
 
-    const avgRev = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
-    const countMismatch = reviews.length !== place.reviewCount;
+    const ratedRevs = reviews.filter((r) => r.rating != null && r.rating > 0);
+    const avgRev = ratedRevs.length === 0 ? 0 : ratedRevs.reduce((s, r) => s + r.rating, 0) / ratedRevs.length;
+    const countMismatch = ratedRevs.length !== place.reviewCount;
     const avgMismatch = Math.abs(avgRev - place.avgRating) > 0.05;
     if (!countMismatch && !avgMismatch) return;
 
@@ -177,8 +181,9 @@ export function PlaceDetailPage() {
       return { avg: place.avgRating, count: place.reviewCount };
     }
     if (reviews.length > 0) {
-      const count = reviews.length;
-      const avg = reviews.reduce((s, r) => s + r.rating, 0) / count;
+      const rated = reviews.filter((r) => r.rating != null && r.rating > 0);
+      const count = rated.length;
+      const avg = count === 0 ? 0 : rated.reduce((s, r) => s + r.rating, 0) / count;
       return { avg, count };
     }
     return { avg: place.avgRating, count: place.reviewCount };
@@ -387,32 +392,44 @@ export function PlaceDetailPage() {
             {/* Columna izquierda: rating + contacto */}
             <div className='min-w-0'>
               <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-                <span className='text-xl font-bold tabular-nums text-neutral-900'>
-                  {headerReviewStats.avg.toFixed(1).replace('.', ',')}
-                </span>
-                <div className='flex items-center gap-0.5'>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <AppIcons.Star
-                      key={i}
-                      className='h-5 w-5'
-                      aria-hidden
-                      style={{
-                        color:
-                          i < Math.round(headerReviewStats.avg)
-                            ? COLORS.primary
-                            : '#E2E8F0',
-                      }}
-                    />
-                  ))}
-                </div>
+                {headerReviewStats.count > 0 && (
+                  <>
+                    <span className='text-xl font-bold tabular-nums text-neutral-900'>
+                      {headerReviewStats.avg.toFixed(1).replace('.', ',')}
+                    </span>
+                    <div className='flex items-center gap-0.5'>
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const fill = Math.min(1, Math.max(0, headerReviewStats.avg - i));
+                        const pct = Math.round(fill * 100);
+                        const id = `${starUid}-${i}`;
+                        return (
+                          <svg key={i} width='20' height='20' viewBox='0 0 24 24' aria-hidden>
+                            <defs>
+                              <linearGradient id={id}>
+                                <stop offset={`${pct}%`} stopColor={COLORS.primary} />
+                                <stop offset={`${pct}%`} stopColor='#E2E8F0' />
+                              </linearGradient>
+                            </defs>
+                            <polygon
+                              points='12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26'
+                              fill={`url(#${id})`}
+                              stroke='none'
+                            />
+                          </svg>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
                 <AppIcons.Accessibility
                   size={20}
                   style={{ color: COLORS.primary }}
                   aria-hidden
                 />
                 <span className='text-sm text-neutral-500'>
-                  · {headerReviewStats.count}{' '}
-                  {headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}
+                  {headerReviewStats.count > 0
+                    ? `· ${headerReviewStats.count} ${headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}`
+                    : 'Sin calificaciones aún'}
                 </span>
                 {place.googleRating != null && (
                   <span className='text-xs text-neutral-400'>
@@ -507,7 +524,7 @@ export function PlaceDetailPage() {
                 <Button
                   className='flex-1 sm:flex-none text-xs sm:text-sm px-3 sm:px-4'
                   style={{ backgroundColor: COLORS.primary, color: '#fff', borderColor: COLORS.primary }}
-                  onClick={() => navigate('/login')}
+                  onClick={() => setLoginDialogOpen(true)}
                 >
                   Escribir reseña
                 </Button>
@@ -582,7 +599,7 @@ export function PlaceDetailPage() {
               Sin reseñas aún.
             </p>
           ) : (
-            reviews.map((r) => (
+            reviews.filter((r) => r.comment?.trim()).map((r) => (
               <div
                 key={r.id}
                 className='rounded-2xl border border-neutral-200/80 bg-white p-4 xl:snap-start'
@@ -602,20 +619,22 @@ export function PlaceDetailPage() {
                         </span>
                       ) : null}
                     </div>
-                    <div className='mt-1 text-sm text-neutral-700'>
-                      <span className='font-medium tabular-nums'>
-                        {r.rating}/5
-                      </span>{' '}
-                      <AppIcons.Star
-                        className='inline h-4 w-4 text-amber-500'
-                        aria-hidden
-                      />
-                    </div>
-                    {r.comment ? (
+                    {r.rating != null && r.rating > 0 && (
+                      <div className='mt-1 text-sm text-neutral-700'>
+                        <span className='font-medium tabular-nums'>
+                          {r.rating}/5
+                        </span>{' '}
+                        <AppIcons.Star
+                          className='inline h-4 w-4 text-amber-500'
+                          aria-hidden
+                        />
+                      </div>
+                    )}
+                    {r.comment && (
                       <p className='mt-2 text-sm leading-relaxed text-neutral-700'>
                         {r.comment}
                       </p>
-                    ) : null}
+                    )}
                     <ReviewMedia
                       photoUrls={r.photoUrls ?? []}
                       videoUrl={r.videoUrl}
@@ -755,6 +774,12 @@ export function PlaceDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <LoginDialog
+        open={loginDialogOpen}
+        onOpenChange={setLoginDialogOpen}
+        title='Inicia sesión para dejar una reseña'
+      />
     </div>
   );
 }
