@@ -81,6 +81,11 @@ export function LandingPage() {
   });
   useEffect(() => {
     selectedPlaceIdRef.current = selectedPlaceId;
+    if (selectedPlaceId != null) {
+      document
+        .querySelectorAll('.parking-global-tooltip')
+        .forEach((t) => t.remove());
+    }
   });
 
   const [mapFullscreen, setMapFullscreen] = useState(false);
@@ -88,6 +93,9 @@ export function LandingPage() {
   const sidebarSnapRef = useRef(sidebarSnap);
   useEffect(() => {
     sidebarSnapRef.current = sidebarSnap;
+    document
+      .querySelectorAll('.parking-global-tooltip')
+      .forEach((t) => t.remove());
   }, [sidebarSnap]);
   const [showAddPlaceModal, setShowAddPlaceModal] = useState(false);
   const [addPlaceModalKey, setAddPlaceModalKey] = useState(0);
@@ -96,7 +104,10 @@ export function LandingPage() {
   const [ratingDialogInitial, setRatingDialogInitial] = useState(0);
   const ratingConfirmCallbackRef = useRef<((r: number) => void) | null>(null);
 
-  function handleRatingNeeded(currentRating: number, onConfirm: (r: number) => void) {
+  function handleRatingNeeded(
+    currentRating: number,
+    onConfirm: (r: number) => void,
+  ) {
     setRatingDialogInitial(currentRating);
     ratingConfirmCallbackRef.current = onConfirm;
     setAddPlaceRatingOpen(true);
@@ -117,7 +128,10 @@ export function LandingPage() {
   function handleSidebarLoginOpenChange(open: boolean) {
     setSidebarLoginOpen(open);
     if (open && selectedPlaceData) {
-      sessionStorage.setItem('postLoginSelectedPlaceId', String(selectedPlaceData.id));
+      sessionStorage.setItem(
+        'postLoginSelectedPlaceId',
+        String(selectedPlaceData.id),
+      );
     }
   }
   const [addPlaceDraft, setAddPlaceDraft] = useState<[number, number] | null>(
@@ -269,11 +283,16 @@ export function LandingPage() {
       const s = sessionStorage.getItem('addPlaceDraft');
       if (s) {
         const draft = JSON.parse(s);
-        if (Array.isArray(draft.draftLatLng) && draft.draftLatLng.length === 2) {
+        if (
+          Array.isArray(draft.draftLatLng) &&
+          draft.draftLatLng.length === 2
+        ) {
           restoredLatLng = draft.draftLatLng as [number, number];
         }
       }
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     const latlng = restoredLatLng;
     setTimeout(() => {
       if (latlng) setAddPlaceDraft(latlng);
@@ -290,7 +309,9 @@ export function LandingPage() {
 
   // Cubre Google OAuth: Supabase dispara SIGNED_IN cuando procesa el token del redirect.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event !== 'SIGNED_IN') return;
       openPendingAddPlace();
     });
@@ -366,14 +387,103 @@ export function LandingPage() {
           const address = place.vicinity ?? '';
           const el = document.createElement('div');
           el.className = 'parking-pin';
-          el.innerHTML = `<div class="parking-pin__tooltip"><div class="parking-pin__tooltip-name">${name}</div>${address ? `<div class="parking-pin__tooltip-address">${address}</div>` : ''}</div><div class="parking-pin__icon">P</div><div class="parking-pin__label">${name}</div>`;
-          const marker = new google.maps.marker.AdvancedMarkerElement({
+          el.innerHTML = `<div class="parking-pin__icon">P</div>`;
+
+          const pmarker = new google.maps.marker.AdvancedMarkerElement({
             map: null,
             position: { lat: loc.lat(), lng: loc.lng() },
             content: el,
-            zIndex: 1,
+            zIndex: -1,
           });
-          parkingMarkersRef.current.push(marker);
+
+          let globalTooltip: HTMLDivElement | null = null;
+          let parkingTimer: ReturnType<typeof setTimeout> | null = null;
+
+          const closeTooltip = () => {
+            globalTooltip?.remove();
+            globalTooltip = null;
+            pmarker.zIndex = -1;
+            if (parkingTimer) {
+              clearTimeout(parkingTimer);
+              parkingTimer = null;
+            }
+          };
+
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = !!globalTooltip;
+            document
+              .querySelectorAll('.parking-global-tooltip')
+              .forEach((t) => t.remove());
+            parkingMarkersRef.current.forEach((m) => {
+              m.zIndex = -1;
+            });
+            if (parkingTimer) {
+              clearTimeout(parkingTimer);
+              parkingTimer = null;
+            }
+            globalTooltip = null;
+
+            if (!isOpen) {
+              const mapEl = document.getElementById('landing-map');
+              if (!mapEl) return;
+              const mapRect = mapEl.getBoundingClientRect();
+              const bounds = map.getBounds();
+              const ne = bounds?.getNorthEast();
+              const sw = bounds?.getSouthWest();
+              const point = map
+                .getProjection()
+                ?.fromLatLngToPoint(
+                  new google.maps.LatLng(loc.lat(), loc.lng()),
+                );
+              const nePoint = ne
+                ? map.getProjection()?.fromLatLngToPoint(ne)
+                : null;
+              const swPoint = sw
+                ? map.getProjection()?.fromLatLngToPoint(sw)
+                : null;
+              if (!point || !nePoint || !swPoint) return;
+              const scale = Math.pow(2, map.getZoom() ?? 12);
+              const px = (point.x - swPoint.x) * scale;
+              const py = (point.y - nePoint.y) * scale;
+
+              const tip = document.createElement('div');
+              tip.className = 'parking-global-tooltip';
+              const fullAddress = address ? `${name}, ${address}` : name;
+              tip.innerHTML = `<div style="display:flex;align-items:start;justify-content:space-between;gap:10px"><div><div class="parking-pin__tooltip-name">${name}</div>${address ? `<div class="parking-pin__tooltip-address">${address}</div>` : ''}</div><div style="display:flex;gap:6px;flex-shrink:0;margin-top:1px"><button class="parking-tooltip-copy" style="background:none;border:none;cursor:pointer;color:#aaa;padding:0;display:flex;align-items:center;gap:3px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="parking-copy-label" style="display:none;font-size:11px;color:#aaa">Copiar</span></button><button class="parking-tooltip-close" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:14px;line-height:1;padding:0">✕</button></div></div>`;
+              tip.style.cssText = `position:fixed;left:${mapRect.left + px}px;top:${mapRect.top + py - 8}px;transform:translate(-50%,-100%);background:white;border:1px solid rgba(66,133,244,0.2);border-radius:12px;padding:8px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);white-space:nowrap;z-index:99999;pointer-events:auto;`;
+              tip.querySelector('.parking-tooltip-close')?.addEventListener('click', (ev) => { ev.stopPropagation(); closeTooltip(); });
+              const copyBtn = tip.querySelector('.parking-tooltip-copy') as HTMLElement | null;
+              const copyLabel = tip.querySelector('.parking-copy-label') as HTMLElement | null;
+              copyBtn?.addEventListener('mouseenter', () => {
+                if (copyLabel) copyLabel.style.display = 'inline';
+              });
+              copyBtn?.addEventListener('mouseleave', () => {
+                if (copyLabel) copyLabel.style.display = 'none';
+              });
+              copyBtn?.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                navigator.clipboard.writeText(fullAddress).then(() => {
+                  if (copyBtn) {
+                    copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:11px;color:#16a34a;margin-left:3px">Copiado</span>`;
+                    copyBtn.style.color = '#16a34a';
+                    setTimeout(() => {
+                      copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+                      copyBtn.style.color = '#aaa';
+                    }, 2000);
+                  }
+                });
+              });
+              document.body.appendChild(tip);
+              globalTooltip = tip;
+              pmarker.zIndex = 99999;
+              parkingTimer = setTimeout(closeTooltip, 10000);
+            }
+          });
+
+          document.addEventListener('click', closeTooltip);
+          map.addListener('dragstart', closeTooltip);
+          parkingMarkersRef.current.push(pmarker);
         });
         // Aplicar visibilidad según zoom actual tras agregar cada página
         updateParkingVisibility();
@@ -433,8 +543,12 @@ export function LandingPage() {
     if (!map) return;
     fitBoundsOnNextFilterRef.current = false;
 
-    const lats = filteredPlaces.filter(p => p.latitude && p.longitude).map(p => p.latitude);
-    const lngs = filteredPlaces.filter(p => p.latitude && p.longitude).map(p => p.longitude);
+    const lats = filteredPlaces
+      .filter((p) => p.latitude && p.longitude)
+      .map((p) => p.latitude);
+    const lngs = filteredPlaces
+      .filter((p) => p.latitude && p.longitude)
+      .map((p) => p.longitude);
     if (!lats.length) return;
 
     const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
@@ -482,7 +596,8 @@ export function LandingPage() {
 
   // Mantener ref actualizado y aplicar badge a markers existentes
   useEffect(() => {
-    showRatingBadgeRef.current = contextCategory !== 'all' && activeFilterCount === 0;
+    showRatingBadgeRef.current =
+      contextCategory !== 'all' && activeFilterCount === 0;
     markersRef.current.forEach(({ el, place }) => {
       const badge = el.querySelector<HTMLElement>('.map-pin__rating');
       if (!badge) return;
@@ -526,14 +641,23 @@ export function LandingPage() {
         map,
         position: { lat: place.latitude, lng: place.longitude },
         content: el,
-        zIndex: isSelected ? 100 : 0,
+        zIndex: isSelected ? 100 : 10,
       });
-      marker.addListener('click', () => {
+      const handleClick = () => {
         selectPlaceRef.current(place.id);
         enterMapFullscreenRef.current(() =>
           panToPlaceForDetailRef.current(place),
         );
-      });
+      };
+      marker.addListener('click', handleClick);
+      el.addEventListener('click', handleClick);
+      el.querySelector<HTMLElement>('.map-pin__name-label')?.addEventListener(
+        'click',
+        (e) => {
+          e.stopPropagation();
+          handleClick();
+        },
+      );
       markersRef.current.push({ marker, place, el });
     });
 
@@ -575,6 +699,14 @@ export function LandingPage() {
           const z = mapRef.current?.getZoom() ?? 0;
           label.style.display = z >= 15 ? '' : 'none';
         }
+        label.style.cursor = 'pointer';
+        label.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectPlaceRef.current(place.id);
+          enterMapFullscreenRef.current(() =>
+            panToPlaceForDetailRef.current(place),
+          );
+        });
         el.appendChild(label);
       };
 
@@ -681,9 +813,15 @@ export function LandingPage() {
 
                 {/* Cerrar sesión */}
                 <button
-                  onClick={() => { signOut(); toast.success('Sesión cerrada'); }}
+                  onClick={() => {
+                    signOut();
+                    toast.success('Sesión cerrada');
+                  }}
                   className='flex h-9 w-9 items-center justify-center rounded-xl border transition-colors hover:bg-gray-50'
-                  style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
+                  style={{
+                    borderColor: COLORS.border,
+                    color: COLORS.textMuted,
+                  }}
                   title='Cerrar sesión'
                 >
                   <AppIcons.LogOut size={16} aria-hidden />
@@ -710,7 +848,11 @@ export function LandingPage() {
           {/* Badge pill */}
           <p
             className='mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold tracking-widest uppercase'
-            style={{ color: COLORS.primary, borderColor: `${COLORS.primary}30`, backgroundColor: `${COLORS.primary}08` }}
+            style={{
+              color: COLORS.primary,
+              borderColor: `${COLORS.primary}30`,
+              backgroundColor: `${COLORS.primary}08`,
+            }}
           >
             Descubre · Evalúa · Comparte
           </p>
@@ -721,9 +863,7 @@ export function LandingPage() {
             style={{ color: COLORS.text }}
           >
             Anda tranquilo,{' '}
-            <span style={{ color: COLORS.primary }}>
-              nosotros ya fuimos.
-            </span>
+            <span style={{ color: COLORS.primary }}>nosotros ya fuimos.</span>
           </h2>
 
           {/* Description */}
@@ -827,7 +967,15 @@ export function LandingPage() {
 
         {selectedPlaceData ? (
           <div
-            style={sidebarLoginOpen ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none', transition: 'filter 0.2s' } : undefined}
+            style={
+              sidebarLoginOpen
+                ? {
+                    filter: 'blur(3px) brightness(0.5)',
+                    pointerEvents: 'none',
+                    transition: 'filter 0.2s',
+                  }
+                : undefined
+            }
           >
             <PlaceMapSidebar
               place={selectedPlaceData}
@@ -1023,7 +1171,8 @@ export function LandingPage() {
                         const next = active ? 'all' : cat.value;
                         setLocalCategory(next);
                         setCategory(next);
-                        if (next !== 'all') fitBoundsOnNextFilterRef.current = true;
+                        if (next !== 'all')
+                          fitBoundsOnNextFilterRef.current = true;
                       }}
                       className='flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-md transition-colors'
                       style={{
@@ -1372,7 +1521,7 @@ export function LandingPage() {
               Qué evaluamos
             </h3>
             <p className='text-sm' style={{ color: COLORS.textMuted }}>
-              8 aspectos de accesibilidad en cada lugar
+              11 aspectos de accesibilidad en cada lugar
             </p>
           </div>
 
@@ -1392,6 +1541,9 @@ export function LandingPage() {
                   { Icon: AppIcons.Droplets, label: 'Baño accesible' },
                   { Icon: AppIcons.MoveHorizontal, label: 'Circulación' },
                   { Icon: AppIcons.MoveVertical, label: 'Esc. mecánica' },
+                  { Icon: AppIcons.Smile, label: 'Trato amable' },
+                  { Icon: AppIcons.HandHelping, label: 'Disposición' },
+                  { Icon: AppIcons.Clock, label: 'Tiempo atención' },
                 ].map((feat) => (
                   <div
                     key={`${gi}-${feat.label}`}
@@ -1437,6 +1589,9 @@ export function LandingPage() {
               { Icon: AppIcons.Droplets, label: 'Baño accesible' },
               { Icon: AppIcons.MoveHorizontal, label: 'Circulación interna' },
               { Icon: AppIcons.MoveVertical, label: 'Escalera mecánica' },
+              { Icon: AppIcons.Smile, label: 'Trato amable' },
+              { Icon: AppIcons.HandHelping, label: 'Disposición a ayudar' },
+              { Icon: AppIcons.Clock, label: 'Tiempo de atención' },
             ].map((feat) => (
               <div
                 key={feat.label}
@@ -1486,15 +1641,14 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer
-        className='border-t px-6 py-12 mt-auto'
+        className='border-t px-6 py-10 mt-auto'
         style={{
           backgroundColor: `${COLORS.border}20`,
           borderColor: COLORS.border,
         }}
       >
-        <div className='mx-auto max-w-7xl'>
-          {/* Footer Content */}
-          <div className='grid grid-cols-2 gap-8 mb-12 sm:grid-cols-4'>
+        <div className='mx-auto max-w-4xl'>
+          <div className='grid grid-cols-1 gap-8 sm:grid-cols-3 mb-10'>
             {/* Brand */}
             <div>
               <h4
@@ -1503,8 +1657,12 @@ export function LandingPage() {
               >
                 AndaTranquilo
               </h4>
-              <p className='text-sm' style={{ color: COLORS.textMuted }}>
-                Un mundo más accesible, un lugar a la vez.
+              <p
+                className='text-sm leading-relaxed'
+                style={{ color: COLORS.textMuted }}
+              >
+                Mapa colaborativo para Santiago. Ayudamos a personas a saber
+                acerca de la Accesibilidad y conocer los lugares antes de ir.
               </p>
             </div>
 
@@ -1513,139 +1671,76 @@ export function LandingPage() {
               <h5 className='font-bold mb-4' style={{ color: COLORS.primary }}>
                 Plataforma
               </h5>
-              <ul
-                className='space-y-2 text-sm'
-                style={{ color: COLORS.textMuted }}
-              >
+              <ul className='space-y-2.5 text-sm'>
                 <li>
                   <button
                     onClick={() => navigate('/')}
+                    className='hover:underline'
                     style={{ color: COLORS.textMuted }}
-                    className='hover:font-semibold'
                   >
-                    Explorar Mapa
+                    Explorar el mapa
                   </button>
                 </li>
                 <li>
-                  <a
-                    href='#'
+                  <button
+                    onClick={() => {
+                      setSelectedPlaceId(null);
+                      setShowAddPlaceModal(true);
+                      setAddPlaceModalKey((k) => k + 1);
+                    }}
+                    className='hover:underline'
                     style={{ color: COLORS.textMuted }}
-                    className='hover:font-semibold'
                   >
                     Cómo contribuir
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a
-                    href='#'
+                  <button
+                    onClick={() => navigate('/marco-legal')}
+                    className='hover:underline'
                     style={{ color: COLORS.textMuted }}
-                    className='hover:font-semibold'
                   >
-                    Sobre Accesibilidad
-                  </a>
+                    Marco legal de accesibilidad
+                  </button>
                 </li>
               </ul>
             </div>
 
-            {/* Soporte */}
+            {/* Contacto */}
             <div>
               <h5 className='font-bold mb-4' style={{ color: COLORS.primary }}>
-                Soporte
+                Contacto
               </h5>
-              <ul
-                className='space-y-2 text-sm'
-                style={{ color: COLORS.textMuted }}
-              >
+              <ul className='space-y-2.5 text-sm'>
                 <li>
                   <a
-                    href='#'
+                    href='mailto:hola@andatranquilo.cl'
+                    className='hover:underline'
                     style={{ color: COLORS.textMuted }}
-                    className='hover:font-semibold'
                   >
-                    Preguntas Frecuentes
+                    hola@andatranquilo.cl
                   </a>
                 </li>
-                <li>
-                  <a
-                    href='#'
-                    style={{ color: COLORS.textMuted }}
-                    className='hover:font-semibold'
-                  >
-                    Términos de uso
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href='#'
-                    style={{ color: COLORS.textMuted }}
-                    className='hover:font-semibold'
-                  >
-                    Privacidad
-                  </a>
-                </li>
+                <li style={{ color: COLORS.textMuted }}>Santiago, Chile</li>
               </ul>
-            </div>
-
-            {/* Newsletter */}
-            <div>
-              <h5 className='font-bold mb-4' style={{ color: COLORS.primary }}>
-                Mantente al día
-              </h5>
-              <div className='space-y-2'>
-                <input
-                  type='email'
-                  placeholder='Tu correo electrónico'
-                  className='w-full rounded-lg border px-3 py-2 text-sm'
-                  style={{
-                    borderColor: COLORS.border,
-                    color: COLORS.text,
-                  }}
-                />
-                <button
-                  className='w-full rounded-lg px-3 py-2 text-sm font-semibold text-white'
-                  style={{ backgroundColor: COLORS.primary }}
-                >
-                  Suscribirse
-                </button>
-              </div>
             </div>
           </div>
 
           {/* Footer Bottom */}
           <div
-            className='border-t pt-8 flex flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between'
+            className='border-t pt-6 flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between'
             style={{ borderColor: COLORS.border, color: COLORS.textMuted }}
           >
             <p>
-              &copy; 2024 AndaTranquilo. Con{' '}
+              &copy; 2025 AndaTranquilo. Hecho con{' '}
               <AppIcons.Heart
-                className='inline h-4 w-4 text-rose-600'
+                className='inline h-3.5 w-3.5 text-rose-500'
                 aria-hidden
               />{' '}
               para una ciudad sin barreras.
             </p>
-            <div className='flex gap-4'>
-              <a
-                href='#'
-                style={{ color: COLORS.textMuted }}
-                className='hover:font-semibold'
-              >
-                Twitter
-              </a>
-              <a
-                href='#'
-                style={{ color: COLORS.textMuted }}
-                className='hover:font-semibold'
-              >
-                Instagram
-              </a>
-              <a
-                href='#'
-                style={{ color: COLORS.textMuted }}
-                className='hover:font-semibold'
-              >
-                GitHub
-              </a>
+            <div className='flex gap-1'>
+              {/* redes sociales cuando estén disponibles */}
             </div>
           </div>
         </div>
@@ -1759,7 +1854,8 @@ export function LandingPage() {
                         onClick={() => {
                           setLocalCategory(c.value);
                           setCategory(c.value);
-                          if (c.value !== 'all') fitBoundsOnNextFilterRef.current = true;
+                          if (c.value !== 'all')
+                            fitBoundsOnNextFilterRef.current = true;
                         }}
                         className='flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
                         style={{
@@ -1882,7 +1978,8 @@ export function LandingPage() {
             <button
               onClick={() => {
                 setShowFiltersModal(false);
-                if (contextCategory !== 'all') fitBoundsOnNextFilterRef.current = true;
+                if (contextCategory !== 'all')
+                  fitBoundsOnNextFilterRef.current = true;
                 enterMapFullscreen();
               }}
               className='flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white'
@@ -1907,7 +2004,11 @@ export function LandingPage() {
       >
         <DialogContent
           className='w-[calc(100vw-2rem)] max-h-[85vh] max-w-lg rounded-2xl p-4 sm:w-full sm:max-w-lg transition-[filter] duration-200'
-          style={(addPlaceLoginOpen || addPlaceRatingOpen) ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none' } : undefined}
+          style={
+            addPlaceLoginOpen || addPlaceRatingOpen
+              ? { filter: 'blur(3px) brightness(0.5)', pointerEvents: 'none' }
+              : undefined
+          }
         >
           <VisuallyHidden>
             <DialogTitle>Añadir lugar</DialogTitle>

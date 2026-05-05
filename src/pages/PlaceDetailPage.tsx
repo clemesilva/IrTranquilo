@@ -105,6 +105,17 @@ export function PlaceDetailPage() {
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [creatorName, setCreatorName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!place?.createdBy) return;
+    supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', place.createdBy)
+      .maybeSingle()
+      .then(({ data }) => setCreatorName(data?.display_name ?? null));
+  }, [place?.createdBy]);
 
   /** Evita re-disparar sync al cambiar la referencia de `place` tras refreshPlaces. */
   const statsHealDoneRef = useRef(false);
@@ -364,6 +375,12 @@ export function PlaceDetailPage() {
               {place.name}
             </h1>
             <div className='flex shrink-0 items-center gap-1.5'>
+              {creatorName && (
+                <span className='hidden sm:flex items-center gap-1 text-xs text-neutral-400 mr-1'>
+                  <AppIcons.Users className='h-3.5 w-3.5 shrink-0' aria-hidden />
+                  <span>Añadido por <span className='font-medium text-neutral-500'>{creatorName}</span></span>
+                </span>
+              )}
               <a
                 href={directionsUrl}
                 target='_blank'
@@ -444,6 +461,12 @@ export function PlaceDetailPage() {
                   <AppIcons.MapPin className='h-4 w-4 shrink-0' aria-hidden />
                   {place.address}
                 </span>
+                {creatorName && (
+                  <span className='sm:hidden flex items-center gap-1.5 text-xs text-neutral-400'>
+                    <AppIcons.Users className='h-3.5 w-3.5 shrink-0' aria-hidden />
+                    Añadido por <span className='font-medium text-neutral-500'>{creatorName}</span>
+                  </span>
+                )}
                 <div className='flex flex-wrap items-center gap-x-4 gap-y-1'>
                   {place.phone ? (
                     <a

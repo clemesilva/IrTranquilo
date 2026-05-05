@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LoginDialog } from '@/components/auth/LoginDialog';
-import { Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +13,6 @@ import type { PlaceCategory } from '@/types/place';
 import {
   ACCESSIBILITY_FIELD_GROUPS,
   ACCESSIBILITY_REVIEW_KEYS,
-  ratingLabelEs,
   type AccessibilityReviewKey,
 } from '@/types/reviewAccessibility';
 import { usePlacesAutocomplete } from '@/hooks/usePlacesAutocomplete';
@@ -128,7 +126,7 @@ export function AddPlacePanel({
     savedDraft?.priceLevel ?? null,
   );
 
-  const [rating, setRating] = useState<number>(savedDraft?.rating ?? 0);
+  const [rating] = useState<number>(savedDraft?.rating ?? 0);
   const [review, setReview] = useState(savedDraft?.review ?? '');
 
   const [accessibility, setAccessibility] = useState(
@@ -557,7 +555,7 @@ export function AddPlacePanel({
                   <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
                     {group.title}
                   </p>
-                  <div className='grid grid-cols-2 justify-items-start gap-1.5 sm:grid-cols-2 sm:justify-items-stretch'>
+                  <div className='flex flex-wrap gap-1.5 sm:grid sm:grid-cols-2 sm:justify-items-stretch'>
                     {group.fields.map((f) => (
                       <TriStateAccessibilityChip
                         key={f.key}

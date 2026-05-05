@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { COLORS } from '@/styles/colors';
 import { MessageSquarePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/context/useAuth';
+import { usePlaces } from '@/context/usePlaces';
 import { PlaceReviewForm } from './PlaceReviewForm';
 
 type PlaceReviewFormDialogProps = {
@@ -37,8 +38,15 @@ export function PlaceReviewFormDialog({
   triggerStyle,
   onLoginOpenChange,
 }: PlaceReviewFormDialogProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { myReviewWithAccessibility } = usePlaces();
   const [open, setOpen] = useState(false);
+  const [hasReview, setHasReview] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) { setHasReview(false); return; }
+    myReviewWithAccessibility(placeId).then((r) => setHasReview(!!r));
+  }, [isAuthenticated, user, placeId, myReviewWithAccessibility]);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -61,7 +69,7 @@ export function PlaceReviewFormDialog({
         >
           <MessageSquarePlus className='h-4 w-4' aria-hidden />
           {triggerLabel ??
-            (isAuthenticated ? 'Editar mi reseña' : 'Dejar una reseña')}
+            (!isAuthenticated ? 'Dejar una reseña' : hasReview ? 'Editar mi reseña' : 'Dejar una reseña')}
         </Button>
       </DialogTrigger>
       <DialogContent className='flex max-h-[min(92dvh,680px)] w-[calc(100vw-2rem)] max-w-md flex-col gap-0 overflow-hidden rounded-2xl p-0'>

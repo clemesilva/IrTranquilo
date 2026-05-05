@@ -187,45 +187,54 @@ function ReviewsCollapsible({
 
   return (
     <div className='space-y-3'>
-      <div className={`relative ${!expanded ? 'max-h-[420px] overflow-hidden' : ''}`}>
+      <div
+        className={`relative ${!expanded ? 'max-h-[420px] overflow-hidden' : ''}`}
+      >
         <div className='space-y-3'>
-          {reviews.filter((r) => r.comment?.trim()).map((r) => (
-            <div
-              key={r.id}
-              className='rounded-xl border p-3'
-              style={{ borderColor: COLORS.border }}
-            >
-              <div className='mb-0.5 flex items-center justify-between gap-2'>
-                <p className='text-sm font-semibold text-neutral-900'>
-                  {r.authorName ?? 'Usuario'}
-                </p>
-                {formatRelativeTimeEs(r.createdAt ?? null) && (
-                  <p className='shrink-0 text-xs text-neutral-400'>
-                    {formatRelativeTimeEs(r.createdAt ?? null)}
+          {reviews
+            .filter((r) => r.comment?.trim())
+            .map((r) => (
+              <div
+                key={r.id}
+                className='rounded-xl border p-3'
+                style={{ borderColor: COLORS.border }}
+              >
+                <div className='mb-0.5 flex items-center justify-between gap-2'>
+                  <p className='text-sm font-semibold text-neutral-900'>
+                    {r.authorName ?? 'Usuario'}
+                  </p>
+                  {formatRelativeTimeEs(r.createdAt ?? null) && (
+                    <p className='shrink-0 text-xs text-neutral-400'>
+                      {formatRelativeTimeEs(r.createdAt ?? null)}
+                    </p>
+                  )}
+                </div>
+                {r.rating != null && r.rating > 0 && (
+                  <div className='mb-1.5 flex items-center gap-2'>
+                    <StarRow rating={r.rating} className='scale-90' />
+                    <span className='text-xs tabular-nums text-neutral-500'>
+                      {r.rating}/5
+                    </span>
+                    <div className='ml-auto'>
+                      <ReviewLikeButton
+                        reviewId={r.id}
+                        initialCount={r.helpfulCount ?? 0}
+                        userId={userId}
+                      />
+                    </div>
+                  </div>
+                )}
+                {r.comment && (
+                  <p className='text-sm leading-relaxed text-neutral-700'>
+                    {r.comment}
                   </p>
                 )}
+                <ReviewMedia
+                  photoUrls={r.photoUrls ?? []}
+                  videoUrl={r.videoUrl}
+                />
               </div>
-              {r.rating != null && r.rating > 0 && (
-                <div className='mb-1.5 flex items-center gap-2'>
-                  <StarRow rating={r.rating} className='scale-90' />
-                  <span className='text-xs tabular-nums text-neutral-500'>
-                    {r.rating}/5
-                  </span>
-                  <div className='ml-auto'>
-                    <ReviewLikeButton
-                      reviewId={r.id}
-                      initialCount={r.helpfulCount ?? 0}
-                      userId={userId}
-                    />
-                  </div>
-                </div>
-              )}
-              {r.comment && (
-                <p className='text-sm leading-relaxed text-neutral-700'>{r.comment}</p>
-              )}
-              <ReviewMedia photoUrls={r.photoUrls ?? []} videoUrl={r.videoUrl} />
-            </div>
-          ))}
+            ))}
         </div>
         {!expanded && (
           <div className='pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-b from-transparent to-white/95' />
@@ -413,7 +422,8 @@ export function PlaceMapSidebar({
     }
     const rated = reviews.filter((r) => r.rating != null && r.rating > 0);
     const count = rated.length;
-    const avg = count === 0 ? 0 : rated.reduce((s, r) => s + r.rating, 0) / count;
+    const avg =
+      count === 0 ? 0 : rated.reduce((s, r) => s + r.rating, 0) / count;
     return { avg, count };
   }, [place.avgRating, place.reviewCount, reviews, reviewsLoading]);
 
@@ -612,14 +622,16 @@ export function PlaceMapSidebar({
         </div>
 
         {/* Galería de medios de reseñas */}
-        {!reviewsLoading && (reviews.some(r => r.videoUrl) || reviews.some(r => r.photoUrls?.length)) && (
-          <div className='mb-4'>
-            <ReviewMedia
-              videoUrl={reviews.find(r => r.videoUrl)?.videoUrl}
-              photoUrls={reviews.flatMap(r => r.photoUrls ?? [])}
-            />
-          </div>
-        )}
+        {!reviewsLoading &&
+          (reviews.some((r) => r.videoUrl) ||
+            reviews.some((r) => r.photoUrls?.length)) && (
+            <div className='mb-4'>
+              <ReviewMedia
+                videoUrl={reviews.find((r) => r.videoUrl)?.videoUrl}
+                photoUrls={reviews.flatMap((r) => r.photoUrls ?? [])}
+              />
+            </div>
+          )}
 
         {/* Tabs */}
         <div
@@ -629,7 +641,7 @@ export function PlaceMapSidebar({
           {(
             [
               ['overview', 'Accesibilidad'],
-              ['reviews', `Reseñas (${headerReviewStats.count})`],
+              ['reviews', 'Reseñas'],
             ] as const
           ).map(([key, label]) => (
             <button

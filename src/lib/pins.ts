@@ -227,6 +227,7 @@ export function buildPinElement(params: {
     label.style.color = params.color
     label.style.display = 'none'
     label.style.whiteSpace = 'pre'
+    label.style.cursor = 'pointer'
     label.textContent = formatPinLabel(params.name)
     el.appendChild(label)
   }

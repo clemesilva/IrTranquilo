@@ -209,5 +209,9 @@ export const AppIcons = {
   PawPrint,
   Utensils,
   TriangleRight,
+  Smile,
+  HandHelping,
+  Clock,
+  Users,
 } as const;
 
