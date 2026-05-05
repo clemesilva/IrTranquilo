@@ -1,0 +1,94 @@
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export default async function handler(req, res) {
+  // Solo permite GET (desde el cron) o POST con token de seguridad
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).end();
+  }
+
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('email, display_name')
+    .not('email', 'is', null);
+
+  if (error) {
+    console.error('Error obteniendo usuarios:', error);
+    return res.status(500).json({ error: error.message });
+  }
+
+  const results = await Promise.allSettled(
+    users.map((user) =>
+      resend.emails.send({
+        from: 'AndaTranquilo <hola@andatranquilo.cl>',
+        to: user.email,
+        subject: '¿Fuiste a algún lugar este fin de semana?',
+        html: `
+          <!DOCTYPE html>
+          <html lang="es">
+          <head><meta charset="UTF-8"/></head>
+          <body style="margin:0;padding:0;background:#F0F6FF;font-family:system-ui,-apple-system,sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0F6FF;padding:40px 0;">
+              <tr><td align="center">
+                <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(26,86,160,0.08);">
+                  <!-- Header -->
+                  <tr>
+                    <td style="background:linear-gradient(135deg,#3b82f6,#0f3460);padding:32px;text-align:center;">
+                      <p style="margin:0;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">AndaTranquilo</p>
+                    </td>
+                  </tr>
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding:36px 40px;">
+                      <p style="margin:0 0 12px;font-size:18px;font-weight:600;color:#0f3460;">
+                        Hola${user.display_name ? `, ${user.display_name}` : ''} 👋
+                      </p>
+                      <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
+                        ¿Saliste este fin de semana? Si visitaste algún lugar, tu reseña ayuda a toda la comunidad a moverse con mayor tranquilidad.
+                      </p>
+                      <p style="margin:0 0 32px;font-size:15px;color:#444;line-height:1.6;">
+                        Solo toma un minuto y hace una gran diferencia para quienes necesitan saber si un lugar es accesible antes de ir.
+                      </p>
+                      <table cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="background:#1A56A0;border-radius:10px;">
+                            <a href="https://andatranquilo.cl/explore"
+                               style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">
+                              Dejar una reseña →
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding:20px 40px;border-top:1px solid #e8f0fb;">
+                      <p style="margin:0;font-size:12px;color:#999;text-align:center;">
+                        Recibes este recordatorio porque eres parte de AndaTranquilo.<br/>
+                        <a href="https://andatranquilo.cl" style="color:#1A56A0;">andatranquilo.cl</a>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
+          </body>
+          </html>
+        `,
+      })
+    )
+  );
+
+  const sent = results.filter((r) => r.status === 'fulfilled').length;
+  const failed = results.filter((r) => r.status === 'rejected').length;
+
+  return res.status(200).json({ sent, failed, total: users.length });
+}
