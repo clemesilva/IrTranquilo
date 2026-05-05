@@ -1,0 +1,39 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo -->
+  <rect width="1200" height="630" fill="#F0F6FF"/>
+
+  <!-- Círculos decorativos fondo -->
+  <circle cx="980" cy="100" r="220" fill="#1A56A0" opacity="0.06"/>
+  <circle cx="1100" cy="520" r="160" fill="#3b82f6" opacity="0.05"/>
+  <circle cx="80" cy="540" r="180" fill="#1A56A0" opacity="0.05"/>
+
+  <!-- Pin logo (pin limpio, sin sombra) -->
+  <g transform="translate(300, 145) scale(1.25)">
+    <defs>
+      <linearGradient id="pinGrad" x1="0" y1="0" x2="160" y2="200" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#3b82f6"/>
+        <stop offset="50%" stop-color="#1A56A0"/>
+        <stop offset="100%" stop-color="#0f3460"/>
+      </linearGradient>
+    </defs>
+    <path
+      d="M80 8 C40 8 8 40 8 80 C8 124 80 192 80 192 C80 192 152 124 152 80 C152 40 120 8 80 8Z"
+      fill="url(#pinGrad)"
+    />
+    <circle cx="80" cy="76" r="40" fill="white" opacity="0.08"/>
+    <ellipse cx="64" cy="48" rx="20" ry="12" fill="white" opacity="0.12" transform="rotate(-20 64 48)"/>
+    <path d="M54 80 L72 98 L108 58" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Texto AndaTranquilo -->
+  <text x="540" y="270" font-family="system-ui, -apple-system, sans-serif" font-size="88" font-weight="700" fill="#0f3460" letter-spacing="-2">AndaTranquilo</text>
+
+  <!-- Subtítulo -->
+  <text x="542" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="400" fill="#1A56A0" opacity="0.75">Accesibilidad para todos en Santiago</text>
+
+  <!-- Línea decorativa -->
+  <rect x="542" y="370" width="120" height="4" rx="2" fill="#3b82f6" opacity="0.5"/>
+
+  <!-- URL -->
+  <text x="542" y="430" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="500" fill="#1A56A0" opacity="0.5">andatranquilo.cl</text>
+</svg>

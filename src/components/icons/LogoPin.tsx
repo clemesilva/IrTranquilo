@@ -3,28 +3,24 @@ export function LogoPin({ size = 40 }: { size?: number }) {
     <svg
       width={size}
       height={size * 1.25}
-      viewBox="0 0 80 100"
+      viewBox="0 0 160 200"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <linearGradient id="pinGradLogo" x1="0" y1="0" x2="80" y2="100" gradientUnits="userSpaceOnUse">
+        <linearGradient id="pinGradLogo" x1="0" y1="0" x2="160" y2="200" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#3b82f6" />
           <stop offset="50%" stopColor="#1A56A0" />
           <stop offset="100%" stopColor="#0f3460" />
         </linearGradient>
-        <filter id="pinShadowLogo" x="-20%" y="-10%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#1A56A0" floodOpacity="0.4" />
-        </filter>
       </defs>
       <path
-        d="M40 4 C20 4 4 20 4 40 C4 62 40 96 40 96 C40 96 76 62 76 40 C76 20 60 4 40 4Z"
+        d="M80 8 C40 8 8 40 8 80 C8 124 80 192 80 192 C80 192 152 124 152 80 C152 40 120 8 80 8Z"
         fill="url(#pinGradLogo)"
-        filter="url(#pinShadowLogo)"
       />
-      <circle cx="40" cy="38" r="20" fill="white" opacity="0.08" />
-      <ellipse cx="32" cy="24" rx="10" ry="6" fill="white" opacity="0.12" transform="rotate(-20 32 24)" />
-      <path d="M27 40 L36 49 L54 29" stroke="white" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="80" cy="76" r="40" fill="white" opacity="0.08" />
+      <ellipse cx="64" cy="48" rx="20" ry="12" fill="white" opacity="0.12" transform="rotate(-20 64 48)" />
+      <path d="M54 80 L72 98 L108 58" stroke="white" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
