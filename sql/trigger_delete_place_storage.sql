@@ -55,7 +55,7 @@ BEGIN
   END IF;
 
   -- Listar archivos en la carpeta
-  SELECT content::jsonb
+  SELECT (response).body::jsonb
   INTO v_list_resp
   FROM net.http_post(
     url     := v_url || '/storage/v1/object/list/review-media',
@@ -67,7 +67,7 @@ BEGIN
       'prefix', v_prefix,
       'limit',  1000
     )
-  );
+  ) AS response;
 
   -- Construir array de prefijos a eliminar
   SELECT array_agg(v_prefix || (obj->>'name'))

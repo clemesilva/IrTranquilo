@@ -64,6 +64,7 @@ import {
   Smile,
   HandHelping,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import type { PlaceCategory } from '@/types/place';
 import type { AccessibilityReviewKey } from '@/types/reviewAccessibility';
@@ -213,5 +214,6 @@ export const AppIcons = {
   HandHelping,
   Clock,
   Users,
+  Trash: Trash2,
 } as const;
 

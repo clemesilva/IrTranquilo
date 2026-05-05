@@ -464,9 +464,15 @@ export function AddPlacePanel({
 
       <Card
         size='sm'
-        className='overflow-hidden'
+        className='overflow-hidden relative'
         style={{ borderColor: `${COLORS.primary}20` }}
       >
+        {isSaving && (
+          <div className='absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/80 backdrop-blur-sm'>
+            <div className='h-8 w-8 animate-spin rounded-full border-4 border-neutral-200' style={{ borderTopColor: COLORS.primary }} />
+            <p className='text-sm font-semibold' style={{ color: COLORS.primary }}>Guardando lugar…</p>
+          </div>
+        )}
         {/* El scroll lo maneja el modal (DialogContent) para evitar doble barra. */}
         <CardContent className='space-y-4 px-4 pb-6'>
           <div className='space-y-2'>

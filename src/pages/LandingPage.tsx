@@ -450,17 +450,13 @@ export function LandingPage() {
               const tip = document.createElement('div');
               tip.className = 'parking-global-tooltip';
               const fullAddress = address ? `${name}, ${address}` : name;
-              tip.innerHTML = `<div style="display:flex;align-items:start;justify-content:space-between;gap:10px"><div><div class="parking-pin__tooltip-name">${name}</div>${address ? `<div class="parking-pin__tooltip-address">${address}</div>` : ''}</div><div style="display:flex;gap:6px;flex-shrink:0;margin-top:1px"><button class="parking-tooltip-copy" style="background:none;border:none;cursor:pointer;color:#aaa;padding:0;display:flex;align-items:center;gap:3px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="parking-copy-label" style="display:none;font-size:11px;color:#aaa">Copiar</span></button><button class="parking-tooltip-close" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:14px;line-height:1;padding:0">✕</button></div></div>`;
-              tip.style.cssText = `position:fixed;left:${mapRect.left + px}px;top:${mapRect.top + py - 8}px;transform:translate(-50%,-100%);background:white;border:1px solid rgba(66,133,244,0.2);border-radius:12px;padding:8px 12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);white-space:nowrap;z-index:99999;pointer-events:auto;`;
+              tip.innerHTML = `<div style="display:flex;align-items:start;justify-content:space-between;gap:10px"><div><div class="parking-pin__tooltip-name">${name}</div>${address ? `<div class="parking-pin__tooltip-address">${address}</div>` : ''}</div><div style="display:flex;gap:6px;flex-shrink:0;margin-top:1px"><button class="parking-tooltip-copy" style="position:relative;background:none;border:none;cursor:pointer;color:#aaa;padding:0;display:flex;align-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="parking-copy-label" style="display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#333;color:white;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none">Copiar</span></button><button class="parking-tooltip-close" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:11px;line-height:1;padding:0">✕</button></div></div>`;
+              tip.style.cssText = `position:fixed;left:${mapRect.left + px}px;top:${mapRect.top + py - 8}px;transform:translate(-50%,-100%);background:white;border:1px solid rgba(66,133,244,0.2);border-radius:8px;padding:5px 8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);white-space:nowrap;z-index:99999;pointer-events:auto;font-size:11px;`;
               tip.querySelector('.parking-tooltip-close')?.addEventListener('click', (ev) => { ev.stopPropagation(); closeTooltip(); });
               const copyBtn = tip.querySelector('.parking-tooltip-copy') as HTMLElement | null;
               const copyLabel = tip.querySelector('.parking-copy-label') as HTMLElement | null;
-              copyBtn?.addEventListener('mouseenter', () => {
-                if (copyLabel) copyLabel.style.display = 'inline';
-              });
-              copyBtn?.addEventListener('mouseleave', () => {
-                if (copyLabel) copyLabel.style.display = 'none';
-              });
+              copyBtn?.addEventListener('mouseenter', () => { if (copyLabel) copyLabel.style.display = 'block'; });
+              copyBtn?.addEventListener('mouseleave', () => { if (copyLabel) copyLabel.style.display = 'none'; });
               copyBtn?.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 navigator.clipboard.writeText(fullAddress).then(() => {
@@ -2023,9 +2019,18 @@ export function LandingPage() {
               setShowAddPlaceModal(false);
               setAddPlaceDraft(null);
             }}
-            onSaved={() => {
+            onSaved={(placeId) => {
               setShowAddPlaceModal(false);
               setAddPlaceDraft(null);
+              setTimeout(() => {
+                const place = filteredPlaces.find(p => p.id === placeId);
+                if (place) {
+                  selectPlace(placeId);
+                  enterMapFullscreen(() => panToPlaceForDetail(place));
+                } else {
+                  selectPlace(placeId);
+                }
+              }, 300);
             }}
           />
         </DialogContent>

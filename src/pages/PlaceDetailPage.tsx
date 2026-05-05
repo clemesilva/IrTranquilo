@@ -106,6 +106,36 @@ export function PlaceDetailPage() {
   const [reportError, setReportError] = useState<string | null>(null);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [creatorName, setCreatorName] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isAdmin = user?.email === 'clementesilvavicuna@gmail.com';
+
+  async function handleDeletePlace() {
+    if (!place || !window.confirm(`¿Eliminar "${place.name}"? Esta acción no se puede deshacer.`)) return;
+    setIsDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-place`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ placeId: place.id }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al eliminar');
+      await refreshPlaces();
+      navigate('/', { replace: true });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al eliminar el lugar.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   useEffect(() => {
     if (!place?.createdBy) return;
@@ -371,9 +401,16 @@ export function PlaceDetailPage() {
         <div className='px-5 py-4'>
           {/* Nombre + íconos llegar/compartir alineados */}
           <div className='flex items-start justify-between gap-3'>
-            <h1 className='text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl'>
-              {place.name}
-            </h1>
+            <div className='min-w-0 flex-1'>
+              <h1 className='text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl'>
+                {place.name}
+              </h1>
+              {creatorName && (
+                <p className='sm:hidden text-xs text-neutral-400 mt-0.5'>
+                  Añadido por <span className='font-medium text-neutral-500'>{creatorName}</span>
+                </p>
+              )}
+            </div>
             <div className='flex shrink-0 items-center gap-1.5'>
               {creatorName && (
                 <span className='hidden sm:flex items-center gap-1 text-xs text-neutral-400 mr-1'>
@@ -392,6 +429,19 @@ export function PlaceDetailPage() {
                 <AppIcons.Send className='h-4 w-4 shrink-0' aria-hidden />
                 <span className='hidden'>Cómo llegar</span>
               </a>
+              {isAdmin && (
+                <button
+                  type='button'
+                  onClick={handleDeletePlace}
+                  disabled={isDeleting}
+                  aria-label='Eliminar lugar'
+                  className='flex h-9 w-9 items-center justify-center rounded-xl border sm:h-auto sm:w-auto sm:gap-1.5 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-sm sm:font-semibold'
+                  style={{ borderColor: '#fca5a5', color: '#ef4444' }}
+                >
+                  <AppIcons.Trash className='h-4 w-4 shrink-0' aria-hidden />
+                  <span className='hidden sm:inline'>{isDeleting ? 'Eliminando…' : 'Eliminar'}</span>
+                </button>
+              )}
               <button
                 type='button'
                 onClick={handleShare}
@@ -446,14 +496,8 @@ export function PlaceDetailPage() {
                 <span className='text-sm text-neutral-500'>
                   {headerReviewStats.count > 0
                     ? `· ${headerReviewStats.count} ${headerReviewStats.count === 1 ? 'reseña' : 'reseñas'}`
-                    : 'Sin calificaciones aún'}
+                    : 'Sin calificaciones ★'}
                 </span>
-                {place.googleRating != null && (
-                  <span className='text-xs text-neutral-400'>
-                    · {place.googleRating} en Google (
-                    {place.googleRatingsTotal ?? 0})
-                  </span>
-                )}
               </div>
 
               <div className='mt-2.5 flex flex-col gap-y-1.5 text-sm'>
@@ -461,12 +505,6 @@ export function PlaceDetailPage() {
                   <AppIcons.MapPin className='h-4 w-4 shrink-0' aria-hidden />
                   {place.address}
                 </span>
-                {creatorName && (
-                  <span className='sm:hidden flex items-center gap-1.5 text-xs text-neutral-400'>
-                    <AppIcons.Users className='h-3.5 w-3.5 shrink-0' aria-hidden />
-                    Añadido por <span className='font-medium text-neutral-500'>{creatorName}</span>
-                  </span>
-                )}
                 <div className='flex flex-wrap items-center gap-x-4 gap-y-1'>
                   {place.phone ? (
                     <a
