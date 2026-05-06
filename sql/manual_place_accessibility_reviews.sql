@@ -1,3 +1,0 @@
--- OBSOLETO: el checklist vive en `reviews`. Ver:
---   sql/migration_checklist_into_reviews.sql
--- y el `supabase.sql` actualizado del repositorio.

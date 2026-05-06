@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       resend.emails.send({
         from: 'AndaTranquilo <hola@andatranquilo.cl>',
         to: user.email,
-        subject: '¿Fuiste a algún lugar este fin de semana?',
+        subject: '¿Fuiste a algún lugar esta semana?',
         html: `
           <!DOCTYPE html>
           <html lang="es">
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
                 <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(26,86,160,0.08);">
                   <!-- Header -->
                   <tr>
-                    <td style="background:linear-gradient(135deg,#3b82f6,#0f3460);padding:32px;text-align:center;">
+                    <td style="background:linear-gradient(135deg,#2563b0,#1A56A0);padding:32px;text-align:center;">
                       <p style="margin:0;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">AndaTranquilo</p>
                     </td>
                   </tr>
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
                         Hola${user.display_name ? `, ${user.display_name}` : ''} 👋
                       </p>
                       <p style="margin:0 0 24px;font-size:15px;color:#444;line-height:1.6;">
-                        ¿Saliste este fin de semana? Si visitaste algún lugar, tu reseña ayuda a toda la comunidad a moverse con mayor tranquilidad.
+                        ¿Fuiste a algún lugar esta semana? Si el lugar ya está en AndaTranquilo, deja una reseña y cuéntanos cómo fue la accesibilidad. Si no está, <strong style="color:#0f3460;">agrégalo</strong> para que otros puedan conocerlo antes de ir.
                       </p>
                       <p style="margin:0 0 32px;font-size:15px;color:#444;line-height:1.6;">
                         Solo toma un minuto y hace una gran diferencia para quienes necesitan saber si un lugar es accesible antes de ir.
