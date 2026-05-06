@@ -890,7 +890,7 @@ export function LandingPage() {
 
       {/* Leyenda del mapa */}
       <div
-        className='flex items-center justify-center sm:justify-end gap-3 mx-4 px-4 -mt-6 sm:-mt-2 pb-2 sm:pb-3 text-xs sm:text-sm'
+        className='flex items-center justify-center sm:justify-end gap-3 mx-4 px-4 -mt-6 sm:-mt-2 pb-2 sm:pb-3 text-xs sm:text-sm mb-2 sm:mb-0'
         style={{ color: COLORS.textMuted }}
       >
         <span className='flex items-center gap-1'>
