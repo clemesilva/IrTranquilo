@@ -48,7 +48,7 @@ export type AddPlacePanelProps = {
   draftLatLng: [number, number] | null;
   onDraftLatLngChange: (next: [number, number] | null) => void;
   onClose: () => void;
-  onSaved: (placeId: number) => void;
+  onSaved: (placeId: number, latLng: [number, number]) => void;
   onLoginDialogChange?: (open: boolean) => void;
   /** Llamado cuando el usuario pulsa Guardar — LandingPage abre el dialog de rating y llama onConfirm(rating) */
   onRatingNeeded?: (
@@ -72,6 +72,7 @@ export function AddPlacePanel({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingRatingRef = useRef<number | null>(null);
 
   const DRAFT_KEY = 'addPlaceDraft';
 
@@ -196,6 +197,7 @@ export function AddPlacePanel({
       setSuggestions([]);
       setShowDropdown(false);
       setPlaceConfirmed(true);
+      searchInputRef.current?.blur();
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Error seleccionando el lugar.',
@@ -205,7 +207,27 @@ export function AddPlacePanel({
 
   async function handleSave() {
     if (!canSave || !draftLatLng) return;
-    onRatingNeeded?.(rating, (confirmedRating) => doSave(confirmedRating));
+    // Verificar sesión primero — si no está logueado, mostrar login de inmediato
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      sessionStorage.setItem('pendingAddPlace', 'true');
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          placeQuery, category, address, openingHours, phone, website,
+          googleRating, googleRatingsTotal, googlePhotoUrl,
+          wheelchairAccessible, priceLevel, rating, review, accessibility, draftLatLng,
+        }),
+      );
+      await saveDraftMedia({ photos: media.photos, video: media.video });
+      setShowLoginDialog(true);
+      onLoginDialogChange?.(true);
+      return;
+    }
+    onRatingNeeded?.(rating, (confirmedRating) => {
+      pendingRatingRef.current = confirmedRating;
+      doSave(confirmedRating);
+    });
   }
 
   async function doSave(confirmedRating: number) {
@@ -215,33 +237,7 @@ export function AddPlacePanel({
     try {
       const { data: auth } = await supabase.auth.getUser();
       const user = auth.user;
-      if (!user) {
-        sessionStorage.setItem('pendingAddPlace', 'true');
-        sessionStorage.setItem(
-          DRAFT_KEY,
-          JSON.stringify({
-            placeQuery,
-            category,
-            address,
-            openingHours,
-            phone,
-            website,
-            googleRating,
-            googleRatingsTotal,
-            googlePhotoUrl,
-            wheelchairAccessible,
-            priceLevel,
-            rating,
-            review,
-            accessibility,
-            draftLatLng,
-          }),
-        );
-        await saveDraftMedia({ photos: media.photos, video: media.video });
-        setShowLoginDialog(true);
-        onLoginDialogChange?.(true);
-        return;
-      }
+      if (!user) return; // No debería pasar — handleSave ya verificó
       if (!category) throw new Error('Elige una categoría.');
 
       const placeName = placeQuery.trim();
@@ -409,7 +405,7 @@ export function AddPlacePanel({
       setOpeningHours(null);
       setMedia(createEmptyMediaState());
       sessionStorage.removeItem(DRAFT_KEY);
-      onSaved(place.id);
+      onSaved(place.id, draftLatLng);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar el lugar.');
     } finally {
@@ -420,8 +416,15 @@ export function AddPlacePanel({
   return (
     <div
       ref={panelRef}
-      className={`mx-auto flex w-full max-w-[620px] flex-col gap-3 px-1 pb-1 ${className}`}
+      className={`mx-auto flex w-full max-w-[620px] flex-col gap-3 px-1 pb-1 relative ${className}`}
+      style={isSaving ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
     >
+      {isSaving && (
+        <div className='fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm'>
+          <div className='h-10 w-10 animate-spin rounded-full border-4 border-neutral-200' style={{ borderTopColor: COLORS.primary }} />
+          <p className='text-sm font-semibold' style={{ color: COLORS.primary }}>Guardando lugar…</p>
+        </div>
+      )}
       {/* Header con franja azul suave */}
       <div
         className='flex items-center gap-2.5 rounded-xl px-4 py-3'
@@ -467,12 +470,6 @@ export function AddPlacePanel({
         className='overflow-hidden relative'
         style={{ borderColor: `${COLORS.primary}20` }}
       >
-        {isSaving && (
-          <div className='absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/80 backdrop-blur-sm'>
-            <div className='h-8 w-8 animate-spin rounded-full border-4 border-neutral-200' style={{ borderTopColor: COLORS.primary }} />
-            <p className='text-sm font-semibold' style={{ color: COLORS.primary }}>Guardando lugar…</p>
-          </div>
-        )}
         {/* El scroll lo maneja el modal (DialogContent) para evitar doble barra. */}
         <CardContent className='space-y-4 px-4 pb-6'>
           <div className='space-y-2'>

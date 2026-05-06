@@ -65,12 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setUser(session.user);
         upsertUserProfile(session.user);
       } else {
         setUser(null);
+        // Token inválido o expirado — limpiar storage para evitar loops
+        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          localStorage.removeItem('supabase.auth.token');
+        }
       }
     });
 

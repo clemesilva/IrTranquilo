@@ -837,13 +837,11 @@ export function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className='px-6 pb-8 pt-12'>
+      <section className='px-6 pb-4 pt-6 sm:pb-8 sm:pt-12'>
         <div className='mx-auto max-w-3xl text-center'>
-          {/* Badge */}
-
           {/* Badge pill */}
           <p
-            className='mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold tracking-widest uppercase'
+            className='mb-3 hidden sm:inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold tracking-widest uppercase'
             style={{
               color: COLORS.primary,
               borderColor: `${COLORS.primary}30`,
@@ -855,7 +853,7 @@ export function LandingPage() {
 
           {/* Title */}
           <h2
-            className='mb-4 text-3xl font-extrabold leading-tight sm:text-4xl'
+            className='mb-3 text-3xl font-extrabold leading-tight sm:mb-4 sm:text-4xl'
             style={{ color: COLORS.text }}
           >
             Anda tranquilo,{' '}
@@ -864,7 +862,7 @@ export function LandingPage() {
 
           {/* Description */}
           <p
-            className='mb-4 text-base leading-relaxed'
+            className='mb-3 text-base leading-relaxed sm:mb-4'
             style={{ color: COLORS.textMuted }}
           >
             Descubre qué tan accesible es un lugar antes de ir — rampas,
@@ -873,7 +871,7 @@ export function LandingPage() {
           </p>
 
           {/* CTA principal */}
-          <div className='mb-8'>
+          <div className='mb-4 sm:mb-8'>
             <button
               onClick={() => {
                 setSelectedPlaceId(null);
@@ -2019,18 +2017,17 @@ export function LandingPage() {
               setShowAddPlaceModal(false);
               setAddPlaceDraft(null);
             }}
-            onSaved={(placeId) => {
+            onSaved={(placeId, latLng) => {
               setShowAddPlaceModal(false);
               setAddPlaceDraft(null);
-              setTimeout(() => {
-                const place = filteredPlaces.find(p => p.id === placeId);
-                if (place) {
-                  selectPlace(placeId);
-                  enterMapFullscreen(() => panToPlaceForDetail(place));
-                } else {
-                  selectPlace(placeId);
+              enterMapFullscreen(() => {
+                selectPlace(placeId);
+                const map = mapRef.current;
+                if (map) {
+                  map.panTo({ lat: latLng[0], lng: latLng[1] });
+                  map.setZoom(17);
                 }
-              }, 300);
+              });
             }}
           />
         </DialogContent>
