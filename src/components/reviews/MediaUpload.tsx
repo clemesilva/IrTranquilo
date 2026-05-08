@@ -12,6 +12,7 @@ export interface MediaUploadState {
   existingVideoUrl: string | null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function createEmptyMediaState(): MediaUploadState {
   return {
     photos: [],
@@ -112,9 +113,9 @@ export function MediaUpload({ state, onChange, variant = 'create' }: MediaUpload
         type='button'
         onClick={() => fileInputRef.current?.click()}
         disabled={totalPhotos >= MAX_PHOTOS}
-        className='flex h-10 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 text-sm font-medium text-neutral-600 transition hover:border-neutral-400 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50'
+        className='flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:rounded-xl sm:border-2 sm:text-sm sm:text-neutral-600'
       >
-        <AppIcons.Camera className='h-4 w-4' aria-hidden />
+        <AppIcons.Camera className='h-3.5 w-3.5 sm:h-4 sm:w-4' aria-hidden />
         {totalPhotos >= MAX_PHOTOS
           ? `Máximo ${MAX_PHOTOS} fotos`
           : variant === 'edit'
@@ -122,7 +123,7 @@ export function MediaUpload({ state, onChange, variant = 'create' }: MediaUpload
             : `Agregar fotos${hasVideoSlot ? ' / video' : ''}`}
         {totalPhotos > 0 && ` (${totalPhotos}/${MAX_PHOTOS})`}
       </button>
-      <p className='text-[11px] text-neutral-400'>
+      <p className='text-[10px] text-neutral-400'>
         Hasta {MAX_PHOTOS} fotos y 1 video (mp4, mov).
       </p>
     </div>

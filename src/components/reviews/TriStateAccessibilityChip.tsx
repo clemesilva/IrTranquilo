@@ -1,6 +1,4 @@
-import { cn } from '@/lib/utils'
-
-/** Tri-estado: NULL (gris) → TRUE (verde) → FALSE (rojo) → NULL. */
+/** Cada campo muestra dos botones: ✓ (sí) y ✗ (no). Tocar el activo lo deselecciona. */
 export function TriStateAccessibilityChip({
   label,
   description,
@@ -8,41 +6,44 @@ export function TriStateAccessibilityChip({
   onChange,
 }: {
   label: string
-  /** Texto largo solo al pasar el mouse (tooltip nativo). */
   description?: string
   value: boolean | null
   onChange: (next: boolean | null) => void
 }) {
-  const cycle = () => {
-    if (value === null) onChange(true)
-    else if (value === true) onChange(false)
-    else onChange(null)
-  }
-
-  const isYes = value === true
-  const isNo = value === false
-
   return (
-    <button
-      type="button"
-      onClick={cycle}
+    <div
       title={description}
-      className={cn(
-        'inline-flex min-h-8 w-fit max-w-full items-center justify-start gap-1.5 rounded-full border px-2 py-1 text-left text-[12px] font-medium transition-colors sm:w-full sm:justify-center sm:text-[13px]',
-        description ? 'cursor-help' : null,
-        isYes
-          ? 'border-emerald-400 bg-emerald-50 text-emerald-950 ring-1 ring-inset ring-emerald-200/80'
-          : isNo
-            ? 'border-rose-400 bg-rose-50 text-rose-950 ring-1 ring-inset ring-rose-200/80'
-            : 'border-2 border-neutral-300 bg-white text-neutral-900 shadow-sm',
-      )}
+      className='flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-2 py-1.5 shadow-sm w-full sm:px-3 sm:py-2'
     >
-      <span className="shrink-0 font-bold tabular-nums" aria-hidden>
-        {isYes ? '\u2713' : isNo ? '\u2717' : '\u2022'}
-      </span>
-      <span className="min-w-0 truncate whitespace-nowrap leading-snug">
+      <span className='min-w-0 flex-1 text-[11px] font-medium text-neutral-700 leading-snug sm:text-[13px]'>
         {label}
       </span>
-    </button>
+      <div className='flex shrink-0 gap-0.5 sm:gap-1'>
+        <button
+          type='button'
+          aria-label={`${label}: sí`}
+          onClick={() => onChange(value === true ? null : true)}
+          className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-bold transition-all sm:h-7 sm:w-7 ${
+            value === true
+              ? 'bg-emerald-500 text-white'
+              : 'bg-neutral-100 text-neutral-400 hover:bg-emerald-100 hover:text-emerald-600'
+          }`}
+        >
+          ✓
+        </button>
+        <button
+          type='button'
+          aria-label={`${label}: no`}
+          onClick={() => onChange(value === false ? null : false)}
+          className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-bold transition-all sm:h-7 sm:w-7 ${
+            value === false
+              ? 'bg-rose-500 text-white'
+              : 'bg-neutral-100 text-neutral-400 hover:bg-rose-100 hover:text-rose-600'
+          }`}
+        >
+          ✗
+        </button>
+      </div>
+    </div>
   )
 }

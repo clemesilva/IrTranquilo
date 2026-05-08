@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../services/supabase';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '../context/useAuth';
 import { usePlaces } from '../context/usePlaces';
@@ -171,10 +170,10 @@ export function LandingPage() {
       .slice(0, 6);
   }, [allPlaces, search]);
 
-  const selectedPlaceData = useMemo(() => {
-    if (selectedPlaceId == null) return null;
-    return filteredPlaces.find((p) => p.id === selectedPlaceId) ?? null;
-  }, [selectedPlaceId, filteredPlaces]);
+  const selectedPlaceData =
+    selectedPlaceId == null
+      ? null
+      : (filteredPlaces.find((p) => p.id === selectedPlaceId) ?? null);
 
   const selectPlace = useCallback(
     (id: number | null) => {
@@ -300,7 +299,7 @@ export function LandingPage() {
       setShowAddPlaceModal(true);
       setAddPlaceModalKey((k) => k + 1);
     }, 400);
-  }, []);
+  }, [setAddPlaceDraft]);
 
   // Cubre email/password (user pasa de null → autenticado en la misma página)
   useEffect(() => {
@@ -452,11 +451,24 @@ export function LandingPage() {
               const fullAddress = address ? `${name}, ${address}` : name;
               tip.innerHTML = `<div style="display:flex;align-items:start;justify-content:space-between;gap:10px"><div><div class="parking-pin__tooltip-name">${name}</div>${address ? `<div class="parking-pin__tooltip-address">${address}</div>` : ''}</div><div style="display:flex;gap:6px;flex-shrink:0;margin-top:1px"><button class="parking-tooltip-copy" style="position:relative;background:none;border:none;cursor:pointer;color:#aaa;padding:0;display:flex;align-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="parking-copy-label" style="display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#333;color:white;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none">Copiar</span></button><button class="parking-tooltip-close" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:11px;line-height:1;padding:0">✕</button></div></div>`;
               tip.style.cssText = `position:fixed;left:${mapRect.left + px}px;top:${mapRect.top + py - 8}px;transform:translate(-50%,-100%);background:white;border:1px solid rgba(66,133,244,0.2);border-radius:8px;padding:5px 8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);white-space:nowrap;z-index:99999;pointer-events:auto;font-size:11px;`;
-              tip.querySelector('.parking-tooltip-close')?.addEventListener('click', (ev) => { ev.stopPropagation(); closeTooltip(); });
-              const copyBtn = tip.querySelector('.parking-tooltip-copy') as HTMLElement | null;
-              const copyLabel = tip.querySelector('.parking-copy-label') as HTMLElement | null;
-              copyBtn?.addEventListener('mouseenter', () => { if (copyLabel) copyLabel.style.display = 'block'; });
-              copyBtn?.addEventListener('mouseleave', () => { if (copyLabel) copyLabel.style.display = 'none'; });
+              tip
+                .querySelector('.parking-tooltip-close')
+                ?.addEventListener('click', (ev) => {
+                  ev.stopPropagation();
+                  closeTooltip();
+                });
+              const copyBtn = tip.querySelector(
+                '.parking-tooltip-copy',
+              ) as HTMLElement | null;
+              const copyLabel = tip.querySelector(
+                '.parking-copy-label',
+              ) as HTMLElement | null;
+              copyBtn?.addEventListener('mouseenter', () => {
+                if (copyLabel) copyLabel.style.display = 'block';
+              });
+              copyBtn?.addEventListener('mouseleave', () => {
+                if (copyLabel) copyLabel.style.display = 'none';
+              });
               copyBtn?.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 navigator.clipboard.writeText(fullAddress).then(() => {
@@ -1047,7 +1059,7 @@ export function LandingPage() {
                 />
                 <Input
                   type='search'
-                  placeholder='Adónde quieres ir...'
+                  placeholder='Busca un lugar...'
                   value={search}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -1066,51 +1078,57 @@ export function LandingPage() {
                         focusPlaceOnMap(first);
                         return;
                       }
-                      navigate(`/?search=${encodeURIComponent(search)}`);
                     }
                   }}
                   className='h-9 border-0 bg-transparent pl-9 text-sm shadow-none focus-visible:ring-0'
                 />
-                {showSearchDropdown && searchSuggestions.length > 0 && (
-                  <div className='absolute z-[2600] mt-2 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl'>
-                    {searchSuggestions.map((p) => (
-                      <button
-                        key={p.id}
-                        type='button'
-                        className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
-                        onMouseDown={(ev) => ev.preventDefault()}
-                        onClick={() => {
-                          setLocalSearch(p.name);
-                          setShowSearchDropdown(false);
-                          focusPlaceOnMap(p);
-                        }}
-                      >
-                        <div
-                          className='font-medium'
-                          style={{ color: COLORS.text }}
+                {showSearchDropdown && search.trim().length > 0 && (
+                  <div className='absolute z-[2600] mt-2 w-full overflow-hidden rounded-xl border bg-white shadow-xl'>
+                    {searchSuggestions.length > 0 ? (
+                      <div className='max-h-64 overflow-y-auto'>
+                        {searchSuggestions.map((p) => (
+                          <button
+                            key={p.id}
+                            type='button'
+                            className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => {
+                              setLocalSearch(p.name);
+                              setShowSearchDropdown(false);
+                              focusPlaceOnMap(p);
+                            }}
+                          >
+                            <div className='font-medium' style={{ color: COLORS.text }}>{p.name}</div>
+                            <div className='text-xs' style={{ color: COLORS.textMuted }}>{p.address}</div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='px-4 py-3'>
+                        <p className='text-sm mb-2' style={{ color: COLORS.textMuted }}>
+                          «{search.trim()}» no está en la plataforma aún.
+                        </p>
+                        <button
+                          type='button'
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => {
+                            setShowSearchDropdown(false);
+                            setLocalSearch('');
+                            setSearch('');
+                            setShowAddPlaceModal(true);
+                            setAddPlaceModalKey((k) => k + 1);
+                          }}
+                          className='flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90'
+                          style={{ backgroundColor: COLORS.primary }}
                         >
-                          {p.name}
-                        </div>
-                        <div
-                          className='text-xs'
-                          style={{ color: COLORS.textMuted }}
-                        >
-                          {p.address}
-                        </div>
-                      </button>
-                    ))}
+                          <AppIcons.Plus size={14} aria-hidden />
+                          Añadirlo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-              <Button
-                className='h-9 rounded-xl px-4 text-sm'
-                style={{ backgroundColor: COLORS.primary }}
-                onClick={() =>
-                  navigate(`/?search=${encodeURIComponent(search)}`)
-                }
-              >
-                Buscar
-              </Button>
             </div>
 
             {/* Carrusel de categorías — flechas absolute que cortan la última pill */}
@@ -1207,7 +1225,7 @@ export function LandingPage() {
               />
               <Input
                 type='search'
-                placeholder='Adónde quieres ir...'
+                placeholder='Busca un lugar...'
                 value={search}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -1224,52 +1242,61 @@ export function LandingPage() {
                     const first = searchSuggestions[0];
                     if (first) {
                       focusPlaceOnMap(first);
-                      return;
+                      (document.activeElement as HTMLElement)?.blur();
                     }
-                    navigate(`/?search=${encodeURIComponent(search)}`);
                   }
                 }}
                 className='h-9 border-0 bg-transparent pl-9 text-[16px] sm:text-sm shadow-none focus-visible:ring-0'
               />
-              {showSearchDropdown && searchSuggestions.length > 0 && (
-                <div className='absolute z-[2600] mt-2 max-h-64 w-full overflow-y-auto rounded-xl border bg-white shadow-xl'>
-                  {searchSuggestions.map((p) => (
-                    <button
-                      key={p.id}
-                      type='button'
-                      className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
-                      onMouseDown={(ev) => ev.preventDefault()}
-                      onClick={() => {
-                        setLocalSearch(p.name);
-                        setShowSearchDropdown(false);
-                        focusPlaceOnMap(p);
-                        (document.activeElement as HTMLElement)?.blur();
-                      }}
-                    >
-                      <div
-                        className='font-medium'
-                        style={{ color: COLORS.text }}
+              {showSearchDropdown && search.trim().length > 0 && (
+                <div className='absolute z-[2600] mt-2 w-full overflow-hidden rounded-xl border bg-white shadow-xl'>
+                  {searchSuggestions.length > 0 ? (
+                    <div className='max-h-64 overflow-y-auto'>
+                      {searchSuggestions.map((p) => (
+                        <button
+                          key={p.id}
+                          type='button'
+                          className='block w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50'
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => {
+                            setLocalSearch(p.name);
+                            setShowSearchDropdown(false);
+                            focusPlaceOnMap(p);
+                            (document.activeElement as HTMLElement)?.blur();
+                          }}
+                        >
+                          <div className='font-medium' style={{ color: COLORS.text }}>{p.name}</div>
+                          <div className='text-xs' style={{ color: COLORS.textMuted }}>{p.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className='px-4 py-3'>
+                      <p className='text-sm mb-2' style={{ color: COLORS.textMuted }}>
+                        «{search.trim()}» no está en la plataforma aún.
+                      </p>
+                      <button
+                        type='button'
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => {
+                          setShowSearchDropdown(false);
+                          setLocalSearch('');
+                          setSearch('');
+                          (document.activeElement as HTMLElement)?.blur();
+                          setShowAddPlaceModal(true);
+                          setAddPlaceModalKey((k) => k + 1);
+                        }}
+                        className='flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90'
+                        style={{ backgroundColor: COLORS.primary }}
                       >
-                        {p.name}
-                      </div>
-                      <div
-                        className='text-xs'
-                        style={{ color: COLORS.textMuted }}
-                      >
-                        {p.address}
-                      </div>
-                    </button>
-                  ))}
+                        <AppIcons.Plus size={14} aria-hidden />
+                        Añadirlo
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <Button
-              className='h-9 rounded-xl px-4 text-sm'
-              style={{ backgroundColor: COLORS.primary }}
-              onClick={() => navigate(`/?search=${encodeURIComponent(search)}`)}
-            >
-              Buscar
-            </Button>
           </div>
         </div>
 

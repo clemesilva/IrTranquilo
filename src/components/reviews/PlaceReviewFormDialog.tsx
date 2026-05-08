@@ -44,6 +44,7 @@ export function PlaceReviewFormDialog({
   const [hasReview, setHasReview] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!isAuthenticated || !user) { setHasReview(false); return; }
     myReviewWithAccessibility(placeId).then((r) => setHasReview(!!r));
   }, [isAuthenticated, user, placeId, myReviewWithAccessibility]);

@@ -30,7 +30,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+    <div className="grid grid-cols-4 gap-1 sm:grid-cols-4 sm:gap-1.5">
       {CATEGORIES.map((cat) => {
         const meta = getCategoryMeta(cat.value)
         const isSelected = value === meta.value
@@ -44,15 +44,13 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
             onTouchStart={() => handleLongPressStart(meta.value)}
             onTouchEnd={handleLongPressEnd}
             className={cn(
-              'relative flex flex-col items-center justify-center rounded-lg border px-1.5 py-1.5 text-center transition-colors sm:rounded-xl sm:px-2 sm:py-2',
+              'relative flex flex-col items-center justify-center rounded-lg border px-1 py-1.5 text-center transition-colors sm:px-1.5 sm:py-1.5',
               isSelected ? 'border-primary' : 'border-neutral-200 bg-white hover:bg-neutral-50',
             )}
             style={isSelected ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary } : undefined}
           >
-            <div className="text-lg leading-none sm:text-xl" aria-hidden>
-              <CategoryIcon category={meta.value} size={20} style={{ color: isSelected ? '#fff' : undefined }} className={isSelected ? '' : 'text-neutral-800'} />
-            </div>
-            <div className="mt-0.5 text-[10px] font-medium leading-tight sm:text-[11px]" style={{ color: isSelected ? '#fff' : undefined }}>
+            <CategoryIcon category={meta.value} size={16} style={{ color: isSelected ? '#fff' : undefined }} className={`${isSelected ? '' : 'text-neutral-700'} sm:w-5! sm:h-5!`} aria-hidden />
+            <div className="mt-0.5 text-[9px] font-medium leading-tight sm:text-[11px]" style={{ color: isSelected ? '#fff' : undefined }}>
               {meta.label}
             </div>
 

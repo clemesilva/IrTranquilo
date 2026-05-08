@@ -214,9 +214,21 @@ export function AddPlacePanel({
       sessionStorage.setItem(
         DRAFT_KEY,
         JSON.stringify({
-          placeQuery, category, address, openingHours, phone, website,
-          googleRating, googleRatingsTotal, googlePhotoUrl,
-          wheelchairAccessible, priceLevel, rating, review, accessibility, draftLatLng,
+          placeQuery,
+          category,
+          address,
+          openingHours,
+          phone,
+          website,
+          googleRating,
+          googleRatingsTotal,
+          googlePhotoUrl,
+          wheelchairAccessible,
+          priceLevel,
+          rating,
+          review,
+          accessibility,
+          draftLatLng,
         }),
       );
       await saveDraftMedia({ photos: media.photos, video: media.video });
@@ -421,8 +433,16 @@ export function AddPlacePanel({
     >
       {isSaving && (
         <div className='fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm'>
-          <div className='h-10 w-10 animate-spin rounded-full border-4 border-neutral-200' style={{ borderTopColor: COLORS.primary }} />
-          <p className='text-sm font-semibold' style={{ color: COLORS.primary }}>Guardando lugar…</p>
+          <div
+            className='h-10 w-10 animate-spin rounded-full border-4 border-neutral-200'
+            style={{ borderTopColor: COLORS.primary }}
+          />
+          <p
+            className='text-sm font-semibold'
+            style={{ color: COLORS.primary }}
+          >
+            Guardando lugar…
+          </p>
         </div>
       )}
       {/* Header con franja azul suave */}
@@ -473,7 +493,9 @@ export function AddPlacePanel({
         {/* El scroll lo maneja el modal (DialogContent) para evitar doble barra. */}
         <CardContent className='space-y-4 px-4 pb-6'>
           <div className='space-y-2'>
-            <Label htmlFor='place-search'>Buscar lugar (Google)</Label>
+            <Label htmlFor='place-search'>
+              Insertar lugar (Fuente: Google)
+            </Label>
             <div className='relative z-2700'>
               <Input
                 id='place-search'
@@ -497,6 +519,7 @@ export function AddPlacePanel({
                 disabled={!googleReady}
                 autoComplete='off'
                 ref={searchInputRef}
+                className='placeholder:text-xs sm:placeholder:text-sm'
               />
 
               {showDropdown && suggestions.length > 0 ? (
@@ -539,6 +562,7 @@ export function AddPlacePanel({
               onChange={(e) => setAddress(e.target.value)}
               placeholder='Se completa al seleccionar (puedes editar)'
               autoComplete='off'
+              className='placeholder:text-xs sm:placeholder:text-sm'
             />
           </div>
 
@@ -558,7 +582,7 @@ export function AddPlacePanel({
                   <p className='text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
                     {group.title}
                   </p>
-                  <div className='flex flex-wrap gap-1.5 sm:grid sm:grid-cols-2 sm:justify-items-stretch'>
+                  <div className='grid grid-cols-2 gap-1.5'>
                     {group.fields.map((f) => (
                       <TriStateAccessibilityChip
                         key={f.key}
@@ -598,12 +622,12 @@ export function AddPlacePanel({
               value={review}
               onChange={(e) => setReview(e.target.value)}
               placeholder='Describe tu experiencia con la accesibilidad del lugar…'
-              className='min-h-[72px] border-2 border-neutral-300 bg-white shadow-sm focus-visible:border-primary'
+              className='min-h-[72px] border-2 border-neutral-300 bg-white shadow-sm focus-visible:border-primary text-sm placeholder:text-xs sm:placeholder:text-sm'
             />
           </div>
 
-          <div className='space-y-2'>
-            <Label>Fotos y video (opcional)</Label>
+          <div className='space-y-1'>
+            <Label className='text-xs'>Fotos y video (opcional)</Label>
             <MediaUpload state={media} onChange={setMedia} />
           </div>
 

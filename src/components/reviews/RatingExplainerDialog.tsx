@@ -53,6 +53,7 @@ export function RatingExplainerDialog({
   const [selected, setSelected] = useState(initialRating || 0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setSelected(initialRating || 0);
   }, [open, initialRating]);
 

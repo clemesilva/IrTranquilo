@@ -188,6 +188,7 @@ export function PlaceDetailPage() {
   }, [placeId, reviewsForPlace, accessibilityConsensusForPlace]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reloadLists();
   }, [reloadLists]);
 
@@ -297,6 +298,7 @@ export function PlaceDetailPage() {
 
   function timeAgo(dateIso: string | null) {
     if (!dateIso) return null;
+    // eslint-disable-next-line react-hooks/purity
     const diff = Date.now() - new Date(dateIso).getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
@@ -308,6 +310,7 @@ export function PlaceDetailPage() {
   }
 
   function timeUntil(dateIso: string) {
+    // eslint-disable-next-line react-hooks/purity
     const diff = new Date(dateIso).getTime() - Date.now();
     const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
     const days = Math.floor(hours / 24);

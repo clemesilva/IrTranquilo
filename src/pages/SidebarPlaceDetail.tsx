@@ -52,6 +52,7 @@ export function SidebarPlaceDetail() {
   useEffect(() => {
     if (!place) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConsensusLoading(true);
     void accessibilityConsensusForPlace(place.id).then((c) => {
       if (cancelled) return;
